@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useBulkGeneration } from './BulkGenerationContext';
 import { BulkGenerationRequest } from '../types';
 import { countries } from '../data/countries';
-import { XMarkIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { X, ChevronDown, ChevronUp, Plus, Trash, Check } from 'lucide-react';
 import { GeoIcon } from './icons/GeoIcon';
 import { MegaphoneIcon } from './icons/MegaphoneIcon';
 import { TopicIcon } from './icons/TopicIcon';
@@ -180,7 +180,7 @@ export function BulkGenerationModal({ isOpen, onClose }: BulkGenerationModalProp
             onClick={onClose}
             className="text-slate-400 hover:text-slate-200 transition-colors"
           >
-            <XMarkIcon className="w-6 h-6" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
@@ -198,7 +198,7 @@ export function BulkGenerationModal({ isOpen, onClose }: BulkGenerationModalProp
                 disabled={topics.length >= 8}
                 className="inline-flex items-center px-3 py-1 text-sm text-sky-400 hover:text-sky-300 hover:bg-slate-700/50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
               >
-                <PlusIcon className="w-4 h-4 mr-1" />
+                <Plus className="w-4 h-4 mr-1" />
                 Add Topic
               </button>
             </div>

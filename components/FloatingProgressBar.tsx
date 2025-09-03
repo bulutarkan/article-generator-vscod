@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useBulkGeneration } from './BulkGenerationContext';
-import { PlayIcon, PauseIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
+import { Play, Pause, X, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export function FloatingProgressBar() {
   const { state, pauseBulkGeneration, resumeBulkGeneration, cancelBulkGeneration } = useBulkGeneration();
@@ -191,7 +190,7 @@ export function FloatingProgressBar() {
             className="text-gray-400 hover:text-gray-600 transition-colors"
             title={isComplete ? "Close progress bar" : "Cancel generation"}
           >
-            <XMarkIcon className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -212,7 +211,7 @@ export function FloatingProgressBar() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
           <div className="flex items-center space-x-1">
-            <CheckCircleIcon className="w-3 h-3 text-green-500" />
+            <CheckCircle className="w-3 h-3 text-green-500" />
             <span className="text-gray-600">{completed}</span>
           </div>
           <div className="flex items-center space-x-1">
@@ -220,7 +219,7 @@ export function FloatingProgressBar() {
             <span className="text-gray-600">{processing}</span>
           </div>
           <div className="flex items-center space-x-1">
-            <ExclamationTriangleIcon className="w-3 h-3 text-red-500" />
+            <AlertTriangle className="w-3 h-3 text-red-500" />
             <span className="text-gray-600">{failed}</span>
           </div>
         </div>
@@ -254,12 +253,12 @@ export function FloatingProgressBar() {
         >
           {progress.isActive ? (
             <>
-              <PauseIcon className="w-4 h-4" />
+              <Pause className="w-4 h-4" />
               <span>Pause</span>
             </>
           ) : (
             <>
-              <PlayIcon className="w-4 h-4" />
+              <Play className="w-4 h-4" />
               <span>Resume</span>
             </>
           )}
