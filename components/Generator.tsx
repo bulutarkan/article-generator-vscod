@@ -9,7 +9,7 @@ import { ContentAnalysisModal } from './ContentAnalysisModal';
 import type { Article, ContentAnalysis } from '../types';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
-import { ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/outline';
+import { ChevronDown, ChevronUp, Copy } from 'lucide-react';
 
 interface GeneratorProps {
   topic: string;
@@ -365,7 +365,7 @@ export const Generator: React.FC<GeneratorProps> = ({
             className="w-full flex items-center justify-between p-4 text-left hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors rounded-lg"
           >
             <div className="flex items-center space-x-3">
-              <DocumentDuplicateIcon className="w-6 h-6 text-blue-600" />
+              <Copy className="w-6 h-6 text-blue-600" />
               <div>
                 <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
                   Bulk Article Generation
@@ -376,9 +376,9 @@ export const Generator: React.FC<GeneratorProps> = ({
               </div>
             </div>
             {isBulkSectionExpanded ? (
-              <ChevronUpIcon className="w-5 h-5 text-blue-600" />
+              <ChevronUp className="w-5 h-5 text-blue-600" />
             ) : (
-              <ChevronDownIcon className="w-5 h-5 text-blue-600" />
+              <ChevronDown className="w-5 h-5 text-blue-600" />
             )}
           </button>
 
@@ -412,7 +412,7 @@ export const Generator: React.FC<GeneratorProps> = ({
                   onClick={() => setShowBulkModal(true)}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors flex items-center justify-center space-x-2"
                 >
-                  <DocumentDuplicateIcon className="w-5 h-5" />
+                  <Copy className="w-5 h-5" />
                   <span>Start Bulk Generation</span>
                 </button>
               </div>
