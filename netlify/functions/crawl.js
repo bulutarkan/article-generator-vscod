@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 
 exports.handler = async (event) => {
   const { url, topic } = event.queryStringParameters;
@@ -47,6 +47,13 @@ exports.handler = async (event) => {
     const allInternalLinks = extractAllInternalLinks(htmlText, url);
     console.log(`🔗 Found ${allInternalLinks.length} total internal links`);
 
+    // Initialize variables outside the if block
+    let relevantLinks = [];
+    let linksCount = allInternalLinks?.length || 0;
+    let relevantCount = 0;
+
+    console.log(`📊 Link processing initialized: linksCount=${linksCount}, relevantCount=${relevantCount}`);
+
     if (allInternalLinks.length > 0) {
       // Topic ile alakalı linkleri filtrele - GELIŞMIŞ MATCHING
       const topicKeywords = extractKeywords(topic);
@@ -60,9 +67,10 @@ exports.handler = async (event) => {
 
       // Minimum skor threshold'u ile filtrele
       const minScoreThreshold = 0.3; // Daha düşük threshold
-      const relevantLinks = scoredLinks.filter(link => link.score >= minScoreThreshold);
+      relevantLinks = scoredLinks.filter(link => link.score >= minScoreThreshold);
+      relevantCount = relevantLinks.length;
 
-      console.log(`📊 Link scores: ${scoredLinks.slice(0, 10).map(link => `${link.title}: ${link.score.toFixed(2)}`).join(' | ')}`);
+      console.log(`📊 Link scores calculated. All links: ${scoredLinks.length}, Relevant: ${relevantCount}`);
 
       if (relevantLinks.length > 0) {
         // İlk 8 highly relevant link + ek 7 link daha (daha fazla link seç)
@@ -74,7 +82,7 @@ exports.handler = async (event) => {
         const allSelectedLinks = [...topLinks, ...additionalLinks];
         const linkContext = `Internal links related to "${topic}": ${allSelectedLinks.map(link => `<a href="${link.url}">${link.title}</a>`).join(', ')}`;
         contextParts.push(linkContext);
-        console.log(`✅ Found ${relevantLinks.length} relevant links (score >= ${minScoreThreshold})`);
+        console.log(`✅ Found ${relevantCount} relevant links (score >= ${minScoreThreshold})`);
         console.log(`📋 Links sent to AI: ${allSelectedLinks.map(link => `${link.title} -> ${link.url}`).join(' | ')}`);
       } else {
         console.log('⚠️ No relevant internal links found for topic');
@@ -84,6 +92,8 @@ exports.handler = async (event) => {
     // 3. CONTEXT'İ BİRLEŞTİR
     const finalContext = contextParts.join('\n\n');
 
+    console.log(`📝 Final context length: ${finalContext.length}, linksCount: ${linksCount}, relevantCount: ${relevantCount}`);
+
     if (finalContext) {
       console.log('🎉 Combined context ready for AI');
       return {
@@ -91,8 +101,8 @@ exports.handler = async (event) => {
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({
           context: finalContext,
-          linksCount: allInternalLinks?.length || 0,
-          relevantCount: relevantLinks?.length || 0
+          linksCount: linksCount,
+          relevantCount: relevantCount
         })
       };
     } else {
@@ -102,18 +112,22 @@ exports.handler = async (event) => {
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({
           context: '',
-          linksCount: 0,
-          relevantCount: 0
+          linksCount: linksCount,
+          relevantCount: relevantCount
         })
       };
     }
 
   } catch (error) {
     console.error('💥 Netlify function error:', error);
+    console.error('💥 Error stack:', error.stack);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({
+        error: error.message,
+        stack: error.stack.substring(0, 500) // Limit stack trace
+      })
     };
   }
 };
