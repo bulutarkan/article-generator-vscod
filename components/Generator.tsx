@@ -9,7 +9,7 @@ import { ContentAnalysisModal } from './ContentAnalysisModal';
 import type { Article, ContentAnalysis } from '../types';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
-import { ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/outline';
 
 interface GeneratorProps {
   topic: string;
