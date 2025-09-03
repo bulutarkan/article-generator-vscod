@@ -94,8 +94,8 @@ export class BulkGenerationService {
             try {
               console.log(`🔗 Getting internal links context for topic: ${item.topic}`);
 
-          // Use webCrawlerService like single article generation
-          internalLinksContext = await webCrawlerService.getWebsiteContext(request.websiteUrl, item.topic);
+              // Use new Netlify function instead of old webCrawlerService
+              internalLinksContext = await getNetlifyCrawlContext(request.websiteUrl, item.topic);
 
               console.log(`✅ Internal links context generated (${internalLinksContext?.length || 0} chars)`);
             } catch (error) {
@@ -264,6 +264,43 @@ export class BulkGenerationService {
         resolve();
       });
     });
+  }
+}
+
+// Helper function to call Netlify function for internal links context
+async function getNetlifyCrawlContext(url: string, topic: string): Promise<string> {
+  try {
+    // Get the current Netlify site URL from environment or use the known production URL
+    const netlifyUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.host}/.netlify/functions/crawl`
+      : 'https://superlative-marzipan-fcadef.netlify.app/.netlify/functions/crawl';
+
+    console.log(`🌐 Calling Netlify function: ${netlifyUrl}?url=${encodeURIComponent(url)}&topic=${encodeURIComponent(topic)}`);
+
+    const response = await fetch(`${netlifyUrl}?url=${encodeURIComponent(url)}&topic=${encodeURIComponent(topic)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Netlify function returned ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.context) {
+      console.warn('⚠️ Netlify function returned empty context');
+      return '';
+    }
+
+    console.log(`✅ Got context from Netlify function (${data.context.length} chars)`);
+    return data.context;
+
+  } catch (error) {
+    console.error('💥 Netlify function call failed:', error);
+    throw error;
   }
 }
 

@@ -224,7 +224,7 @@ export function BulkGenerationModal({ isOpen, onClose }: BulkGenerationModalProp
                       className="text-red-400 hover:text-red-300 transition-colors p-2"
                       title="Remove topic"
                     >
-                      <TrashIcon className="w-5 h-5" />
+                      <Trash className="w-5 h-5" />
                     </button>
                   )}
                 </div>
@@ -268,7 +268,7 @@ export function BulkGenerationModal({ isOpen, onClose }: BulkGenerationModalProp
                           <span className="font-normal block truncate">{c}</span>
                           {location === c && (
                             <span className="text-sky-400 absolute inset-y-0 right-0 flex items-center pr-4">
-                              <CheckIcon className="h-5 w-5" />
+                              <Check className="h-5 w-5" />
                             </span>
                           )}
                         </li>
@@ -316,12 +316,12 @@ export function BulkGenerationModal({ isOpen, onClose }: BulkGenerationModalProp
             >
               {isExpanded ? (
                 <>
-                  <ChevronUpIcon className="w-4 h-4 mr-1" />
+                  <ChevronUp className="w-4 h-4 mr-1" />
                   Hide Advanced Settings
                 </>
               ) : (
                 <>
-                  <ChevronDownIcon className="w-4 h-4 mr-1" />
+                  <ChevronDown className="w-4 h-4 mr-1" />
                   Show Advanced Settings
                 </>
               )}
