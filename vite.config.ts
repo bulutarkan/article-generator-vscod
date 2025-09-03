@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import type { ViteDevServer } from 'vite';
 
 export default defineConfig({
+  assetsInclude: ['**/*.mp4'],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),

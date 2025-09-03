@@ -6,6 +6,7 @@ import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
+import bgVideo from '../assets/bg-video.mp4';
 import { TargetIcon } from './icons/TargetIcon';
 import { BarChartIcon } from './icons/BarChartIcon';
 import { MailIcon } from './icons/MailIcon';
@@ -268,7 +269,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: 'brightness(0.4) contrast(0.8)' }}
         >
-          <source src="/assets/bg-video.mp4" type="video/mp4" />
+          <source src={bgVideo} type="video/mp4" />
           {/* Fallback for browsers that don't support video */}
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900" />
         </video>
