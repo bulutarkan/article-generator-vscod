@@ -1,7 +1,7 @@
 // Modern URL-based routing implementation
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LandingPage } from './components/LandingPage';
 import { AuthPage } from './components/AuthPage';
@@ -10,10 +10,19 @@ import { FeaturesPage } from './components/FeaturesPage';
 import { ContactPage } from './components/ContactPage';
 import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
+import { Generator } from './components/Generator';
+import { Dashboard } from './components/Dashboard';
+import { ArticleDetail } from './components/ArticleDetail';
+import { ProfilePage } from './components/ProfilePage';
+import { AiAssistant } from './components/AiAssistant';
+import { Header } from './components/Header';
+import { Footer } from './components/Footer';
 import { FloatingProgressBar } from './components/FloatingProgressBar';
-import type { User } from './types';
+import { AnimatePresence } from 'framer-motion';
+import type { Article, User } from './types';
 import * as supabaseService from './services/supabase';
 import { ToastProvider } from './src/services/ToastContext';
+import { BulkGenerationProvider } from './components/BulkGenerationContext';
 
 // Main App Component with modern routing
 const App: React.FC = () => {
@@ -118,26 +127,108 @@ const App: React.FC = () => {
               />
             } />
 
-            {/* Protected Routes - temporarily redirect to auth if not logged in */}
-            <Route path="/app/*" element={
+            {/* Nested Protected Routes */}
+            <Route path="/app/generator" element={
               currentUser ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="min-h-screen flex items-center justify-center"
                 >
-                  <div className="text-center text-slate-400">
-                    <h2 className="text-2xl font-bold mb-4">🚧 Under Construction</h2>
-                    <p>Modern nested routing coming soon...</p>
-                    <button
-                      onClick={handleLogout}
-                      className="mt-4 px-4 py-2 bg-indigo-500 rounded"
-                    >
-                      Logout
-                    </button>
-                  </div>
+                  <BulkGenerationProvider userId={currentUser?.id}>
+                    <Generator
+                      onArticleGenerated={async (data, topic, location, tone) => {
+                        // Placeholder - gerçek uygulama istediğinde implement edeceğiz
+                        console.log('Article generated:', data, topic, location, tone);
+                      }}
+                      topic=""
+                      setTopic={() => {}}
+                      location=""
+                      setLocation={() => {}}
+                    />
+                  </BulkGenerationProvider>
                 </motion.div>
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            } />
+            <Route path="/app/dashboard" element={
+              currentUser ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Dashboard
+                    articles={[]}
+                    onDeleteArticle={() => {}}
+                    onViewArticle={() => {}}
+                    onNavigateToGenerator={() => navigate('/app/generator')}
+                  />
+                </motion.div>
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            } />
+            <Route path="/app/profile" element={
+              currentUser ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ProfilePage
+                    onBackToApp={() => {}}
+                    onNavigateToDashboard={() => navigate('/app/dashboard')}
+                    currentUser={currentUser}
+                    onLogout={handleLogout}
+                    articles={[]}
+                    onDeleteArticle={() => {}}
+                    onViewArticle={() => {}}
+                  />
+                </motion.div>
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            } />
+            <Route path="/app/article/:id" element={
+              currentUser ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  // @ts-ignore - Placeholder article data
+                  <ArticleDetail
+                    article={{
+                      id: '1',
+                      title: 'Sample Article',
+                      articleContent: 'This is a sample article',
+                      user_id: currentUser.id,
+                      topic: '',
+                      location: '',
+                      tone: '',
+                      createdAt: new Date().toISOString(),
+                      metaDescription: '',
+                      keywords: [],
+                      monthlySearches: 0,
+                      primaryKeyword: '',
+                      keywordDifficulty: 0
+                    }}
+                    onUpdateArticle={() => {}}
+                    onDeleteArticle={() => {}}
+                    onBackToDashboard={() => navigate('/app/dashboard')}
+                  />
+                </motion.div>
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            } />
+
+            {/* Default redirect for /app */}
+            <Route path="/app" element={
+              currentUser ? (
+                <Navigate to="/app/generator" replace />
               ) : (
                 <Navigate to="/auth" replace />
               )
