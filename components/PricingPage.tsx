@@ -20,27 +20,131 @@ const PricingCard: React.FC<{
   isFeatured?: boolean;
 }> = ({ plan, price, description, features, isFeatured }) => {
   return (
-    <div className={`relative p-8 rounded-2xl border transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-indigo-500/10 cursor-pointer group ${isFeatured ? 'bg-indigo-500/10 border-indigo-500 pricing-card-glow hover:bg-indigo-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-indigo-500/50'}`}>
+    <div className={`relative p-6 rounded-xl border transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-indigo-500/10 cursor-pointer group ${isFeatured ? 'bg-indigo-500/10 border-indigo-500 pricing-card-glow hover:bg-indigo-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-indigo-500/50'}`}>
       {isFeatured && (
         <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
           <span className="bg-indigo-500 text-white px-3 py-1 text-sm font-semibold rounded-full uppercase tracking-wider pricing-badge-glow">Most Popular</span>
         </div>
       )}
-      <h3 className="text-2xl font-bold text-white">{plan}</h3>
+      <h3 className="text-xl font-bold text-white">{plan}</h3>
       <p className="mt-2 text-slate-400">{description}</p>
-      <p className="mt-6 text-5xl font-extrabold text-white">{price}<span className="text-base font-medium text-slate-400">/mo</span></p>
-      <button className={`w-full mt-8 py-3 rounded-lg font-semibold transition-colors ${isFeatured ? 'bg-indigo-500 text-white hover:bg-indigo-400' : 'bg-white/10 text-slate-200 hover:bg-white/20'}`}>
+      <p className="mt-5 text-4xl font-extrabold text-white">{price}<span className="text-sm font-medium text-slate-400">/mo</span></p>
+      <button className={`w-full mt-6 py-3 rounded-lg font-semibold transition-colors ${isFeatured ? 'bg-indigo-500 text-white hover:bg-indigo-400' : 'bg-white/10 text-slate-200 hover:bg-white/20'}`}>
         Get Started
       </button>
-      <ul className="mt-8 space-y-4 text-slate-300">
+      <ul className="mt-6 space-y-3 text-slate-300">
         {features.map((feature, index) => (
           <li key={index} className="flex items-center gap-3">
-            <CheckIcon className="h-5 w-5 text-indigo-400 shrink-0" />
-            <span>{feature}</span>
+            <CheckIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+            <span className="text-sm">{feature}</span>
           </li>
         ))}
       </ul>
     </div>
+  );
+};
+
+// Typewriter Hook
+const useTypewriter = (texts: string[], typingSpeed: number = 100, pauseTime: number = 2000) => {
+  const [currentTextIndex, setCurrentTextIndex] = React.useState(0);
+  const [currentText, setCurrentText] = React.useState('');
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [charIndex, setCharIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      const currentFullText = texts[currentTextIndex];
+
+      if (isDeleting) {
+        setCurrentText(currentFullText.substring(0, charIndex - 1));
+        setCharIndex(charIndex - 1);
+
+        if (charIndex === 0) {
+          setIsDeleting(false);
+          setCurrentTextIndex((prev) => (prev + 1) % texts.length);
+        }
+      } else {
+        setCurrentText(currentFullText.substring(0, charIndex + 1));
+        setCharIndex(charIndex + 1);
+
+        if (charIndex === currentFullText.length - 1) {
+          setTimeout(() => setIsDeleting(true), pauseTime);
+        }
+      }
+    }, isDeleting ? typingSpeed / 2 : typingSpeed);
+
+    return () => clearTimeout(timer);
+  }, [charIndex, isDeleting, texts, currentTextIndex, typingSpeed, pauseTime]);
+
+  return currentText;
+};
+
+const HowToStart: React.FC = () => {
+  const typewriterTexts = [
+    "Hesap oluştur & giriş yap",
+    "İlk makaleni oluştur",
+    "Yayınla & paylaş",
+    "Analiz et & optimize et",
+    "Ölçeklendir & büyüt"
+  ];
+
+  const currentText = useTypewriter(typewriterTexts, 80, 3000);
+
+  const steps = [
+    {
+      number: 1,
+      title: "Hesap Oluştur",
+      description: "Ücretsiz hesap oluştur ve platformu keşfet",
+      icon: "👤"
+    },
+    {
+      number: 2,
+      title: "İlk İçeriğini Oluştur",
+      description: "AI ile profesyonel makalelerini hazırla",
+      icon: "✨"
+    },
+    {
+      number: 3,
+      title: "Yayınla & Büyüt",
+      description: "İçeriğini yayınla ve topluluğuna ulaş",
+      icon: "🚀"
+    }
+  ];
+
+  return (
+    <section className="mt-20 py-16 bg-gradient-to-br from-slate-900/50 to-indigo-900/20 rounded-2xl border border-slate-700/50">
+      <div className="max-w-6xl mx-auto px-6 text-center">
+        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">How to Start</h2>
+        <div className="h-16 flex items-center justify-center mb-12">
+          <div className="text-lg sm:text-xl text-indigo-400 font-medium min-h-[2rem] flex items-center">
+            <span className="inline-block min-w-[4px] h-6 bg-indigo-400 mr-2 animate-pulse rounded-sm"></span>
+            {currentText}
+            <span className="inline-block w-[2px] h-6 bg-indigo-400 ml-1 animate-blink"></span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {steps.map((step) => (
+            <div key={step.number} className="group relative">
+              <div className="absolute -top-4 -left-4 w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg group-hover:scale-110 transition-transform duration-300">
+                {step.number}
+              </div>
+              <div className="bg-slate-800/50 p-8 rounded-xl border border-slate-600 group-hover:border-indigo-500/50 transition-colors duration-300">
+                <div className="text-3xl mb-4">{step.icon}</div>
+                <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
+                <p className="text-slate-400">{step.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12">
+          <button className="bg-indigo-500 hover:bg-indigo-400 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-300 shadow-lg hover:shadow-indigo-500/25">
+            Hemen Başla →
+          </button>
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -118,8 +222,10 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
             ]}
           />
         </div>
+
+        <HowToStart />
       </main>
-      
+
       <Footer onNavigateToTerms={onNavigateToTerms} onNavigateToPrivacy={onNavigateToPrivacy} />
     </>
   );
