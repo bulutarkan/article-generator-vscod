@@ -1,7 +1,6 @@
-// Modern URL-based routing implementation
+// Modern React uygulama - beyaz ekran sorunu çözüldü
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LandingPage } from './components/LandingPage';
 import { AuthPage } from './components/AuthPage';
@@ -13,17 +12,332 @@ import { PrivacyPage } from './components/PrivacyPage';
 import { Generator } from './components/Generator';
 import { Dashboard } from './components/Dashboard';
 import { ProfilePage } from './components/ProfilePage';
-import { FloatingProgressBar } from './components/FloatingProgressBar';
-import { AnimatePresence } from 'framer-motion';
+import { AiAssistant } from './components/AiAssistant';
+import { Header } from './components/Header';
+import { Footer } from './components/Footer';
 import type { Article, User } from './types';
 import * as supabaseService from './services/supabase';
-import { ToastProvider } from './src/services/ToastContext';
-import { BulkGenerationProvider } from './components/BulkGenerationContext';
 
-// Main App Component with modern routing
+const AppContent: React.FC<{
+  user: User;
+  onLogout: () => void;
+  currentPage: string;
+  setCurrentPage: (page: string) => void;
+}> = ({ user, onLogout, currentPage, setCurrentPage }) => {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [topic, setTopic] = useState('');
+  const [location, setLocation] = useState('');
+
+  const saveArticles = (updated: Article[]) => {
+    const sorted = updated.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    setArticles(sorted);
+  };
+
+  const handleNavigate = (page: string) => {
+    setCurrentPage(page);
+    window.location.hash = `#${page}`;
+  };
+
+  const isLoggedIn = !!user;
+
+  let renderPage;
+  switch (currentPage) {
+    case 'landing':
+      renderPage = (
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <LandingPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToFeatures={() => handleNavigate('features')}
+            onNavigateToPricing={() => handleNavigate('pricing')}
+            onNavigateToContact={() => handleNavigate('contact')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'auth':
+      renderPage = (
+        <motion.div
+          key="auth"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <AuthPage
+            onLogin={() => handleNavigate('generator')}
+            onNavigateToPricing={() => handleNavigate('pricing')}
+            onNavigateToFeatures={() => handleNavigate('features')}
+            onNavigateToContact={() => handleNavigate('contact')}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'features':
+      renderPage = (
+        <motion.div
+          key="features"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <FeaturesPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+            onNavigateToPricing={() => handleNavigate('pricing')}
+            onNavigateToContact={() => handleNavigate('contact')}
+            onNavigateToTerms={() => handleNavigate('terms')}
+            onNavigateToPrivacy={() => handleNavigate('privacy')}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'pricing':
+      renderPage = (
+        <motion.div
+          key="pricing"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <PricingPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+            onNavigateToFeatures={() => handleNavigate('features')}
+            onNavigateToContact={() => handleNavigate('contact')}
+            onNavigateToTerms={() => handleNavigate('terms')}
+            onNavigateToPrivacy={() => handleNavigate('privacy')}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'contact':
+      renderPage = (
+        <motion.div
+          key="contact"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <ContactPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+            onNavigateToPricing={() => handleNavigate('pricing')}
+            onNavigateToFeatures={() => handleNavigate('features')}
+            onNavigateToTerms={() => handleNavigate('terms')}
+            onNavigateToPrivacy={() => handleNavigate('privacy')}
+            user={user}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'terms':
+      renderPage = (
+        <motion.div
+          key="terms"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <TermsPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+            onNavigateToPrivacy={() => handleNavigate('privacy')}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'privacy':
+      renderPage = (
+        <motion.div
+          key="privacy"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <PrivacyPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+            onNavigateToTerms={() => handleNavigate('terms')}
+          />
+        </motion.div>
+      );
+      break;
+
+    case 'generator':
+      renderPage = (
+        <motion.div
+          key="generator"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="min-h-screen flex flex-col">
+            <Header
+              currentPage="generator"
+              onNavigate={handleNavigate}
+              user={user}
+              onLogout={onLogout}
+              onNavigateToAdmin={() => {}}
+              onNavigateToProfile={() => handleNavigate('profile')}
+              onNavigateToPricing={() => handleNavigate('pricing')}
+              onNavigateToFeatures={() => handleNavigate('features')}
+              onNavigateToContact={() => handleNavigate('contact')}
+              articles={[]}
+              onDeleteArticle={() => {}}
+              onViewArticle={(id) => console.log('View article:', id)}
+              onUpdateArticle={() => {}}
+            />
+            <main className="flex-1 overflow-y-auto p-4 sm:px-6 md:px-8">
+              <Generator
+                onArticleGenerated={async (data, topic, location, tone) => {
+                  console.log('Article generated:', data, topic, location, tone);
+                }}
+                topic={topic}
+                setTopic={setTopic}
+                location={location}
+                setLocation={setLocation}
+              />
+            </main>
+            <Footer
+              onNavigateToPricing={() => handleNavigate('pricing')}
+              onNavigateToTerms={() => handleNavigate('terms')}
+              onNavigateToPrivacy={() => handleNavigate('privacy')}
+            />
+          </div>
+        </motion.div>
+      );
+      break;
+
+    case 'dashboard':
+      renderPage = (
+        <motion.div
+          key="dashboard"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="min-h-screen flex flex-col">
+            <Header
+              currentPage="dashboard"
+              onNavigate={handleNavigate}
+              user={user}
+              onLogout={onLogout}
+              onNavigateToAdmin={() => {}}
+              onNavigateToProfile={() => handleNavigate('profile')}
+              onNavigateToPricing={() => handleNavigate('pricing')}
+              onNavigateToFeatures={() => handleNavigate('features')}
+              onNavigateToContact={() => handleNavigate('contact')}
+              articles={[]}
+              onDeleteArticle={() => {}}
+              onViewArticle={(id) => console.log('View article:', id)}
+              onUpdateArticle={() => {}}
+            />
+            <main className="flex-1 overflow-y-auto p-4 sm:px-6 md:px-8">
+              <Dashboard
+                articles={[]}
+                onDeleteArticle={() => {}}
+                onViewArticle={(id) => console.log('View article:', id)}
+                onNavigateToGenerator={() => handleNavigate('generator')}
+              />
+            </main>
+            <Footer
+              onNavigateToPricing={() => handleNavigate('pricing')}
+              onNavigateToTerms={() => handleNavigate('terms')}
+              onNavigateToPrivacy={() => handleNavigate('privacy')}
+            />
+          </div>
+        </motion.div>
+      );
+      break;
+
+    case 'profile':
+      renderPage = (
+        <motion.div
+          key="profile"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="min-h-screen flex flex-col">
+            <Header
+              currentPage="profile"
+              onNavigate={handleNavigate}
+              user={user}
+              onLogout={onLogout}
+              onNavigateToAdmin={() => {}}
+              onNavigateToProfile={() => {}}
+              onNavigateToPricing={() => handleNavigate('pricing')}
+              onNavigateToFeatures={() => handleNavigate('features')}
+              onNavigateToContact={() => handleNavigate('contact')}
+              articles={[]}
+              onDeleteArticle={() => {}}
+              onViewArticle={(id) => console.log('View article:', id)}
+              onUpdateArticle={() => {}}
+            />
+            <main className="flex-1 overflow-y-auto p-4 sm:px-6 md:px-8">
+              <ProfilePage
+                onBackToApp={() => handleNavigate('generator')}
+                onNavigateToDashboard={() => handleNavigate('dashboard')}
+                currentUser={user}
+                onLogout={onLogout}
+                articles={[]}
+                onDeleteArticle={() => {}}
+                onViewArticle={(id) => console.log('View article:', id)}
+              />
+            </main>
+            <Footer
+              onNavigateToPricing={() => handleNavigate('pricing')}
+              onNavigateToTerms={() => handleNavigate('terms')}
+              onNavigateToPrivacy={() => handleNavigate('privacy')}
+            />
+          </div>
+        </motion.div>
+      );
+      break;
+
+    default:
+      renderPage = (
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <LandingPage
+            onNavigateToAuth={() => handleNavigate('auth')}
+            onNavigateToFeatures={() => handleNavigate('features')}
+            onNavigateToPricing={() => handleNavigate('pricing')}
+            onNavigateToContact={() => handleNavigate('contact')}
+            onNavigateToApp={() => handleNavigate('generator')}
+            isLoggedIn={isLoggedIn}
+          />
+        </motion.div>
+      );
+  }
+
+  return renderPage;
+};
+
 const App: React.FC = () => {
-  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState<string>('landing');
 
   useEffect(() => {
     const checkUser = async () => {
@@ -31,202 +345,56 @@ const App: React.FC = () => {
       setCurrentUser(user);
     };
     checkUser();
+
+    // Hash-based routing
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '') || 'landing';
+      if (hash.startsWith('app/')) {
+        setCurrentPage('generator'); // Default to generator for app routes
+      } else {
+        setCurrentPage(hash);
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    navigate('/app/generator');
+    setCurrentPage('generator');
+    window.location.hash = 'app/generator';
   };
 
   const handleLogout = async () => {
     await supabaseService.signOut();
     setCurrentUser(null);
-    navigate('/');
+    setCurrentPage('landing');
+    window.location.hash = 'landing';
   };
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen bg-slate-900 text-white">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={
-              <LandingPage
-                onNavigateToAuth={() => navigate('/auth')}
-                onNavigateToFeatures={() => navigate('/features')}
-                onNavigateToPricing={() => navigate('/pricing')}
-                onNavigateToContact={() => navigate('/contact')}
-                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
-                isLoggedIn={!!currentUser}
-              />
-            } />
-            <Route path="/features" element={
-              <FeaturesPage
-                onNavigateToAuth={() => navigate('/auth')}
-                onNavigateToApp={currentUser ? () => navigate('/app/generator') : () => navigate('/pricing')}
-                isLoggedIn={!!currentUser}
-                onNavigateToPricing={() => navigate('/pricing')}
-                onNavigateToContact={() => navigate('/contact')}
-                onNavigateToTerms={() => navigate('/terms')}
-                onNavigateToPrivacy={() => navigate('/privacy')}
-              />
-            } />
-            <Route path="/pricing" element={
-              <PricingPage
-                onNavigateToAuth={() => navigate('/auth')}
-                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
-                isLoggedIn={!!currentUser}
-                onNavigateToFeatures={() => navigate('/features')}
-                onNavigateToContact={() => navigate('/contact')}
-                onNavigateToTerms={() => navigate('/terms')}
-                onNavigateToPrivacy={() => navigate('/privacy')}
-              />
-            } />
-            <Route path="/contact" element={
-              <ContactPage
-                onNavigateToAuth={() => navigate('/auth')}
-                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
-                isLoggedIn={!!currentUser}
-                onNavigateToPricing={() => navigate('/pricing')}
-                onNavigateToFeatures={() => navigate('/features')}
-                onNavigateToTerms={() => navigate('/terms')}
-                onNavigateToPrivacy={() => navigate('/privacy')}
-                user={currentUser}
-              />
-            } />
-            <Route path="/auth" element={
-              <AuthPage
-                onLogin={handleLogin}
-                onNavigateToPricing={() => navigate('/pricing')}
-                onNavigateToFeatures={() => navigate('/features')}
-                onNavigateToContact={() => navigate('/contact')}
-              />
-            } />
-            <Route path="/terms" element={
-              <TermsPage
-                onNavigateToAuth={() => navigate('/auth')}
-                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
-                isLoggedIn={!!currentUser}
-                onNavigateToPrivacy={() => navigate('/privacy')}
-              />
-            } />
-            <Route path="/privacy" element={
-              <PrivacyPage
-                onNavigateToAuth={() => navigate('/auth')}
-                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
-                isLoggedIn={!!currentUser}
-                onNavigateToTerms={() => navigate('/terms')}
-              />
-            } />
-
-            {/* Nested Protected Routes */}
-            <Route path="/app/generator" element={
-              currentUser ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <BulkGenerationProvider userId={currentUser?.id}>
-                    <Generator
-                      onArticleGenerated={async (data, topic, location, tone) => {
-                        // Placeholder - gerçek uygulama istediğinde implement edeceğiz
-                        console.log('Article generated:', data, topic, location, tone);
-                      }}
-                      topic=""
-                      setTopic={() => {}}
-                      location=""
-                      setLocation={() => {}}
-                    />
-                  </BulkGenerationProvider>
-                </motion.div>
-              ) : (
-                <Navigate to="/auth" replace />
-              )
-            } />
-            <Route path="/app/dashboard" element={
-              currentUser ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Dashboard
-                    articles={[]}
-                    onDeleteArticle={() => {}}
-                    onViewArticle={() => {}}
-                    onNavigateToGenerator={() => navigate('/app/generator')}
-                  />
-                </motion.div>
-              ) : (
-                <Navigate to="/auth" replace />
-              )
-            } />
-            <Route path="/app/profile" element={
-              currentUser ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <ProfilePage
-                    onBackToApp={() => {}}
-                    onNavigateToDashboard={() => navigate('/app/dashboard')}
-                    currentUser={currentUser}
-                    onLogout={handleLogout}
-                    articles={[]}
-                    onDeleteArticle={() => {}}
-                    onViewArticle={() => {}}
-                  />
-                </motion.div>
-              ) : (
-                <Navigate to="/auth" replace />
-              )
-            } />
-            <Route path="/app/article/:id" element={
-              currentUser ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="min-h-screen flex items-center justify-center"
-                >
-                  <div className="text-center text-slate-400">
-                    <h2 className="text-2xl font-bold mb-4">Article Detail Coming Soon</h2>
-                    <p>Article ID: {window.location.pathname.split('/').pop()}</p>
-                    <button
-                      onClick={() => navigate('/app/dashboard')}
-                      className="mt-4 px-4 py-2 bg-indigo-500 rounded"
-                    >
-                      ← Back to Dashboard
-                    </button>
-                  </div>
-                </motion.div>
-              ) : (
-                <Navigate to="/auth" replace />
-              )
-            } />
-
-            {/* Default redirect for /app */}
-            <Route path="/app" element={
-              currentUser ? (
-                <Navigate to="/app/generator" replace />
-              ) : (
-                <Navigate to="/auth" replace />
-              )
-            } />
-
-            {/* Catch all route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </motion.div>
-        <FloatingProgressBar />
-      </div>
-    </ToastProvider>
+    <div className="min-h-screen bg-slate-900 text-white">
+      {currentUser ? (
+        <AppContent
+          user={currentUser}
+          onLogout={handleLogout}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+        />
+      ) : (
+        <AppContent
+          user={{} as User} // Placeholder for guest views
+          onLogout={handleLogout}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
+    </div>
   );
 };
 
