@@ -405,15 +405,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
             </div>
           </div>
         )}
-
-        {/* Pagination Buttons - Below Search/Filters */}
-        {filteredArticles.length > 0 && (
-          <PaginationButtons
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-        )}
       </div>
 
       {/* Articles Grid */}
