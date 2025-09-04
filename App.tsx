@@ -307,25 +307,101 @@ const App: React.FC = () => {
     checkUser();
   }, []);
 
+  // Hash-based routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      switch (hash) {
+        case 'features':
+          setPage('features');
+          break;
+        case 'pricing':
+          setPage('pricing');
+          break;
+        case 'contact':
+          setPage('contact');
+          break;
+        case 'auth':
+          setPage('auth');
+          break;
+        case 'terms':
+          setPage('terms');
+          break;
+        case 'privacy':
+          setPage('privacy');
+          break;
+        case 'app':
+          if (currentUser) {
+            setPage('app');
+            setAppView('app');
+          } else {
+            setPage('auth');
+          }
+          break;
+        case '':
+        case 'landing':
+        default:
+          setPage('landing');
+          break;
+      }
+    };
+
+    // Initial load
+    handleHashChange();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [currentUser]);
+
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setPage('app');
     setAppView('app');
+    window.location.hash = 'app';
   };
 
   const handleLogout = async () => {
     await supabaseService.signOut();
     setCurrentUser(null);
-    setPage('auth');
+    setPage('landing');
+    window.location.hash = '';
   };
 
-  const navigateToPricing = () => setPage('pricing');
-  const navigateToFeatures = () => setPage('features');
-  const navigateToContact = () => setPage('contact');
-  const navigateToTerms = () => setPage('terms');
-  const navigateToPrivacy = () => setPage('privacy');
-  const navigateToAuth = () => setPage('auth');
-  const navigateToApp = () => setPage('app');
+  const navigateToPricing = () => {
+    setPage('pricing');
+    window.location.hash = 'pricing';
+  };
+  const navigateToFeatures = () => {
+    setPage('features');
+    window.location.hash = 'features';
+  };
+  const navigateToContact = () => {
+    setPage('contact');
+    window.location.hash = 'contact';
+  };
+  const navigateToTerms = () => {
+    setPage('terms');
+    window.location.hash = 'terms';
+  };
+  const navigateToPrivacy = () => {
+    setPage('privacy');
+    window.location.hash = 'privacy';
+  };
+  const navigateToAuth = () => {
+    setPage('auth');
+    window.location.hash = 'auth';
+  };
+  const navigateToApp = () => {
+    if (currentUser) {
+      setPage('app');
+      setAppView('app');
+      window.location.hash = 'app';
+    }
+  };
 
   const handleNavigateToAdmin = () => {
     // Admin functionality removed for Supabase integration
