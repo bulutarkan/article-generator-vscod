@@ -1,294 +1,159 @@
+// Modern URL-based routing implementation
+
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Header } from './components/Header';
-import { Generator } from './components/Generator';
-import { Dashboard } from './components/Dashboard';
-import { ArticleDetail } from './components/ArticleDetail';
-import { AiAssistant } from './components/AiAssistant';
-import { AuthPage } from './components/AuthPage';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { LandingPage } from './components/LandingPage';
-import { AdminPanel } from './components/AdminPanel';
-import { ProfilePage } from './components/ProfilePage';
+import { AuthPage } from './components/AuthPage';
 import { PricingPage } from './components/PricingPage';
 import { FeaturesPage } from './components/FeaturesPage';
 import { ContactPage } from './components/ContactPage';
 import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
-import { Footer } from './components/Footer';
-import { BulkGenerationProvider } from './components/BulkGenerationContext';
 import { FloatingProgressBar } from './components/FloatingProgressBar';
-import type { Article, User } from './types';
+import type { User } from './types';
 import * as supabaseService from './services/supabase';
 import { ToastProvider } from './src/services/ToastContext';
 
-const AppContent: React.FC<{
-  user: User;
-  onLogout: () => void;
-  onNavigateToAdmin: () => void;
-  onNavigateToProfile: () => void;
-  onNavigateToPricing: () => void;
-  onNavigateToFeatures: () => void;
-  onNavigateToContact: () => void;
-  onNavigateToTerms: () => void;
-  onNavigateToPrivacy: () => void;
-  appView: 'app' | 'admin' | 'profile';
-  onBackToApp: () => void;
-  setAppView: (view: 'app' | 'admin' | 'profile') => void;
-  onNavigateToDashboard: () => void;
-}> = ({
-  user,
-  onLogout,
-  onNavigateToAdmin,
-  onNavigateToProfile,
-  onNavigateToPricing,
-  onNavigateToFeatures,
-  onNavigateToContact,
-  onNavigateToTerms,
-  onNavigateToPrivacy,
-  appView,
-  onBackToApp,
-  setAppView,
-  onNavigateToDashboard,
-}) => {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [page, setPage] = useState<'generator' | 'dashboard' | 'article'>('generator');
-  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
-  const [topic, setTopic] = useState('');
-  const [location, setLocation] = useState('');
+// Main App Component with modern routing
+const App: React.FC = () => {
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const loadArticles = async () => {
-      const userArticles = await supabaseService.getArticles(user.id);
-      setArticles(userArticles);
+    const checkUser = async () => {
+      const user = await supabaseService.getCurrentUser();
+      setCurrentUser(user);
     };
-    loadArticles();
-  }, [user.id]);
+    checkUser();
+  }, []);
 
-  useEffect(() => {
-    console.log('📄 Page state changed to:', page);
-  }, [page]);
-
-  useEffect(() => {
-    console.log('👁️ AppView state changed to:', appView);
-  }, [appView]);
-
-  const saveArticles = (updated: Article[]) => {
-    const sorted = updated.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    setArticles(sorted);
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    navigate('/app/generator');
   };
 
-  const handleNavigate = (targetPage: 'generator' | 'dashboard' | 'profile') => {
-    if (targetPage === 'profile') {
-      setAppView('profile');
-    } else {
-      if (appView === 'profile') {
-        setAppView('app');
-        setPage(targetPage);
-        setSelectedArticleId(null);
-      } else {
-        setPage(targetPage);
-        setSelectedArticleId(null);
-      }
-    }
+  const handleLogout = async () => {
+    await supabaseService.signOut();
+    setCurrentUser(null);
+    navigate('/');
   };
-
-  const handleNavigateToDashboard = () => {
-    setAppView('app');
-    setPage('dashboard');
-    setSelectedArticleId(null);
-  };
-
-  const handleViewArticle = (id: string) => {
-    setSelectedArticleId(id);
-    setPage('article');
-  };
-
-  const handleAddArticle = async (
-    articleData: Omit<Article, 'id' | 'topic' | 'location' | 'user_id' | 'tone'>,
-    topic: string,
-    location: string,
-    tone: string
-  ) => {
-    try {
-      const newArticle = await supabaseService.addArticle({
-        ...articleData,
-        user_id: user.id,
-        topic,
-        location,
-        tone,
-      });
-      const updated = [newArticle, ...articles];
-      saveArticles(updated);
-      handleViewArticle(newArticle.id);
-      setTopic('');
-      setLocation('');
-    } catch (error) {
-      console.error('Error adding article', error);
-      throw error;
-    }
-  };
-
-  const handleUpdateArticle = async (id: string, updates: Partial<Omit<Article, 'id'>>) => {
-    const updatedArticle = await supabaseService.updateArticle(id, updates);
-    if (updatedArticle) {
-      const updated = articles.map(a => (a.id === id ? updatedArticle : a));
-      saveArticles(updated);
-    }
-  };
-
-  const handleDeleteArticle = async (id: string) => {
-    await supabaseService.deleteArticle(id);
-    const updated = articles.filter(a => a.id !== id);
-    saveArticles(updated);
-    if (page === 'article' && selectedArticleId === id) {
-      handleNavigate('dashboard');
-    }
-  };
-
-  const selectedArticle = page === 'article' && selectedArticleId
-    ? articles.find(a => a.id === selectedArticleId) || null
-    : null;
-
-  const renderPage = () => {
-    switch (page) {
-      case 'article':
-        const article = articles.find(a => a.id === selectedArticleId);
-        return (
-          <motion.div
-            key="article"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {article ? (
-              <ArticleDetail
-                article={article}
-                onUpdateArticle={handleUpdateArticle}
-                onDeleteArticle={handleDeleteArticle}
-                onBackToDashboard={() => handleNavigate('dashboard')}
-              />
-            ) : (
-              <div className="text-center py-16 text-slate-400">
-                <h2 className="text-2xl font-bold text-white mb-4">Article Not Found</h2>
-                <p>The article you are looking for does not exist or has been deleted.</p>
-                <button onClick={() => handleNavigate('dashboard')} className="mt-6 inline-block bg-indigo-500 px-4 py-2 rounded-md text-white hover:bg-indigo-400 transition-colors">Go to Dashboard</button>
-              </div>
-            )}
-          </motion.div>
-        );
-      case 'dashboard':
-        return (
-          <motion.div
-            key="dashboard"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Dashboard articles={articles} onDeleteArticle={handleDeleteArticle} onViewArticle={handleViewArticle} onNavigateToGenerator={() => handleNavigate('generator')} />
-          </motion.div>
-        );
-      case 'generator':
-      default:
-        return (
-          <motion.div
-            key="generator"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Generator
-              onArticleGenerated={handleAddArticle}
-              topic={topic}
-              setTopic={setTopic}
-              location={location}
-              setLocation={setLocation}
-            />
-          </motion.div>
-        );
-    }
-  };
-
-  const renderAppView = () => {
-    if (appView === 'profile') {
-      return (
-        <motion.div
-          key="profile"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <ProfilePage
-            onBackToApp={onBackToApp}
-            onNavigateToDashboard={handleNavigateToDashboard}
-            currentUser={user}
-            onLogout={onLogout}
-            articles={articles}
-            onDeleteArticle={handleDeleteArticle}
-            onViewArticle={handleViewArticle}
-          />
-        </motion.div>
-      );
-    }
-    if (appView === 'admin') {
-      return (
-        <motion.div
-          key="admin"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <AdminPanel onBackToApp={onBackToApp} currentUser={user} onLogout={onLogout} />
-        </motion.div>
-      );
-    }
-    return renderPage();
-  };
-
-  const getCurrentPage = () => (appView === 'profile' ? 'profile' : page);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header
-        currentPage={getCurrentPage()}
-        onNavigate={handleNavigate}
-        user={user}
-        onLogout={onLogout}
-        onNavigateToAdmin={onNavigateToAdmin}
-        onNavigateToProfile={onNavigateToProfile}
-        onNavigateToPricing={onNavigateToPricing}
-        onNavigateToFeatures={onNavigateToFeatures}
-        onNavigateToContact={onNavigateToContact}
-        articles={articles}
-        onDeleteArticle={handleDeleteArticle}
-        onViewArticle={handleViewArticle}
-        onUpdateArticle={handleUpdateArticle}
-      />
-      <main className="flex-1 flex flex-col min-h-0">
-        <AnimatePresence mode="wait">
-          <div className="container mx-auto px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8 w-full flex-1 flex flex-col">
-            {renderAppView()}
-          </div>
-        </AnimatePresence>
-      </main>
-      <Footer
-        onNavigateToPricing={onNavigateToPricing}
-        onNavigateToTerms={onNavigateToTerms}
-        onNavigateToPrivacy={onNavigateToPrivacy}
-      />
-      <AiAssistant
-        article={selectedArticle}
-        currentPage={page}
-        setTopic={setTopic}
-        setLocation={setLocation}
-      />
-    </div>
+    <ToastProvider>
+      <div className="min-h-screen bg-slate-900 text-white">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={
+              <LandingPage
+                onNavigateToAuth={() => navigate('/auth')}
+                onNavigateToFeatures={() => navigate('/features')}
+                onNavigateToPricing={() => navigate('/pricing')}
+                onNavigateToContact={() => navigate('/contact')}
+                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
+                isLoggedIn={!!currentUser}
+              />
+            } />
+            <Route path="/features" element={
+              <FeaturesPage
+                onNavigateToAuth={() => navigate('/auth')}
+                onNavigateToApp={currentUser ? () => navigate('/app/generator') : () => navigate('/pricing')}
+                isLoggedIn={!!currentUser}
+                onNavigateToPricing={() => navigate('/pricing')}
+                onNavigateToContact={() => navigate('/contact')}
+                onNavigateToTerms={() => navigate('/terms')}
+                onNavigateToPrivacy={() => navigate('/privacy')}
+              />
+            } />
+            <Route path="/pricing" element={
+              <PricingPage
+                onNavigateToAuth={() => navigate('/auth')}
+                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
+                isLoggedIn={!!currentUser}
+                onNavigateToFeatures={() => navigate('/features')}
+                onNavigateToContact={() => navigate('/contact')}
+                onNavigateToTerms={() => navigate('/terms')}
+                onNavigateToPrivacy={() => navigate('/privacy')}
+              />
+            } />
+            <Route path="/contact" element={
+              <ContactPage
+                onNavigateToAuth={() => navigate('/auth')}
+                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
+                isLoggedIn={!!currentUser}
+                onNavigateToPricing={() => navigate('/pricing')}
+                onNavigateToFeatures={() => navigate('/features')}
+                onNavigateToTerms={() => navigate('/terms')}
+                onNavigateToPrivacy={() => navigate('/privacy')}
+                user={currentUser}
+              />
+            } />
+            <Route path="/auth" element={
+              <AuthPage
+                onLogin={handleLogin}
+                onNavigateToPricing={() => navigate('/pricing')}
+                onNavigateToFeatures={() => navigate('/features')}
+                onNavigateToContact={() => navigate('/contact')}
+              />
+            } />
+            <Route path="/terms" element={
+              <TermsPage
+                onNavigateToAuth={() => navigate('/auth')}
+                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
+                isLoggedIn={!!currentUser}
+                onNavigateToPrivacy={() => navigate('/privacy')}
+              />
+            } />
+            <Route path="/privacy" element={
+              <PrivacyPage
+                onNavigateToAuth={() => navigate('/auth')}
+                onNavigateToApp={currentUser ? () => navigate('/app/generator') : undefined}
+                isLoggedIn={!!currentUser}
+                onNavigateToTerms={() => navigate('/terms')}
+              />
+            } />
+
+            {/* Protected Routes - temporarily redirect to auth if not logged in */}
+            <Route path="/app/*" element={
+              currentUser ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="min-h-screen flex items-center justify-center"
+                >
+                  <div className="text-center text-slate-400">
+                    <h2 className="text-2xl font-bold mb-4">🚧 Under Construction</h2>
+                    <p>Modern nested routing coming soon...</p>
+                    <button
+                      onClick={handleLogout}
+                      className="mt-4 px-4 py-2 bg-indigo-500 rounded"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            } />
+
+            {/* Catch all route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </motion.div>
+        <FloatingProgressBar />
+      </div>
+    </ToastProvider>
   );
 };
+
+export default App;
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
