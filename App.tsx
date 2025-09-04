@@ -12,11 +12,7 @@ import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
 import { Generator } from './components/Generator';
 import { Dashboard } from './components/Dashboard';
-import { ArticleDetail } from './components/ArticleDetail';
 import { ProfilePage } from './components/ProfilePage';
-import { AiAssistant } from './components/AiAssistant';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
 import { FloatingProgressBar } from './components/FloatingProgressBar';
 import { AnimatePresence } from 'framer-motion';
 import type { Article, User } from './types';
@@ -197,28 +193,18 @@ const App: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
+                  className="min-h-screen flex items-center justify-center"
                 >
-                  // @ts-ignore - Placeholder article data
-                  <ArticleDetail
-                    article={{
-                      id: '1',
-                      title: 'Sample Article',
-                      articleContent: 'This is a sample article',
-                      user_id: currentUser.id,
-                      topic: '',
-                      location: '',
-                      tone: '',
-                      createdAt: new Date().toISOString(),
-                      metaDescription: '',
-                      keywords: [],
-                      monthlySearches: 0,
-                      primaryKeyword: '',
-                      keywordDifficulty: 0
-                    }}
-                    onUpdateArticle={() => {}}
-                    onDeleteArticle={() => {}}
-                    onBackToDashboard={() => navigate('/app/dashboard')}
-                  />
+                  <div className="text-center text-slate-400">
+                    <h2 className="text-2xl font-bold mb-4">Article Detail Coming Soon</h2>
+                    <p>Article ID: {window.location.pathname.split('/').pop()}</p>
+                    <button
+                      onClick={() => navigate('/app/dashboard')}
+                      className="mt-4 px-4 py-2 bg-indigo-500 rounded"
+                    >
+                      ← Back to Dashboard
+                    </button>
+                  </div>
                 </motion.div>
               ) : (
                 <Navigate to="/auth" replace />
