@@ -79,13 +79,17 @@ const useTypewriter = (texts: string[], typingSpeed: number = 100, pauseTime: nu
   return currentText;
 };
 
-const HowToStart: React.FC = () => {
+const HowToStart: React.FC<{
+  onNavigateToAuth: () => void;
+  onNavigateToGenerator?: () => void;
+  isLoggedIn: boolean;
+}> = ({ onNavigateToAuth, onNavigateToGenerator, isLoggedIn }) => {
   const typewriterTexts = [
-    "Hesap oluştur & giriş yap",
-    "İlk makaleni oluştur",
-    "Yayınla & paylaş",
-    "Analiz et & optimize et",
-    "Ölçeklendir & büyüt"
+    "Create account & sign in",
+    "Generate your first article",
+    "Publish & share with audience",
+    "Analyze & optimize performance",
+    "Scale & grow your content"
   ];
 
   const currentText = useTypewriter(typewriterTexts, 80, 3000);
@@ -93,28 +97,59 @@ const HowToStart: React.FC = () => {
   const steps = [
     {
       number: 1,
-      title: "Hesap Oluştur",
-      description: "Ücretsiz hesap oluştur ve platformu keşfet",
-      icon: "👤"
+      title: "Create Account",
+      description: "Sign up for free and explore our powerful AI writing platform with no credit card required.",
+      icon: "👤",
+      highlight: "Free forever"
     },
     {
       number: 2,
-      title: "İlk İçeriğini Oluştur",
-      description: "AI ile profesyonel makalelerini hazırla",
-      icon: "✨"
+      title: "Generate Content",
+      description: "Use our advanced AI to create high-quality, SEO-optimized articles in seconds with smart suggestions.",
+      icon: "✨",
+      highlight: "AI-powered"
     },
     {
       number: 3,
-      title: "Yayınla & Büyüt",
-      description: "İçeriğini yayınla ve topluluğuna ulaş",
-      icon: "🚀"
+      title: "Publish & Grow",
+      description: "Export your content and share it across platforms to reach your audience and drive traffic.",
+      icon: "🚀",
+      highlight: "Multi-platform"
+    },
+    {
+      number: 4,
+      title: "Analyze Results",
+      description: "Track performance with detailed analytics to understand what works and optimize your strategy.",
+      icon: "📊",
+      highlight: "Data-driven"
     }
   ];
 
+  const handleGetStarted = () => {
+    if (isLoggedIn && onNavigateToGenerator) {
+      onNavigateToGenerator();
+    } else {
+      onNavigateToAuth();
+    }
+  };
+
   return (
-    <section className="mt-20 py-16 bg-gradient-to-br from-slate-900/50 to-indigo-900/20 rounded-2xl border border-slate-700/50">
-      <div className="max-w-6xl mx-auto px-6 text-center">
-        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">How to Start</h2>
+    <section className="mt-20 py-20 bg-gradient-to-br from-slate-900/50 to-indigo-900/20 rounded-2xl border border-slate-700/50 relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full">
+        <div className="absolute top-10 left-10 w-20 h-20 bg-indigo-500/10 rounded-full blur-xl"></div>
+        <div className="absolute bottom-20 right-20 w-32 h-32 bg-purple-500/10 rounded-full blur-xl"></div>
+        <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-blue-500/10 rounded-full blur-xl"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
+        <div className="mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Start Creating Amazing Content Today</h2>
+          <p className="text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
+            Join thousands of content creators who trust our AI to generate high-quality articles
+          </p>
+        </div>
+
         <div className="h-16 flex items-center justify-center mb-12">
           <div className="text-lg sm:text-xl text-indigo-400 font-medium min-h-[2rem] flex items-center">
             <span className="inline-block min-w-[4px] h-6 bg-indigo-400 mr-2 animate-pulse rounded-sm"></span>
@@ -123,25 +158,77 @@ const HowToStart: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {steps.map((step) => (
-            <div key={step.number} className="group relative">
-              <div className="absolute -top-4 -left-4 w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg group-hover:scale-110 transition-transform duration-300">
+        <div className="flex flex-col lg:flex-row gap-6 mb-12">
+          {steps.map((step, index) => (
+            <div key={step.number} className="flex-1 group relative">
+              <div className="absolute -top-4 -left-4 w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg group-hover:scale-110 transition-transform duration-300 shadow-lg">
                 {step.number}
               </div>
-              <div className="bg-slate-800/50 p-8 rounded-xl border border-slate-600 group-hover:border-indigo-500/50 transition-colors duration-300">
-                <div className="text-3xl mb-4">{step.icon}</div>
-                <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
-                <p className="text-slate-400">{step.description}</p>
+              <div className="h-full bg-slate-800/50 p-8 rounded-xl border border-slate-600 group-hover:border-indigo-500/50 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-indigo-500/10">
+                <div className="flex flex-col h-full">
+                  <div>
+                    <div className="text-3xl mb-4">{step.icon}</div>
+                    <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
+
+                    {step.highlight && (
+                      <div className="inline-block px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-sm font-medium mb-3">
+                        {step.highlight}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-slate-400 flex-grow">{step.description}</p>
+
+                  {index === steps.length - 1 && (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-center space-x-4 text-sm text-slate-500">
+                        <span className="flex items-center">
+                          <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                          Live Analytics
+                        </span>
+                        <span className="flex items-center">
+                          <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
+                          Real-time Data
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-12">
-          <button className="bg-indigo-500 hover:bg-indigo-400 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-300 shadow-lg hover:shadow-indigo-500/25">
-            Hemen Başla →
+        <div className="text-center">
+          <button
+            onClick={handleGetStarted}
+            className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white px-10 py-5 rounded-xl font-semibold text-lg transition-all duration-300 shadow-lg hover:shadow-indigo-500/25 transform hover:-translate-y-1"
+          >
+            {isLoggedIn ? 'Start Creating →' : 'Get Started Now →'}
           </button>
+
+          {!isLoggedIn && (
+            <p className="mt-4 text-slate-400">
+              No credit card required • 14-day free trial • Cancel anytime
+            </p>
+          )}
+
+          {isLoggedIn && (
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+              <div className="bg-slate-800/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-white">50+</div>
+                <div className="text-slate-400">Article Templates</div>
+              </div>
+              <div className="bg-slate-800/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-white">AI-Powered</div>
+                <div className="text-slate-400">Content Generation</div>
+              </div>
+              <div className="bg-slate-800/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-white">24/7</div>
+                <div className="text-slate-400">Support Available</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -223,7 +310,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
           />
         </div>
 
-        <HowToStart />
+        <HowToStart
+          onNavigateToAuth={onNavigateToAuth}
+          onNavigateToGenerator={onNavigateToApp}
+          isLoggedIn={isLoggedIn}
+        />
       </main>
 
       <Footer onNavigateToTerms={onNavigateToTerms} onNavigateToPrivacy={onNavigateToPrivacy} />
