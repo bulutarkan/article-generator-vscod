@@ -11,6 +11,7 @@ import { HashIcon } from './icons/HashIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { CheckIcon } from './icons/CheckIcon';
+import { IntegrationsManager } from './IntegrationsManager';
 
 import { ArticleCard } from './ArticleCard';
 
@@ -246,6 +247,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </button>
                 </form>
             </div>
+
+            {/* Publishing Integrations */}
+            <IntegrationsManager currentUser={currentUser} />
 
             {/* Account Statistics */}
             <div className="bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">

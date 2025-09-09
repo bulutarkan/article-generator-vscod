@@ -3,6 +3,7 @@ import type { Article, PriceComparisonItem } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { CodeIcon } from './icons/CodeIcon';
+import { SEOMetricsBox } from './SEOMetricsBox';
 import { searchImages, type ImageResult } from '../services/imageService';
 
 
@@ -394,6 +395,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
 
 interface ArticleDisplayProps {
   article: Article;
+  hideTitleAndMeta?: boolean;
 }
 
 type Tab = 'article' | 'metadata' | 'images';
@@ -732,7 +734,7 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
   const TabButton: React.FC<{ tabName: Tab, label: string }> = ({ tabName, label }) => (
     <button
       onClick={() => setActiveTab(tabName)}
-      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tabName
+      className={`px-5 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === tabName
         ? 'bg-indigo-500 text-white'
         : 'text-slate-300 hover:bg-white/10'
         }`}
@@ -745,23 +747,31 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
     <>
       <div className="relative bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">
         <div className="mb-6">
-          <div className="flex justify-between items-start gap-4">
-            <h1 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">
-              {article.title}
-            </h1>
-            <CopyButton textToCopy={article.title} className="mt-1" />
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-start gap-4">
+              <h1 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">
+                {article.title}
+              </h1>
+              <CopyButton textToCopy={article.title} className="mt-1" />
+            </div>
+            <p className="text-slate-400">
+              For <span className="font-semibold text-slate-300">{article.topic}</span> in <span className="font-semibold text-slate-300">{article.location}</span>
+            </p>
           </div>
-          <p className="text-slate-400 mt-2">
-            For <span className="font-semibold text-slate-300">{article.topic}</span> in <span className="font-semibold text-slate-300">{article.location}</span>
-          </p>
         </div>
 
-        <div className="border-b border-slate-700 mb-6">
+        <div className="flex justify-between items-center pt-1 pb-2 border-b border-slate-700 mb-6">
           <div className="flex items-center gap-2 p-1 bg-white/5 rounded-lg w-fit">
             <TabButton tabName="article" label="Article" />
             <TabButton tabName="metadata" label="Metadata" />
             <TabButton tabName="images" label="Images" />
           </div>
+
+          <SEOMetricsBox
+            seoMetrics={article.seoMetrics}
+            articleTitle={article.title}
+            articleContent={article.articleContent}
+          />
         </div>
 
         <div key={activeTab} className="animate-fade-in-up" style={{ animationDuration: '0.4s' }}>
@@ -865,55 +875,49 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
                           />
                         </div>
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <p className="text-white text-xs truncate">{image.alt}</p>
+                        <div className="absolute top-2 right-2 flex items-center gap-2">
+                          <CopyButton
+                            textToCopy={image.alt}
+                            label="Copy Alt"
+                            className="px-2 py-1 text-xs"
+                          />
                         </div>
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <div className="bg-black/70 rounded-full p-2">
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                          </div>
+                        <div className="p-3">
+                          <p className="text-sm text-slate-300 line-clamp-2">
+                            {image.alt}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex justify-center items-center gap-2">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        disabled={imagesLoading}
-                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentPage === page
-                          ? 'bg-indigo-500 text-white'
-                          : 'text-slate-300 hover:bg-white/10'
-                          } disabled:opacity-50`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                  {/* Pagination controls */}
+                  <div className="flex justify-center items-center gap-4 mt-8">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1 || imagesLoading}
+                      className="px-4 py-2 rounded-md bg-white/10 text-slate-300 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-slate-400">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || imagesLoading}
+                      className="px-4 py-2 rounded-md bg-white/10 text-slate-300 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
                   </div>
                 </>
-              )}
-
-              {!imagesLoading && images.length === 0 && !imagesError && (
-                <div className="text-center py-16">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-300 mb-2">No images found</h3>
-                  <p className="text-slate-400">Try refreshing or check your internet connection.</p>
-                </div>
               )}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Image Modal */}
+      </div>
       <ImageModal
         image={selectedImage}
         onClose={() => setSelectedImage(null)}

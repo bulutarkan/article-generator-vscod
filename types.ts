@@ -55,6 +55,22 @@ export interface ContentAnalysis {
   };
 }
 
+export interface SEOSubMetrics {
+  contentQuality: number;
+  targetKeywords: number;
+  technicalSeo: number;
+  engagement: number;
+  structure: number;
+  originality: number;
+}
+
+export interface SEOMetrics {
+  readabilityScore: number;
+  keywordDensity: number;
+  seoScore: number;
+  subMetrics: SEOSubMetrics;
+}
+
 export interface Article {
   id: string;
   user_id: string;
@@ -72,6 +88,7 @@ export interface Article {
   keywordDifficulty: number;
   content_quality: string[];
   tone: string;
+  seoMetrics?: SEOMetrics; // Optional for backward compatibility
   created_at?: string; // For backward compatibility
 }
 
@@ -119,4 +136,41 @@ export interface BulkGenerationState {
   progress: BulkGenerationProgress;
   isGenerating: boolean;
   lastSaved: string;
+}
+
+// Publishing Integration Types
+export type IntegrationProvider = 'wordpress' | 'medium';
+
+export interface WordPressCredentials {
+  url: string;
+  username: string;
+  password?: string; // Application Password
+}
+
+export interface MediumCredentials {
+  token: string;
+}
+
+export interface UserIntegration {
+  id: string;
+  user_id: string;
+  provider: IntegrationProvider;
+  // Stored as encrypted JSONB in the database
+  credentials: WordPressCredentials | MediumCredentials;
+  created_at: string;
+  updated_at: string;
+}
+
+// Content Calendar Types
+export type CalendarEventStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface CalendarEvent {
+  id: string;
+  user_id: string;
+  title: string;
+  start_date: Date;
+  end_date: Date;
+  status: CalendarEventStatus;
+  article_id?: string;
+  notes?: string;
 }

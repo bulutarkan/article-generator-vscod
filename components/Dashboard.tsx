@@ -9,12 +9,13 @@ import { SearchIcon } from './icons/SearchIcon';
 import { SlidersIcon } from './icons/SlidersIcon';
 import { GeoIcon } from './icons/GeoIcon';
 import { MegaphoneIcon } from './icons/MegaphoneIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
 
 interface DashboardProps {
   articles: Article[];
   onDeleteArticle: (id: string) => void;
   onViewArticle: (id: string) => void;
-  onNavigateToGenerator: () => void;
+  onNavigate: (page: 'generator' | 'calendar') => void;
 }
 
 const StatCard: React.FC<{ icon: React.FC<React.SVGProps<SVGSVGElement>>; label: string; value: string | number; }> = ({ icon: Icon, label, value }) => (
@@ -122,7 +123,7 @@ const PaginationButtons: React.FC<{
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle, onViewArticle, onNavigateToGenerator }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle, onViewArticle, onNavigate }) => {
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [filterKeyword, setFilterKeyword] = useState('');
@@ -223,7 +224,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
       <div className="text-center py-16 text-slate-500 animate-fade-in-up">
         <h2 className="text-2xl font-bold text-white mb-4">Dashboard is Empty</h2>
         <p>You haven't generated any articles yet.</p>
-        <button onClick={onNavigateToGenerator} className="mt-6 inline-block bg-indigo-500 px-4 py-2 rounded-md text-white hover:bg-indigo-400 transition-colors">
+        <button onClick={() => onNavigate('generator')} className="mt-6 inline-block bg-indigo-500 px-4 py-2 rounded-md text-white hover:bg-indigo-400 transition-colors">
           Generate Your First Article
         </button>
       </div>
@@ -239,7 +240,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
             <StatCard icon={FilesIcon} label="Total Articles" value={stats.totalArticles} />
             <StatCard icon={FileTextIcon} label="Total Words" value={stats.totalWords} />
             <StatCard icon={BarChartIcon} label="Avg. KW Difficulty" value={stats.avgDifficulty} />
-            <StatCard icon={HashIcon} label="Unique Keywords Targeted" value={stats.uniqueKeywords} />
+            <div onClick={() => onNavigate('calendar')} className="cursor-pointer hover:scale-105 transition-transform duration-200">
+              <StatCard icon={CalendarIcon} label="Content Calendar" value="Plan" />
+            </div>
           </>
         )}
       </div>

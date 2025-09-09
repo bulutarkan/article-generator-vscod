@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Article, KeywordSuggestion } from '../types';
+import { calculateSEOMetrics } from './seoAnalysisService';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY as string });
 
@@ -549,6 +550,21 @@ Return the full JSON object.`;
                 // Select the best title from variations
                 const bestTitle = selectBestTitle(parsedResponse.titleVariations, parsedResponse.primaryKeyword);
 
+                // Calculate SEO metrics in parallel to avoid slowing down response
+                let seoMetrics = null;
+                try {
+                    console.log('🔍 Calculating SEO metrics...');
+                    seoMetrics = calculateSEOMetrics(
+                        parsedResponse.articleContent,
+                        parsedResponse.keywords || [],
+                        parsedResponse.primaryKeyword || topic
+                    );
+                    console.log('✅ SEO metrics calculated:', seoMetrics);
+                } catch (seoError) {
+                    console.warn('⚠️ SEO metrics calculation failed, continuing without SEO data:', seoError);
+                    seoMetrics = null;
+                }
+
                 console.log(`Successfully generated complete article with ${parsedResponse.articleContent.trim().split(/\s+/).length} words`);
                 console.log(`Title variations generated:`, parsedResponse.titleVariations);
                 console.log(`Selected title: "${bestTitle}"`);
@@ -558,6 +574,7 @@ Return the full JSON object.`;
                     ...parsedResponse,
                     title: bestTitle, // Map selectedTitle to title for backward compatibility
                     monthlySearches: volume,
+                    seoMetrics, // Include calculated SEO metrics
                 };
 
             } catch (error: any) {

@@ -270,12 +270,13 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
             description="For individuals and small teams getting started."
             features={[
               "20 Articles per month",
-              "Basic AI Article Generation",
-              "Keyword Suggestions",
-              "Basic SEO Analytics",
-              "Article Storage & Management",
-              "Export Options",
-              "Community Support"
+              "GPT-5 Mini & Gemini 2.5 Flash",
+              "Community support",
+              "Basic AI article generation",
+              "Keyword suggestions",
+              "Basic SEO analytics",
+              "Article storage & management",
+              "Export options"
             ]}
           />
           <PricingCard
@@ -283,31 +284,72 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
             price="$29.99"
             description="For growing businesses and content professionals."
             features={[
-              "50 Articles per month",
-              "Advanced AI Article Generation",
-              "Comprehensive Keyword Research",
-              "Full Content Analysis & SEO",
-              "Google Trends Integration",
-              "AI Assistant Access",
-              "Export Options",
-              "Priority Support"
+              "100 Articles per month",
+              "Claude 3.5 & Grok 4",
+              "Advanced AI article generation",
+              "Calendar for workflow",
+              "Comprehensive keyword research",
+              "Full content analysis & SEO",
+              "Google Trends integration",
+              "AI assistant access",
+              "Export options",
+              "Content calendar access",
+              "WordPress/Medium publishing",
+              "Priority support"
             ]}
             isFeatured={true}
           />
           <PricingCard
             plan="Enterprise"
-            price="Contact Us"
-            description="For large organizations with custom needs."
+            price="$99.99"
+            description="For agencies and enterprises with advanced needs."
             features={[
-              "Unlimited Articles",
-              "Custom AI Models",
-              "Advanced Analytics & Reporting",
-              "Team Collaboration Features",
-              "API Access",
-              "White-label Options",
-              "Dedicated Account Manager"
+              "500 Articles per month",
+              "GPT 5 & Gemini 2.5 Pro",
+              "Custom AI models with API keys",
+              "Advanced analytics & reporting",
+              "Team collaboration workspaces",
+              "White-label options",
+              "Dedicated account manager",
+              "All platform features unlocked",
+              "Priority support"
             ]}
           />
+        </div>
+
+        <div className="mt-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+          <div className="bg-slate-800/30 p-6 rounded-xl border border-slate-600/50">
+            <div className="text-center">
+              <div className="text-indigo-400 text-2xl mb-2">💫</div>
+              <p className="text-slate-300 text-sm font-medium">
+                <strong className="text-white">Starter Plan:</strong><br />
+                Best for everyone to try out our AI writing platform and experience the power of automated content generation.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-indigo-500/10 p-6 rounded-xl border border-indigo-500/30 relative">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2">
+              <span className="bg-indigo-500 text-white px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wider">Most Popular</span>
+            </div>
+            <div className="text-center mt-8">
+              <div className="text-purple-400 text-2xl mb-2">🚀</div>
+              <p className="text-slate-300 text-sm font-medium">
+                <strong className="text-white">Pro Plan:</strong><br />
+                Best for individual content managers, digital marketers, and professionals who need advanced features and priority support.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/30 p-6 rounded-xl border border-slate-600/50">
+            <div className="text-center">
+              <div className="text-emerald-400 text-2xl mb-2">🏢</div>
+              <p className="text-slate-300 text-sm font-medium">
+                <strong className="text-white">Enterprise Plan:</strong><br />
+                Best for agencies and enterprises that require custom AI models, team collaboration, and dedicated account management.
+              </p>
+            </div>
+          </div>
         </div>
 
         <HowToStart

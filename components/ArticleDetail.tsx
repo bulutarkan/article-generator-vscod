@@ -10,6 +10,8 @@ import { TwitterIcon } from './icons/TwitterIcon';
 import { FacebookIcon } from './icons/FacebookIcon';
 import { LinkedInIcon } from './icons/LinkedInIcon';
 import { CopyIcon } from './icons/CopyIcon';
+import { SendIcon } from './icons/SendIcon';
+import { PublishModal } from './PublishModal';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 
 interface ArticleDetailProps {
@@ -67,6 +69,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
   const [editedContent, setEditedContent] = useState(article.articleContent);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [copySuccess, setCopySuccess] = useState('');
 
   useEffect(() => {
@@ -252,7 +255,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
     <div className="animate-fade-in-up max-w-7xl mx-auto flex flex-col h-full">
       <div className="flex-shrink-0">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-          <button 
+          <button
             onClick={onBackToDashboard}
             className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isEditing}
@@ -307,6 +310,14 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
                   </a>
                 </ActionDropdown>
                 <button
+                  onClick={() => setIsPublishModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
+                  aria-label="Publish article"
+                >
+                  <SendIcon className="h-4 w-4" />
+                  Publish
+                </button>
+                <button
                   onClick={() => setIsEditing(true)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors"
                   aria-label="Edit article"
@@ -332,6 +343,12 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
           {`Copied ${copySuccess} to clipboard!`}
         </div>
       )}
+
+      <PublishModal 
+        isOpen={isPublishModalOpen}
+        onClose={() => setIsPublishModalOpen(false)}
+        article={article}
+      />
 
       <div className="flex-1 overflow-y-auto min-h-0 pr-4 -mr-4">
         {isEditing ? (

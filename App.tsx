@@ -15,6 +15,7 @@ import { ContactPage } from './components/ContactPage';
 import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
 import { Footer } from './components/Footer';
+import { ContentCalendar } from './components/ContentCalendar';
 import { BulkGenerationProvider } from './components/BulkGenerationContext';
 import { FloatingProgressBar } from './components/FloatingProgressBar';
 import type { Article, User } from './types';
@@ -34,24 +35,9 @@ const AppContent: React.FC<{
   appView: 'app' | 'admin' | 'profile';
   onBackToApp: () => void;
   setAppView: (view: 'app' | 'admin' | 'profile') => void;
-  onNavigateToDashboard: () => void;
-}> = ({
-  user,
-  onLogout,
-  onNavigateToAdmin,
-  onNavigateToProfile,
-  onNavigateToPricing,
-  onNavigateToFeatures,
-  onNavigateToContact,
-  onNavigateToTerms,
-  onNavigateToPrivacy,
-  appView,
-  onBackToApp,
-  setAppView,
-  onNavigateToDashboard,
-}) => {
+}> = ({ user, onLogout, onNavigateToAdmin, onNavigateToProfile, onNavigateToPricing, onNavigateToFeatures, onNavigateToContact, onNavigateToTerms, onNavigateToPrivacy, appView, onBackToApp, setAppView }) => {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [page, setPage] = useState<'generator' | 'dashboard' | 'article'>('generator');
+  const [page, setPage] = useState<'generator' | 'dashboard' | 'article' | 'calendar'>('dashboard');
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [topic, setTopic] = useState('');
   const [location, setLocation] = useState('');
@@ -77,25 +63,14 @@ const AppContent: React.FC<{
     setArticles(sorted);
   };
 
-  const handleNavigate = (targetPage: 'generator' | 'dashboard' | 'profile') => {
+  const handleNavigate = (targetPage: 'generator' | 'dashboard' | 'profile' | 'calendar') => {
     if (targetPage === 'profile') {
       setAppView('profile');
     } else {
-      if (appView === 'profile') {
-        setAppView('app');
-        setPage(targetPage);
-        setSelectedArticleId(null);
-      } else {
-        setPage(targetPage);
-        setSelectedArticleId(null);
-      }
+      setAppView('app');
+      setPage(targetPage);
+      setSelectedArticleId(null);
     }
-  };
-
-  const handleNavigateToDashboard = () => {
-    setAppView('app');
-    setPage('dashboard');
-    setSelectedArticleId(null);
   };
 
   const handleViewArticle = (id: string) => {
@@ -177,6 +152,18 @@ const AppContent: React.FC<{
             )}
           </motion.div>
         );
+      case 'calendar':
+        return (
+          <motion.div
+            key="calendar"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ContentCalendar onNavigateToArticle={handleViewArticle} />
+          </motion.div>
+        );
       case 'dashboard':
         return (
           <motion.div
@@ -186,7 +173,7 @@ const AppContent: React.FC<{
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <Dashboard articles={articles} onDeleteArticle={handleDeleteArticle} onViewArticle={handleViewArticle} onNavigateToGenerator={() => handleNavigate('generator')} />
+            <Dashboard articles={articles} onDeleteArticle={handleDeleteArticle} onViewArticle={handleViewArticle} onNavigate={handleNavigate} />
           </motion.div>
         );
       case 'generator':
@@ -223,7 +210,7 @@ const AppContent: React.FC<{
         >
           <ProfilePage
             onBackToApp={onBackToApp}
-            onNavigateToDashboard={handleNavigateToDashboard}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
             currentUser={user}
             onLogout={onLogout}
             articles={articles}
@@ -249,7 +236,7 @@ const AppContent: React.FC<{
     return renderPage();
   };
 
-  const getCurrentPage = () => (appView === 'profile' ? 'profile' : page);
+  const getCurrentPage = (): 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar' => (appView === 'profile' ? 'profile' : page);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -333,9 +320,6 @@ const App: React.FC = () => {
 
   const handleNavigateToProfile = () => setAppView('profile');
   const handleBackToApp = () => setAppView('app');
-  const handleNavigateToDashboard = () => {
-    setAppView('app');
-  };
 
   const renderPage = () => {
     switch (page) {
@@ -488,7 +472,6 @@ const App: React.FC = () => {
                     appView={appView}
                     onBackToApp={handleBackToApp}
                     setAppView={setAppView}
-                    onNavigateToDashboard={handleNavigateToDashboard}
                   />
                 </motion.div>
               );
@@ -515,7 +498,6 @@ const App: React.FC = () => {
                     appView={appView}
                     onBackToApp={handleBackToApp}
                     setAppView={setAppView}
-                    onNavigateToDashboard={handleNavigateToDashboard}
                   />
                 </motion.div>
               );

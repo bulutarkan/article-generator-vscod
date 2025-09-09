@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DashboardIcon } from './icons/DashboardIcon';
-import { UserCogIcon } from './icons/UserCogIcon';
-import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { CreditCardIcon } from './icons/CreditCardIcon';
-import { MailIcon } from './icons/MailIcon';
-import { TwitterIcon } from './icons/TwitterIcon';
-import { FacebookIcon } from './icons/FacebookIcon';
 import { GithubIcon } from './icons/GithubIcon';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
+import { DashboardIcon } from './icons/DashboardIcon';
+import { CreditCardIcon } from './icons/CreditCardIcon';
+import { MailIcon } from './icons/MailIcon';
+import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { UserCogIcon } from './icons/UserCogIcon';
+import { FacebookIcon } from './icons/FacebookIcon';
+import { TwitterIcon } from './icons/TwitterIcon';
 import type { User, Article } from '../types';
 
 interface HeaderProps {
-  currentPage: 'generator' | 'dashboard' | 'article' | 'profile';
-  onNavigate: (page: 'generator' | 'dashboard' | 'profile') => void;
+  currentPage: 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar';
+  onNavigate: (page: 'generator' | 'dashboard' | 'profile' | 'calendar') => void;
   user: User | null;
   onLogout: () => void;
   onNavigateToAdmin?: () => void;
@@ -21,11 +22,13 @@ interface HeaderProps {
   onNavigateToPricing?: () => void;
   onNavigateToFeatures?: () => void;
   onNavigateToContact?: () => void;
+  onNavigateToCalendar?: () => void;
   articles: Article[];
   onDeleteArticle: (id: string) => void;
   onViewArticle: (id: string) => void;
   onUpdateArticle: (id: string, updates: Partial<Omit<Article, 'id'>>) => void;
 }
+
 
 const UserMenu: React.FC<{ user: User; onLogout: () => void; onNavigateToAdmin?: () => void; onNavigateToProfile?: () => void; }> = ({ user, onLogout, onNavigateToAdmin, onNavigateToProfile }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -97,12 +100,12 @@ const UserMenu: React.FC<{ user: User; onLogout: () => void; onNavigateToAdmin?:
   );
 };
 
-export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, onLogout, onNavigateToAdmin, onNavigateToProfile, onNavigateToPricing, onNavigateToFeatures, onNavigateToContact, articles, onDeleteArticle, onViewArticle, onUpdateArticle }) => {
+export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, onLogout, onNavigateToAdmin, onNavigateToProfile, onNavigateToPricing, onNavigateToFeatures, onNavigateToContact, onNavigateToCalendar, articles, onDeleteArticle, onViewArticle, onUpdateArticle }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const NavLink: React.FC<{ page: 'generator' | 'dashboard'; label: string; isActive: boolean; children: React.ReactNode }> = ({ page, label, isActive, children }) => (
+  const NavLink: React.FC<{ page: 'generator' | 'dashboard' | 'calendar'; label: string; isActive: boolean; children: React.ReactNode }> = ({ page, label, isActive, children }) => (
     <button
       onClick={() => onNavigate(page)}
       aria-current={isActive ? 'page' : undefined}
@@ -191,6 +194,9 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
         <NavLink page="dashboard" label="Dashboard" isActive={currentPage === 'dashboard' || currentPage === 'article'}>
           <DashboardIcon className="h-5 w-5" />
         </NavLink>
+        <NavLink page="calendar" label="Calendar" isActive={currentPage === 'calendar'}>
+          <CalendarIcon className="h-5 w-5" />
+        </NavLink>
         {onNavigateToProfile && (
           <button
             onClick={() => onNavigate('profile')}
@@ -246,6 +252,13 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
             <DashboardIcon className="h-5 w-5" />
           </button>
           <button
+            onClick={() => onNavigate('calendar')}
+            className={`p-3 rounded-md transition-colors ${currentPage === 'calendar' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300 hover:bg-white/10'}`}
+            title="Calendar"
+          >
+            <CalendarIcon className="h-5 w-5" />
+          </button>
+          <button
             onClick={() => window.location.href = '/'}
             className="p-3 rounded-md text-slate-400 hover:text-slate-300 hover:bg-white/10 transition-colors"
             title="Home"
@@ -291,7 +304,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
           <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-800/80 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-500/20 rounded-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import type { User, Article } from '../types';
+import type { User, Article, UserIntegration, CalendarEvent } from '../types';
+import { encryptData, decryptData } from './crypto';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -119,6 +120,31 @@ const transformToCamelCase = (obj: any): any => {
         camelKey = 'keywordDifficulty';
       } else if (key === 'content_quality') {
         camelKey = 'content_quality'; // Keep as snake_case to match interface
+      } else if (key === 'seo_readability_score') {
+        // Special handling for SEO metrics - build seoMetrics object
+        if (!transformed.seoMetrics) transformed.seoMetrics = {};
+        if ((transformed.seoMetrics as any).readabilityScore === undefined) {
+          transformed.seoMetrics = {
+            readabilityScore: obj[key],
+            keywordDensity: obj.seo_keyword_density || 0,
+            seoScore: obj.seo_overall_score || 0,
+            subMetrics: {
+              contentQuality: obj.seo_content_quality || 0,
+              targetKeywords: obj.seo_target_keywords || 0,
+              technicalSeo: obj.seo_technical_seo || 0,
+              engagement: obj.seo_engagement || 0,
+              structure: obj.seo_structure || 0,
+              originality: obj.seo_originality || 0
+            }
+          };
+        }
+        continue; // Skip adding this field individually since we built the object
+      } else if (key === 'seo_keyword_density' || key === 'seo_overall_score' ||
+                 key === 'seo_content_quality' || key === 'seo_target_keywords' ||
+                 key === 'seo_technical_seo' || key === 'seo_engagement' ||
+                 key === 'seo_structure' || key === 'seo_originality') {
+        // These are handled in seo_readability_score case above
+        continue;
       } else {
         // General transformation for other keys
         camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
@@ -159,7 +185,17 @@ export const addArticle = async (article: Omit<Article, 'id' | 'created_at'>): P
     keyword_difficulty: article.keywordDifficulty,
     content_quality: article.content_quality,
     tone: article.tone,
-    location: article.location
+    location: article.location,
+    // SEO metrics fields - handle optional seoMetrics
+    seo_readability_score: article.seoMetrics?.readabilityScore || null,
+    seo_keyword_density: article.seoMetrics?.keywordDensity || null,
+    seo_overall_score: article.seoMetrics?.seoScore || null,
+    seo_content_quality: article.seoMetrics?.subMetrics.contentQuality || null,
+    seo_target_keywords: article.seoMetrics?.subMetrics.targetKeywords || null,
+    seo_technical_seo: article.seoMetrics?.subMetrics.technicalSeo || null,
+    seo_engagement: article.seoMetrics?.subMetrics.engagement || null,
+    seo_structure: article.seoMetrics?.subMetrics.structure || null,
+    seo_originality: article.seoMetrics?.subMetrics.originality || 0
   };
 
   const { data, error } = await supabase
@@ -189,6 +225,121 @@ export const deleteArticle = async (id: string): Promise<void> => {
     .eq('id', id);
   if (error) throw error;
 };
+
+// Integration functions
+export const getIntegrations = async (): Promise<UserIntegration[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('user_integrations')
+    .select('*')
+    .eq('user_id', user.id);
+
+  if (error) throw error;
+
+  return (data || []).map(integration => ({
+    ...integration,
+    credentials: decryptData(integration.credentials),
+  }));
+};
+
+export const addIntegration = async (integration: Omit<UserIntegration, 'id' | 'created_at' | 'updated_at'>): Promise<UserIntegration> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const encryptedCredentials = encryptData(integration.credentials);
+
+  const { data, error } = await supabase
+    .from('user_integrations')
+    .insert([{ ...integration, user_id: user.id, credentials: encryptedCredentials }])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    ...data,
+    credentials: decryptData(data.credentials),
+  };
+};
+
+export const deleteIntegration = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('user_integrations')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+};
+
+// Calendar Event functions
+export const getCalendarEvents = async (): Promise<CalendarEvent[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .eq('user_id', user.id);
+
+  if (error) throw error;
+
+  return (data || []).map(event => ({
+    ...event,
+    start_date: new Date(event.start_date),
+    end_date: new Date(event.end_date),
+  }));
+};
+
+export const addCalendarEvent = async (event: Omit<CalendarEvent, 'id' | 'user_id'>): Promise<CalendarEvent> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .insert([{
+      ...event,
+      user_id: user.id,
+      start_date: event.start_date.toISOString(),
+      end_date: event.end_date.toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, start_date: new Date(data.start_date), end_date: new Date(data.end_date) };
+};
+
+export const updateCalendarEvent = async (id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> => {
+  const dbUpdates: any = { ...updates };
+  if (updates.start_date) {
+    dbUpdates.start_date = updates.start_date.toISOString();
+  }
+  if (updates.end_date) {
+    dbUpdates.end_date = updates.end_date.toISOString();
+  }
+
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .update(dbUpdates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, start_date: new Date(data.start_date), end_date: new Date(data.end_date) };
+};
+
+export const deleteCalendarEvent = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('calendar_events')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+};
+
 
 export const deleteAccount = async (): Promise<void> => {
   // Delete all user's articles first

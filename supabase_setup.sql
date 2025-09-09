@@ -27,6 +27,47 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   UNIQUE(user_id)
 );
 
+-- Articles table with SEO metrics
+CREATE TABLE IF NOT EXISTS articles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  location TEXT NOT NULL,
+  tone TEXT NOT NULL,
+  articlecontent TEXT NOT NULL,
+  metadescription TEXT,
+  keywords TEXT[],
+  pricecomparison JSONB,
+  generalcomparison JSONB,
+  monthly_searches INTEGER DEFAULT 0,
+  primary_keyword TEXT,
+  keyword_difficulty DECIMAL(5,2) DEFAULT 0,
+  content_quality TEXT[],
+  -- New SEO metrics fields
+  seo_readability_score DECIMAL(5,2),
+  seo_keyword_density DECIMAL(5,3),
+  seo_overall_score INTEGER,
+  seo_content_quality INTEGER,
+  seo_target_keywords INTEGER,
+  seo_technical_seo INTEGER,
+  seo_engagement INTEGER,
+  seo_structure INTEGER,
+  seo_originality INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT seo_scores_valid_range CHECK (
+    seo_readability_score >= 0 AND seo_readability_score <= 100 AND
+    seo_keyword_density >= 0 AND seo_keyword_density <= 10 AND
+    seo_overall_score >= 0 AND seo_overall_score <= 100 AND
+    seo_content_quality >= 0 AND seo_content_quality <= 100 AND
+    seo_target_keywords >= 0 AND seo_target_keywords <= 100 AND
+    seo_technical_seo >= 0 AND seo_technical_seo <= 100 AND
+    seo_engagement >= 0 AND seo_engagement <= 100 AND
+    seo_structure >= 0 AND seo_structure <= 100 AND
+    seo_originality >= 0 AND seo_originality <= 100
+  )
+);
+
 -- Blog posts table
 CREATE TABLE IF NOT EXISTS blog_posts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -95,12 +136,25 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Step 4: Enable RLS
 ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE keyword_analysis ENABLE ROW LEVEL SECURITY;
 
 -- Step 5: Create RLS policies
 CREATE POLICY "Users can read own subscription" ON user_subscriptions
   FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own articles" ON articles
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own articles" ON articles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own articles" ON articles
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own articles" ON articles
+  FOR DELETE USING (auth.uid() = user_id);
 
 CREATE POLICY "Admin can read all subscriptions" ON user_subscriptions
   FOR SELECT USING (
@@ -112,6 +166,14 @@ CREATE POLICY "Admin can read all subscriptions" ON user_subscriptions
 
 CREATE POLICY "Admin can update subscriptions" ON user_subscriptions
   FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM user_subscriptions us
+      WHERE us.user_id = auth.uid() AND us.plan = 'admin'
+    )
+  );
+
+CREATE POLICY "Admin full access to articles" ON articles
+  FOR ALL USING (
     EXISTS (
       SELECT 1 FROM user_subscriptions us
       WHERE us.user_id = auth.uid() AND us.plan = 'admin'

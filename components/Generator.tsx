@@ -222,6 +222,14 @@ export const Generator: React.FC<GeneratorProps> = ({
 
       await onArticleGenerated(result, topic, location, tone);
 
+      // Clear local state after successful generation
+      setTopic('');
+      setLocation('');
+      setTone('Authoritative');
+      setBrief('');
+      setEnableInternalLinks(false);
+      setWebsiteUrl('');
+
       // Clear generation state on success
       setGenerationState({
         isGenerating: false,
