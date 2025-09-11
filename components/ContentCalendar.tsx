@@ -169,7 +169,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ onNavigateToAr
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="min-h-[85vh] relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6"
+                className="min-h-[85vh] relative overflow-hidden rounded-2xl p-6"
             >
                 {/* Modern Header */}
                 <motion.div

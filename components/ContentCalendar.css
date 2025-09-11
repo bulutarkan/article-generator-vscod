@@ -2,7 +2,7 @@
 
 .rbc-calendar {
     color: #cbd5e1; /* slate-300 */
-    font-family: 'Inter', sans-serif; /* Ensure font consistency */
+    font-family: 'Open Sans', sans-serif;
 }
 
 /* Toolbar styles */
@@ -13,7 +13,7 @@
 
 .rbc-toolbar .rbc-toolbar-label {
     font-size: 1.5rem; /* text-2xl */
-    font-weight: 700;
+    font-weight: 500;
     color: #f1f5f9; /* slate-100 */
 }
 
@@ -21,6 +21,7 @@
     background-color: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #cbd5e1; /* slate-300 */
+    border-radius: 10px;
     transition: background-color 0.2s;
 }
 
