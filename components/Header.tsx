@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { GithubIcon } from './icons/GithubIcon';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
@@ -52,9 +53,11 @@ const UserMenu: React.FC<{ user: User; onLogout: () => void; onNavigateToAdmin?:
   return (
     <div className="relative" ref={dropdownRef}>
       {/* 600px altı için profile icon, üstü için text */}
-      <button
+      <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-neutral-300 bg-neutral-800/50 hover:bg-primary-500/10 border border-neutral-700/50 transition-all duration-200 font-body"
       >
         {/* Desktop ve tablet için text */}
         <span className="hidden sm:inline-block">{user.username || user.email}</span>
@@ -63,7 +66,7 @@ const UserMenu: React.FC<{ user: User; onLogout: () => void; onNavigateToAdmin?:
         <div className="sm:hidden">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-slate-300"
+            className="h-5 w-5 text-neutral-300"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -78,24 +81,34 @@ const UserMenu: React.FC<{ user: User; onLogout: () => void; onNavigateToAdmin?:
         </div>
 
         <ChevronDownIcon className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+      </motion.button>
 
-      <div
-        className={`absolute right-0 z-30 mt-2 w-48 origin-top-right rounded-md bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-700 transition-all duration-200 ease-in-out ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={isOpen ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
+        className="absolute right-0 z-30 mt-2 w-48 origin-top-right rounded-xl bg-neutral-800/95 backdrop-blur-md shadow-lg ring-1 ring-neutral-700/50 border border-neutral-700/50 focus:outline-none"
       >
         <div className="py-1">
           {onNavigateToProfile && (
-            <a onClick={() => handleSelect(onNavigateToProfile)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-indigo-500/30 cursor-pointer">
-              <UserCogIcon className="h-5 w-5" /> Profile
-            </a>
+            <motion.a 
+              onClick={() => handleSelect(onNavigateToProfile)} 
+              whileHover={{ x: 4 }}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-neutral-300 hover:bg-primary-500/20 cursor-pointer font-body transition-all duration-200"
+            >
+              <UserCogIcon className="h-5 w-5 text-primary-400" /> Profile
+            </motion.a>
           )}
 
-          <a onClick={() => handleSelect(onLogout)} className="flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-red-500/30 cursor-pointer">
+          <motion.a 
+            onClick={() => handleSelect(onLogout)} 
+            whileHover={{ x: 4 }}
+            className="flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/20 cursor-pointer font-body transition-all duration-200"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" /></svg>
-             Logout
-          </a>
+            Logout
+          </motion.a>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
@@ -106,14 +119,16 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
   const [searchTerm, setSearchTerm] = useState('');
 
   const NavLink: React.FC<{ page: 'generator' | 'dashboard' | 'calendar'; label: string; isActive: boolean; children: React.ReactNode }> = ({ page, label, isActive, children }) => (
-    <button
+    <motion.button
       onClick={() => onNavigate(page)}
+      whileHover={{ scale: 1.05, y: -1 }}
+      whileTap={{ scale: 0.95 }}
       aria-current={isActive ? 'page' : undefined}
-      className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${isActive ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-300 hover:bg-white/10'}`}
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium font-body transition-all duration-200 shadow-sm border ${isActive ? 'bg-primary-500 text-white shadow-md border-blue-300' : 'text-neutral-300 hover:bg-primary-500/10 hover:text-primary-300 border-transparent'}`}
     >
       {children}
       {label}
-    </button>
+    </motion.button>
   );
 
   // Filter articles based on search term
@@ -141,24 +156,34 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
 
           {/* Desktop Social Icons */}
           <div className="hidden lg:flex gap-3 ml-2">
-            <a href="#" className="text-slate-300 hover:text-indigo-400 transition-colors">
+            <motion.a href="#" whileHover={{ scale: 1.1, rotate: 5 }} className="text-neutral-400 hover:text-primary-400 transition-all duration-200 p-2 rounded-lg hover:bg-primary-500/10">
               <TwitterIcon className="h-6 w-6" />
-            </a>
-            <a href="#" className="text-slate-300 hover:text-indigo-400 transition-colors">
+            </motion.a>
+            <motion.a href="#" whileHover={{ scale: 1.1, rotate: -5 }} className="text-neutral-400 hover:text-accent-400 transition-all duration-200 p-2 rounded-lg hover:bg-accent-500/10">
               <FacebookIcon className="h-6 w-6" />
-            </a>
-            <a href="#" className="text-slate-300 hover:text-indigo-400 transition-colors">
+            </motion.a>
+            <motion.a href="#" whileHover={{ scale: 1.1 }} className="text-neutral-400 hover:text-neutral-300 transition-all duration-200 p-2 rounded-lg hover:bg-neutral-700/50">
               <GithubIcon className="h-6 w-6" />
-            </a>
+            </motion.a>
           </div>
         </div>
 
         {/* Center Section - Logo */}
         <div className="flex-1 flex justify-center px-4">
-          <button onClick={() => onNavigate('generator')} className="font-bold tracking-tight text-white animate-fade-in-up inline-flex items-baseline font-montserrat hover:scale-105 transition-transform duration-300">
-            <span className="inline-block px-1.5 sm:px-2 py-0.5 sm:py-1 bg-purple-600 text-black rounded text-xs sm:text-sm font-raleway">AI</span>
-            <span className="text-2xl sm:text-3xl md:text-4xl font-raleway">rticle</span>
-          </button>
+          <motion.button 
+            onClick={() => onNavigate('generator')} 
+            whileHover={{ scale: 1.05 }}
+            className="font-bold tracking-tight animate-fade-in-up inline-flex items-baseline font-heading hover:scale-105 transition-all duration-300"
+            style={{
+              backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            <span className="inline-block px-1.5 py-1.5 border-2 border-blue-300 rounded-md bg-gradient-to-r from-primary-500 to-accent-500 text-gray-900 text-3xl font-bold">AI</span>
+            <span className="text-2xl sm:text-3xl md:text-4xl ml-1">rticle</span>
+          </motion.button>
         </div>
 
         {/* Right Section - User Menu */}
@@ -175,16 +200,17 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
       </div>
 
       {/* Desktop Navigation */}
-      <nav className="hidden lg:flex justify-center items-center gap-2 p-1 bg-white/5 rounded-lg w-fit mx-auto animate-fade-in-up mt-6" style={{ animationDelay: '0.2s' }}>
-        <button
+      <nav className="hidden lg:flex justify-center items-center gap-2 p-1 bg-neutral-800/30 rounded-xl w-fit mx-auto animate-fade-in-up mt-6 backdrop-blur-sm border border-neutral-700/50" style={{ animationDelay: '0.2s' }}>
+        <motion.button
           onClick={() => window.location.href = '/'}
-          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors"
+          whileHover={{ scale: 1.05 }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-neutral-300 hover:bg-primary-500/10 font-body transition-all duration-200 shadow-sm border border-transparent"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-neutral-400" viewBox="0 0 20 20" fill="currentColor">
             <path d="M10.707 2.293a1 1 0 00-1.414 0l-9 9a1 1 0 001.414 1.414L2 12.414V19a1 1 0 001 1h3a1 1 0 001-1v-3a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 001 1h3a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-9-9z" />
           </svg>
           Home
-        </button>
+        </motion.button>
         <NavLink page="generator" label="Generator" isActive={currentPage === 'generator'}>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -198,98 +224,109 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
           <CalendarIcon className="h-5 w-5" />
         </NavLink>
         {onNavigateToProfile && (
-          <button
+          <motion.button
             onClick={() => onNavigate('profile')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentPage === 'profile' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-300 hover:bg-white/10'}`}
+            whileHover={{ scale: 1.05, y: -1 }}
+            whileTap={{ scale: 0.95 }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium font-body transition-all duration-200 shadow-sm border ${currentPage === 'profile' ? 'bg-primary-500 text-white shadow-md border-blue-300' : 'text-neutral-300 hover:bg-primary-500/10 hover:text-primary-300 border-transparent'}`}
           >
             <UserCogIcon className="h-5 w-5" />
             Profile
-          </button>
+          </motion.button>
         )}
-        <button
+        <motion.button
           onClick={onNavigateToFeatures}
-          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors"
+          whileHover={{ scale: 1.05 }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-neutral-300 hover:bg-accent-500/10 hover:text-accent-300 font-body transition-all duration-200 shadow-sm border border-transparent"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-neutral-400" viewBox="0 0 20 20" fill="currentColor">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
           Features
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           onClick={onNavigateToPricing}
-          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors"
+          whileHover={{ scale: 1.05 }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-neutral-300 hover:bg-primary-500/10 hover:text-primary-300 font-body transition-all duration-200 shadow-sm border border-transparent"
         >
-          <CreditCardIcon className="h-5 w-5" />
+          <CreditCardIcon className="h-5 w-5 text-neutral-400" />
           Pricing
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           onClick={onNavigateToContact}
-          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors"
+          whileHover={{ scale: 1.05 }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-neutral-300 hover:bg-accent-500/10 hover:text-accent-300 font-body transition-all duration-200 shadow-sm border border-transparent"
         >
-          <MailIcon className="h-5 w-5" />
+          <MailIcon className="h-5 w-5 text-neutral-400" />
           Contact
-        </button>
+        </motion.button>
       </nav>
 
       {/* Mobile Navigation */}
       <div className="lg:hidden mt-4 flex justify-center">
-        <div className="flex gap-1 p-1 bg-white/5 rounded-lg animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <button
+        <div className="flex gap-1 p-1 bg-neutral-800/30 rounded-xl animate-fade-in-up backdrop-blur-sm border border-neutral-700/50" style={{ animationDelay: '0.2s' }}>
+          <motion.button
             onClick={() => onNavigate('generator')}
-            className={`p-3 rounded-md transition-colors ${currentPage === 'generator' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300 hover:bg-white/10'}`}
+            whileTap={{ scale: 0.95 }}
+            className={`p-3 rounded-lg transition-all duration-200 shadow-sm ${currentPage === 'generator' ? 'bg-primary-500 text-white shadow-md' : 'text-neutral-400 hover:text-primary-300 hover:bg-primary-500/10'}`}
             title="Generator"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={() => onNavigate('dashboard')}
-            className={`p-3 rounded-md transition-colors ${currentPage === 'dashboard' || currentPage === 'article' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300 hover:bg-white/10'}`}
+            whileTap={{ scale: 0.95 }}
+            className={`p-3 rounded-lg transition-all duration-200 shadow-sm ${currentPage === 'dashboard' || currentPage === 'article' ? 'bg-primary-500 text-white shadow-md' : 'text-neutral-400 hover:text-primary-300 hover:bg-primary-500/10'}`}
             title="Dashboard"
           >
             <DashboardIcon className="h-5 w-5" />
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={() => onNavigate('calendar')}
-            className={`p-3 rounded-md transition-colors ${currentPage === 'calendar' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300 hover:bg-white/10'}`}
+            whileTap={{ scale: 0.95 }}
+            className={`p-3 rounded-lg transition-all duration-200 shadow-sm ${currentPage === 'calendar' ? 'bg-primary-500 text-white shadow-md' : 'text-neutral-400 hover:text-primary-300 hover:bg-primary-500/10'}`}
             title="Calendar"
           >
             <CalendarIcon className="h-5 w-5" />
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={() => window.location.href = '/'}
-            className="p-3 rounded-md text-slate-400 hover:text-slate-300 hover:bg-white/10 transition-colors"
+            whileTap={{ scale: 0.95 }}
+            className="p-3 rounded-lg text-neutral-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all duration-200 shadow-sm"
             title="Home"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10.707 2.293a1 1 0 00-1.414 0l-9 9a1 1 0 001.414 1.414L2 12.414V19a1 1 0 001 1h3a1 1 0 001-1v-3a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 001 1h3a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-9-9z" />
             </svg>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={onNavigateToFeatures}
-            className="p-3 rounded-md text-slate-400 hover:text-slate-300 hover:bg-white/10 transition-colors"
+            whileTap={{ scale: 0.95 }}
+            className="p-3 rounded-lg text-neutral-400 hover:text-accent-300 hover:bg-accent-500/10 transition-all duration-200 shadow-sm"
             title="Features"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={onNavigateToPricing}
-            className="p-3 rounded-md text-slate-400 hover:text-slate-300 hover:bg-white/10 transition-colors"
+            whileTap={{ scale: 0.95 }}
+            className="p-3 rounded-lg text-neutral-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all duration-200 shadow-sm"
             title="Pricing"
           >
             <CreditCardIcon className="h-5 w-5" />
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={onNavigateToContact}
-            className="p-3 rounded-md text-slate-400 hover:text-slate-300 hover:bg-white/10 transition-colors"
+            whileTap={{ scale: 0.95 }}
+            className="p-3 rounded-lg text-neutral-400 hover:text-accent-300 hover:bg-accent-500/10 transition-all duration-200 shadow-sm"
             title="Contact"
           >
             <MailIcon className="h-5 w-5" />
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -301,52 +338,76 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
         />
         <div className={`relative flex flex-col w-full sm:max-w-sm bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl border-r border-slate-700 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-800/80 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between p-6 border-b border-neutral-700/50 bg-neutral-800/80 backdrop-blur-sm rounded-t-xl"
+          >
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500/20 rounded-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" stroke="currentColor">
+              <motion.div 
+                className="p-2 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl shadow-lg"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-white">Recent Articles</h2>
+              </motion.div>
+              <h2 className="text-lg font-semibold text-white font-heading">Recent Articles</h2>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <motion.button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                className="p-2 text-neutral-400 hover:text-primary-400 hover:bg-primary-500/10 rounded-lg transition-all duration-200"
                 title="Search articles"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                className="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700/50 rounded-lg transition-all duration-200"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
+              </motion.button>
             </div>
-          </div>
+          </motion.div>
 
           {/* Search Input */}
           {searchOpen && (
-            <div className="px-6 py-4 border-b border-slate-700/50 bg-slate-800/50">
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="px-6 py-4 border-b border-neutral-700/50 bg-neutral-800/50 overflow-hidden"
+            >
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search articles by keyword..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 pl-10 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="input-field"
                 />
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <motion.svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-5 w-5 text-neutral-400 absolute left-3 top-3" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                  animate={{ scale: searchTerm ? 1.1 : 1 }}
+                  transition={{ duration: 0.2 }}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                </motion.svg>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Content */}
@@ -384,66 +445,76 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
                   };
 
                   return (
-                    <div
+                    <motion.div
                       key={article.id}
-                      className="group bg-slate-700/30 hover:bg-slate-700/50 rounded-xl p-4 border border-slate-600/50 hover:border-slate-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 hover:py-6"
-                      style={{ animationDelay: `${index * 50}ms` }}
+                      className="card overflow-hidden"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ y: -4 }}
                     >
                       <div className="flex items-center justify-between">
-                        <button
+                        <motion.button
                           onClick={() => {
                             onViewArticle(article.id);
                             setSidebarOpen(false);
                           }}
-                          className="text-left flex-1 group-hover:scale-[0.98] transition-transform duration-200 flex flex-col items-start justify-between"
+                          className="text-left flex-1 transition-transform duration-200 flex flex-col items-start justify-between"
+                          whileHover={{ scale: 1.02 }}
                         >
-                          <h3 className="text-sm font-medium text-white group-hover:text-indigo-300 transition-colors line-clamp-1 leading-tight">
+                          <h3 className="text-sm font-medium text-white line-clamp-1 leading-tight font-body">
                             {article.primaryKeyword}
                           </h3>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mt-2">
-                            <p className="text-xs text-slate-400">
+                          <div className="mt-2">
+                            <p className="text-xs text-neutral-400 font-body">
                               Created: {formatDate(article.createdAt)}
                             </p>
                           </div>
-                        </button>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
+                        </motion.button>
+                        <div className="flex items-center gap-1 flex-shrink-0 ml-3">
+                          <motion.button
                             onClick={() => {
                               onViewArticle(article.id);
                               setSidebarOpen(false);
                             }}
-                            className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="p-2 text-neutral-400 hover:text-primary-400 hover:bg-primary-500/10 rounded-lg transition-all duration-200"
                             title="View Article"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
                             onClick={() => {
                               onViewArticle(article.id);
                               setSidebarOpen(false);
                             }}
-                            className="p-1 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all duration-200"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="p-2 text-neutral-400 hover:text-accent-400 hover:bg-accent-500/10 rounded-lg transition-all duration-200"
                             title="Edit Article"
                           >
                             <EditIcon className="h-4 w-4" />
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
                             onClick={() => {
                               if (window.confirm('Are you sure you want to delete this article?')) {
                                 onDeleteArticle(article.id);
                               }
                             }}
-                            className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="p-2 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200"
                             title="Delete Article"
                           >
                             <TrashIcon className="h-4 w-4" />
-                          </button>
+                          </motion.button>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>

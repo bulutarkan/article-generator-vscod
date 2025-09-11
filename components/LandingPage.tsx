@@ -223,15 +223,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         }}
       >
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
-          <motion.button
-            style={{
-              scale: headerScale,
-              y: headerY,
-            }}
-            className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat transition-transform duration-300"
-          >
-            <span className="inline-block px-2 py-1 bg-purple-600 text-black rounded">AI</span>rticle
-          </motion.button>
+            <motion.button 
+              style={{
+                scale: headerScale,
+                y: headerY,
+                backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+              onClick={onNavigateToApp || onNavigateToAuth} 
+              whileHover={{ scale: 1.05 }}
+              className="text-3xl sm:text-4xl font-bold tracking-tight animate-fade-in-up inline-flex items-baseline font-heading hover:scale-105 transition-all duration-300"
+            >
+              <span className="inline-block px-1.5 py-1.5 border-2 border-blue-300 rounded-md bg-gradient-to-r from-primary-500 to-accent-500 text-gray-900 text-3xl font-bold">AI</span>
+              <span className="ml-1 text-3xl">rticle</span>
+            </motion.button>
           <motion.div
             style={{
               scale: headerScale,

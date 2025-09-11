@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { Article } from '../types';
 import { ArticleCard } from './ArticleCard';
 import { FilesIcon } from './icons/FilesIcon';
@@ -19,15 +20,25 @@ interface DashboardProps {
 }
 
 const StatCard: React.FC<{ icon: React.FC<React.SVGProps<SVGSVGElement>>; label: string; value: string | number; }> = ({ icon: Icon, label, value }) => (
-  <div className="bg-slate-800/70 p-5 rounded-xl border border-slate-700 flex items-start gap-4 h-full">
-    <div className="p-3 bg-indigo-500/10 rounded-lg">
-      <Icon className="h-6 w-6 text-indigo-400" />
+  <motion.div 
+    className="card h-full min-h-[80px]"
+    whileHover={{ y: -2 }}
+    transition={{ duration: 0.2 }}
+  >
+    <div className="flex items-start gap-3 p-3 sm:p-4">
+      <motion.div 
+        className="p-2 sm:p-3 bg-gradient-to-br from-primary-500/20 to-accent-500/20 rounded-lg border border-primary-500/30 flex-shrink-0"
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 2, repeat: Infinity }}
+      >
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary-400" />
+      </motion.div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs sm:text-sm text-neutral-400 font-body line-clamp-1">{label}</p>
+        <p className="text-lg sm:text-xl font-semibold text-white mt-1 font-heading">{value}</p>
+      </div>
     </div>
-    <div>
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className="text-2xl font-bold text-white mt-1">{value}</p>
-    </div>
-  </div>
+  </motion.div>
 );
 
 const PaginationButtons: React.FC<{
@@ -73,29 +84,32 @@ const PaginationButtons: React.FC<{
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 mt-6 mb-6">
+    <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 mt-6 mb-6">
       {/* Previous Button */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+        className={`p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
           currentPage === 1
             ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
             : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
         }`}
       >
-        ‹ Previous
+        <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        <span className="hidden sm:inline">Previous</span>
       </button>
 
       {/* Page Numbers */}
       {getVisiblePages().map((page, index) => (
         <React.Fragment key={index}>
           {page === '...' ? (
-            <span className="px-2 py-2 text-slate-500">...</span>
+            <span className="px-2 py-2 text-slate-500 text-xs sm:text-sm">...</span>
           ) : (
             <button
               onClick={() => onPageChange(page as number)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-w-[2rem] ${
                 currentPage === page
                   ? 'bg-indigo-500 text-white'
                   : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
@@ -111,13 +125,16 @@ const PaginationButtons: React.FC<{
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+        className={`p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
           currentPage === totalPages
             ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
             : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
         }`}
       >
-        Next ›
+        <span className="hidden sm:inline">Next</span>
+        <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
       </button>
     </div>
   );
@@ -221,31 +238,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
 
   if (articles.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-500 animate-fade-in-up">
-        <h2 className="text-2xl font-bold text-white mb-4">Dashboard is Empty</h2>
-        <p>You haven't generated any articles yet.</p>
-        <button onClick={() => onNavigate('generator')} className="mt-6 inline-block bg-indigo-500 px-4 py-2 rounded-md text-white hover:bg-indigo-400 transition-colors">
+      <motion.div 
+        className="text-center py-16 text-neutral-500"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="p-8 bg-neutral-800/50 rounded-2xl border border-neutral-700/50 inline-block mb-6"
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <FilesIcon className="h-16 w-16 mx-auto mb-4 text-neutral-600" />
+        </motion.div>
+        <h2 className="text-3xl font-bold text-white mb-4 font-heading">Dashboard is Empty</h2>
+        <p className="text-lg text-neutral-400 mb-8 font-body max-w-md mx-auto">You haven't generated any articles yet. Start creating content with AI-powered assistance!</p>
+        <motion.button 
+          onClick={() => onNavigate('generator')} 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-500 to-accent-500 px-6 py-3 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 font-body"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
           Generate Your First Article
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
     );
   }
 
   return (
     <div>
       {/* Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-fade-in-up">
+      <motion.div 
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8"
+        variants={{
+          hidden: { opacity: 0, y: 20 },
+          visible: { 
+            opacity: 1, 
+            y: 0,
+            transition: { 
+              duration: 0.6, 
+              staggerChildren: 0.1 
+            }
+          }
+        }}
+        initial="hidden"
+        animate="visible"
+      >
         {stats && (
           <>
-            <StatCard icon={FilesIcon} label="Total Articles" value={stats.totalArticles} />
-            <StatCard icon={FileTextIcon} label="Total Words" value={stats.totalWords} />
-            <StatCard icon={BarChartIcon} label="Avg. KW Difficulty" value={stats.avgDifficulty} />
-            <div onClick={() => onNavigate('calendar')} className="cursor-pointer hover:scale-105 transition-transform duration-200">
+            <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
+              <StatCard icon={FilesIcon} label="Total Articles" value={stats.totalArticles} />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
+              <StatCard icon={FileTextIcon} label="Total Words" value={stats.totalWords} />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
+              <StatCard icon={BarChartIcon} label="Avg. KW Difficulty" value={stats.avgDifficulty} />
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+              whileHover={{ scale: 1.02 }}
+              className="cursor-pointer"
+              onClick={() => onNavigate('calendar')}
+            >
               <StatCard icon={CalendarIcon} label="Content Calendar" value="Plan" />
-            </div>
+            </motion.div>
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* Compact Search and Filter Section */}
       <div className="mb-6">
@@ -266,46 +329,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
 
         {/* Compact Search and Filter Section - Show all when toggled */}
         {showSearchBar && (
-          <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-600 animate-fade-in-up">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+          <div className="bg-slate-800/50 p-3 sm:p-4 rounded-lg border border-slate-600 animate-fade-in-up max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3">
               {/* Search Input */}
               <div className="relative">
-                <SearchIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search articles..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-7 pr-3 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-transparent text-xs"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                   autoFocus
                 />
               </div>
 
               {/* Keyword Filter */}
               <div className="relative">
-                <HashIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
+                <HashIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Keyword..."
+                  placeholder="Keyword"
                   value={filterKeyword}
                   onChange={(e) => setFilterKeyword(e.target.value)}
-                  className="w-full pl-7 pr-3 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-transparent text-xs"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                 />
               </div>
 
               {/* Tone Filter */}
               <div className="relative">
-                <MegaphoneIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
+                <MegaphoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
                 <select
                   value={filterTone}
                   onChange={(e) => setFilterTone(e.target.value)}
-                  className="w-full pl-7 pr-6 py-1.5 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-transparent text-xs appearance-none cursor-pointer"
+                  className="w-full pl-10 pr-8 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.25rem center',
+                    backgroundPosition: 'right 0.75rem center',
                     backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1em 1em',
-                    paddingRight: '1.75rem'
+                    backgroundSize: '1.25em 1.25em',
+                    paddingRight: '2.5rem'
                   }}
                 >
                   <option value="">All Tones</option>
@@ -317,17 +380,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
 
               {/* Location Filter */}
               <div className="relative">
-                <GeoIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
+                <GeoIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
                 <select
                   value={filterLocation}
                   onChange={(e) => setFilterLocation(e.target.value)}
-                  className="w-full pl-7 pr-6 py-1.5 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-transparent text-xs appearance-none cursor-pointer"
+                  className="w-full pl-10 pr-8 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.25rem center',
+                    backgroundPosition: 'right 0.75rem center',
                     backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1em 1em',
-                    paddingRight: '1.75rem'
+                    backgroundSize: '1.25em 1.25em',
+                    paddingRight: '2.5rem'
                   }}
                 >
                   <option value="">All Locations</option>
@@ -339,50 +402,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
             </div>
 
             {/* Active Filters and Results Summary */}
-            <div className="flex items-center justify-between">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                 {(searchTerm || filterKeyword || filterTone || filterLocation) && (
                   <>
                     <span className="text-xs text-slate-400">Active:</span>
                     {searchTerm && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded-md text-xs">
                         "{searchTerm}"
                         <button
                           onClick={() => setSearchTerm('')}
-                          className="hover:text-indigo-200 ml-1"
+                          className="hover:text-indigo-200 ml-1 text-xs"
                         >
                           ×
                         </button>
                       </span>
                     )}
                     {filterKeyword && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-300 rounded-md text-xs">
                         "{filterKeyword}"
                         <button
                           onClick={() => setFilterKeyword('')}
-                          className="hover:text-green-200 ml-1"
+                          className="hover:text-green-200 ml-1 text-xs"
                         >
                           ×
                         </button>
                       </span>
                     )}
                     {filterTone && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 rounded-md text-xs">
                         {filterTone}
                         <button
                           onClick={() => setFilterTone('')}
-                          className="hover:text-purple-200 ml-1"
+                          className="hover:text-purple-200 ml-1 text-xs"
                         >
                           ×
                         </button>
                       </span>
                     )}
                     {filterLocation && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded text-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-300 rounded-md text-xs">
                         {filterLocation}
                         <button
                           onClick={() => setFilterLocation('')}
-                          className="hover:text-orange-200 ml-1"
+                          className="hover:text-orange-200 ml-1 text-xs"
                         >
                           ×
                         </button>
@@ -395,14 +458,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
                         setFilterTone('');
                         setFilterLocation('');
                       }}
-                      className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/30"
+                      className="px-3 py-1 bg-red-500/20 text-red-400 rounded-md text-xs hover:bg-red-500/30 transition-colors"
                     >
                       Clear All
                     </button>
                   </>
                 )}
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-400 text-center sm:text-right">
                 {filteredArticles.length} of {articles.length}
               </div>
             </div>
@@ -413,10 +476,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
       {/* Articles Grid */}
       <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         {filteredArticles.length === 0 ? (
-          <div className="text-center py-16 text-slate-500">
-            <SearchIcon className="h-16 w-16 mx-auto mb-4 text-slate-600" />
-            <h3 className="text-xl font-semibold text-white mb-2">No articles found</h3>
-            <p className="mb-4">Try adjusting your search or filter criteria.</p>
+          <div className="text-center py-12 sm:py-16 text-slate-500">
+            <SearchIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-slate-600" />
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No articles found</h3>
+            <p className="mb-4 text-sm sm:text-base">Try adjusting your search or filter criteria.</p>
             {(searchTerm || filterKeyword || filterTone || filterLocation) && (
               <button
                 onClick={() => {
@@ -425,7 +488,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
                   setFilterTone('');
                   setFilterLocation('');
                 }}
-                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-400 transition-colors"
+                className="px-4 py-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-400 transition-colors text-sm"
               >
                 Clear Filters
               </button>
@@ -433,18 +496,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {currentPageArticles.map((article) => (
                 <ArticleCard key={article.id} article={article} onDelete={onDeleteArticle} onView={onViewArticle} />
               ))}
             </div>
 
             {/* Pagination Buttons - Below Articles */}
-            <PaginationButtons
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+            {totalPages > 1 && (
+              <PaginationButtons
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </>
         )}
       </div>

@@ -171,6 +171,8 @@ export interface CalendarEvent {
   start_date: Date;
   end_date: Date;
   status: CalendarEventStatus;
+  start: Date; // Added for react-big-calendar compatibility
+  end: Date;   // Added for react-big-calendar compatibility
   article_id?: string;
   notes?: string;
 }
