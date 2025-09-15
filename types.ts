@@ -80,6 +80,7 @@ export interface Article {
   location: string;
   articleContent: string;
   metaDescription: string;
+  excerpt?: string;
   keywords: string[];
   priceComparison?: PriceComparisonItem[];
   generalComparison?: ComparisonItem[];

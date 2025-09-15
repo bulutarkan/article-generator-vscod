@@ -30,6 +30,7 @@ export const publishToWordPress = async (article: Article): Promise<any> => {
   const { data } = await axios.post(url, {
     title: article.title,
     content: htmlContent,
+    excerpt: article.excerpt || '',
     status: 'draft' // Or 'publish'
   }, {
     headers: {
