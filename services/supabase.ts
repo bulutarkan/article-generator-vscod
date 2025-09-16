@@ -52,16 +52,59 @@ export const signOut = async () => {
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  return {
-    id: user.id,
-    email: user.email || '',
-    username: user.user_metadata?.username || user.email?.split('@')[0] || '',
-    firstName: user.user_metadata?.first_name,
-    lastName: user.user_metadata?.last_name,
-    role: user.user_metadata?.role || 'user',
-  };
+  console.log('🔐 getCurrentUser: Starting auth check...');
+  try {
+    // First, get session - this is faster
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    console.log('🔐 getCurrentUser: Session result:', { hasSession: !!session, hasError: !!sessionError });
+
+    if (sessionError) {
+      console.error('🔐 getCurrentUser: Session error:', sessionError);
+      return null;
+    }
+
+    // If session exists, use session.user - avoid extra getUser() call
+    if (session?.user) {
+      const user = session.user;
+      console.log('🔐 getCurrentUser: Using session user:', {
+        hasUser: !!user,
+        userId: user.id,
+        userEmail: user.email
+      });
+
+      return {
+        id: user.id,
+        email: user.email || '',
+        username: user.user_metadata?.username || user.email?.split('@')[0] || '',
+        firstName: user.user_metadata?.first_name,
+        lastName: user.user_metadata?.last_name,
+        role: user.user_metadata?.role || 'user',
+      };
+    }
+
+    // Fallback to getUser() if no session
+    const { data: { user }, error } = await supabase.auth.getUser();
+    console.log('🔐 getCurrentUser: Fallback user result:', { hasUser: !!user, hasError: !!error });
+
+    if (error) {
+      console.error('🔐 getCurrentUser: User error:', error);
+      return null;
+    }
+
+    if (!user) return null;
+
+    return {
+      id: user.id,
+      email: user.email || '',
+      username: user.user_metadata?.username || user.email?.split('@')[0] || '',
+      firstName: user.user_metadata?.first_name,
+      lastName: user.user_metadata?.last_name,
+      role: user.user_metadata?.role || 'user',
+    };
+  } catch (error) {
+    console.error('🔐 getCurrentUser: Exception:', error);
+    return null;
+  }
 };
 
 export const changePassword = async (newPassword: string) => {

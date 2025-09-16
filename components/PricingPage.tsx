@@ -2,11 +2,11 @@ import React from 'react';
 import { CheckIcon } from './icons/CheckIcon';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { useAuth } from './AuthContext';
 
 interface PricingPageProps {
   onNavigateToAuth: () => void;
   onNavigateToApp?: () => void;
-  isLoggedIn: boolean;
   onNavigateToFeatures: () => void;
   onNavigateToContact: () => void;
   onNavigateToTerms: () => void;
@@ -83,8 +83,9 @@ const useTypewriter = (texts: string[], typingSpeed: number = 100, pauseTime: nu
 const HowToStart: React.FC<{
   onNavigateToAuth: () => void;
   onNavigateToGenerator?: () => void;
-  isLoggedIn: boolean;
-}> = ({ onNavigateToAuth, onNavigateToGenerator, isLoggedIn }) => {
+}> = ({ onNavigateToAuth, onNavigateToGenerator }) => {
+  const { user } = useAuth();
+  const actualLoggedIn = !!user;
   const typewriterTexts = [
     "Create account & sign in",
     "Generate your first article",
@@ -127,7 +128,7 @@ const HowToStart: React.FC<{
   ];
 
   const handleGetStarted = () => {
-    if (isLoggedIn && onNavigateToGenerator) {
+    if (actualLoggedIn && onNavigateToGenerator) {
       onNavigateToGenerator();
     } else {
       onNavigateToAuth();
@@ -205,16 +206,16 @@ const HowToStart: React.FC<{
             onClick={handleGetStarted}
             className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white px-10 py-5 rounded-xl font-semibold text-lg transition-all duration-300 shadow-lg hover:shadow-indigo-500/25 transform hover:-translate-y-1"
           >
-            {isLoggedIn ? 'Start Creating →' : 'Get Started Now →'}
+            {actualLoggedIn ? 'Start Creating →' : 'Get Started Now →'}
           </button>
 
-          {!isLoggedIn && (
+          {!actualLoggedIn && (
             <p className="mt-4 text-slate-400">
               No credit card required • 14-day free trial • Cancel anytime
             </p>
           )}
 
-          {isLoggedIn && (
+          {actualLoggedIn && (
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
               <div className="bg-slate-800/30 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-white">30 seconds</div>
@@ -236,8 +237,10 @@ const HowToStart: React.FC<{
   );
 };
 
-export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNavigateToApp, isLoggedIn, onNavigateToFeatures, onNavigateToContact, onNavigateToTerms, onNavigateToPrivacy }) => {
-  const handleHeaderClick = isLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
+export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNavigateToApp, onNavigateToFeatures, onNavigateToContact, onNavigateToTerms, onNavigateToPrivacy }) => {
+  const { user } = useAuth();
+  const actualLoggedIn = !!user;
+  const handleHeaderClick = actualLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
 
   return (
     <>
@@ -251,7 +254,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
             <button onClick={onNavigateToFeatures} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Features</button>
             <button onClick={onNavigateToContact} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Contact</button>
             <button onClick={handleHeaderClick} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-              {isLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
+              {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
             </button>
           </div>
         </div>
@@ -357,7 +360,6 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
         <HowToStart
           onNavigateToAuth={onNavigateToAuth}
           onNavigateToGenerator={onNavigateToApp}
-          isLoggedIn={isLoggedIn}
         />
       </main>
 

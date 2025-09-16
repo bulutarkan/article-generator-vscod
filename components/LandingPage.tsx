@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import Typed from 'typed.js';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -21,6 +22,7 @@ import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { Footer } from './Footer';
 import DemoSection from './DemoSection';
 import { LandingPageTitle } from './PageTitle';
+import { useAuth } from './AuthContext';
 
 interface LandingPageProps {
   onNavigateToAuth: () => void;
@@ -28,7 +30,6 @@ interface LandingPageProps {
   onNavigateToPricing: () => void;
   onNavigateToContact: () => void;
   onNavigateToApp?: () => void;
-  isLoggedIn: boolean;
 }
 
 const FeatureCard: React.FC<{
@@ -96,9 +97,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onNavigateToFeatures,
   onNavigateToPricing,
   onNavigateToContact,
-  onNavigateToApp,
-  isLoggedIn
+  onNavigateToApp
 }) => {
+  const { user, loading: authLoading } = useAuth();
+  const actualLoggedIn = !!user;
+
+  // Debug logging
+  console.log('🧪 LandingPage auth state:', { user: !!user, authLoading, actualLoggedIn });
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
   const headerScale = useTransform(scrollYProgress, [0, 0.1], [1, 0.98]);
@@ -225,22 +230,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         }}
       >
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
-            <motion.button 
-              style={{
-                scale: headerScale,
-                y: headerY,
-                backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}
-              onClick={onNavigateToApp || onNavigateToAuth} 
-              whileHover={{ scale: 1.05 }}
-              className="text-3xl sm:text-4xl font-bold tracking-tight animate-fade-in-up inline-flex items-baseline font-heading hover:scale-105 transition-all duration-300"
-            >
-              <span className="inline-block px-1.5 py-1.5 border-2 border-blue-300 rounded-md bg-gradient-to-r from-primary-500 to-accent-500 text-gray-900 text-3xl font-bold">AI</span>
-              <span className="ml-1 text-3xl">rticle</span>
-            </motion.button>
+          <motion.button
+            style={{
+              scale: headerScale,
+              y: headerY,
+              backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+            onClick={onNavigateToApp || onNavigateToAuth}
+            whileHover={{ scale: 1.05 }}
+            className="text-3xl sm:text-4xl font-bold tracking-tight animate-fade-in-up inline-flex items-baseline font-heading hover:scale-105 transition-all duration-300"
+          >
+            <span className="inline-block px-1.5 py-1.5 border-2 border-blue-300 rounded-md bg-gradient-to-r from-primary-500 to-accent-500 text-gray-900 text-3xl font-bold">AI</span>
+            <span className="ml-1 text-3xl">rticle</span>
+          </motion.button>
           <motion.div
             style={{
               scale: headerScale,
@@ -251,7 +256,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button onClick={onNavigateToFeatures} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Features</button>
             <button onClick={onNavigateToPricing} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Pricing</button>
             <button onClick={onNavigateToContact} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Contact</button>
-            {isLoggedIn ? (
+            {actualLoggedIn ? (
               <button onClick={onNavigateToApp} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
                 Back to App &rarr;
               </button>
@@ -326,10 +331,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
             <button
-              onClick={isLoggedIn ? onNavigateToApp : onNavigateToAuth}
+              onClick={actualLoggedIn ? onNavigateToApp : onNavigateToAuth}
               className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-indigo-500/50"
             >
-              {isLoggedIn ? 'Start Creating' : 'Get Started Free'}
+              {actualLoggedIn ? 'Start Creating' : 'Get Started Free'}
             </button>
             <button
               onClick={onNavigateToFeatures}
@@ -884,10 +889,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button
-                onClick={isLoggedIn ? onNavigateToApp : onNavigateToAuth}
+                onClick={actualLoggedIn ? onNavigateToApp : onNavigateToAuth}
                 className="bg-white text-indigo-900 hover:bg-slate-100 font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
-                {isLoggedIn ? 'Start Creating Now' : 'Start Free Trial'}
+                {actualLoggedIn ? 'Start Creating Now' : 'Start Free Trial'}
               </button>
               <button
                 onClick={onNavigateToPricing}

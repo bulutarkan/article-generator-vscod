@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import * as supabaseService from '../services/supabase';
-import type { User } from '../types';
+import { useAuth } from './AuthContext';
 import { Loader } from './Loader';
 import { AppLayout } from './AppLayout';
 
@@ -11,56 +10,20 @@ interface AuthGuardProps {
 }
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireAuth = true }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, signOut } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const currentUser = await supabaseService.getCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Auth check error:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkUser();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabaseService.supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN') {
-          const currentUser = await supabaseService.getCurrentUser();
-          setUser(currentUser);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [requireAuth]);
 
   const handleLogout = async () => {
     try {
-      await supabaseService.signOut();
-      // Force a re-check of the user state to ensure UI updates
-      const currentUser = await supabaseService.getCurrentUser();
-      setUser(currentUser);
+      await signOut();
     } catch (error) {
       console.error('Error during logout:', error);
-      // Even if logout fails, clear the local state
-      setUser(null);
     }
   };
 
-  if (loading) {
+  // Don't show loading on auth pages, even if auth context is still loading
+  // Auth pages should be accessible regardless of auth state
+  if (loading && requireAuth) {
     return <Loader />;
   }
 

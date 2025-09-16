@@ -2,11 +2,11 @@ import React from 'react';
 import { Footer } from './Footer';
 import type { User } from '../types';
 import { StaticPageTitle } from './PageTitle';
+import { useAuth } from './AuthContext';
 
 interface ContactPageProps {
   onNavigateToAuth: () => void;
   onNavigateToApp?: () => void;
-  isLoggedIn: boolean;
   onNavigateToPricing: () => void;
   onNavigateToFeatures: () => void;
   onNavigateToTerms: () => void;
@@ -14,8 +14,10 @@ interface ContactPageProps {
   user?: User | null;
 }
 
-export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNavigateToApp, isLoggedIn, onNavigateToPricing, onNavigateToFeatures, onNavigateToTerms, onNavigateToPrivacy, user }) => {
-  const handleHeaderClick = isLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
+export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNavigateToApp, onNavigateToPricing, onNavigateToFeatures, onNavigateToTerms, onNavigateToPrivacy, user }) => {
+  const { user: authUser } = useAuth();
+  const actualLoggedIn = !!authUser;
+  const handleHeaderClick = actualLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
 
   return (
     <>
@@ -29,7 +31,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNa
             <button onClick={onNavigateToFeatures} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Features</button>
             <button onClick={onNavigateToPricing} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Pricing</button>
             <button onClick={handleHeaderClick} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-              {isLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
+              {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
             </button>
           </div>
         </div>
@@ -48,11 +50,11 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNa
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
-                <input type="text" id="name" className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
+                <input type="text" id="name" defaultValue={`${authUser?.firstName || ''} ${authUser?.lastName || ''}`.trim() || ''} className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
               </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
-                <input type="email" id="email" defaultValue={user?.email || ''} className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
+                <input type="email" id="email" defaultValue={authUser?.email || ''} readOnly={!!authUser?.email} className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
               </div>
             </div>
             <div className="mt-6">

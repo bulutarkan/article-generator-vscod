@@ -18,11 +18,11 @@ import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { useAuth } from './AuthContext';
 
 interface FeaturesPageProps {
   onNavigateToAuth: () => void;
   onNavigateToApp?: () => void;
-  isLoggedIn: boolean;
   onNavigateToPricing: () => void;
   onNavigateToContact: () => void;
   onNavigateToTerms: () => void;
@@ -55,7 +55,9 @@ const FeatureCard: React.FC<{
   );
 };
 
-export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, onNavigateToApp, isLoggedIn, onNavigateToPricing, onNavigateToContact, onNavigateToTerms, onNavigateToPrivacy }) => {
+export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, onNavigateToApp, onNavigateToPricing, onNavigateToContact, onNavigateToTerms, onNavigateToPrivacy }) => {
+  const { user } = useAuth();
+  const actualLoggedIn = !!user;
   const features = [
     {
       icon: <SparkleIcon className="h-6 w-6" />,
@@ -115,8 +117,8 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, on
           <div className="flex items-center gap-2 sm:gap-4">
             <button onClick={onNavigateToPricing} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Pricing</button>
             <button onClick={onNavigateToContact} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Contact</button>
-            <button onClick={isLoggedIn ? onNavigateToApp : onNavigateToAuth} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-              {isLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
+            <button onClick={actualLoggedIn ? onNavigateToApp : onNavigateToAuth} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
+              {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
             </button>
           </div>
         </div>
@@ -232,7 +234,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, on
           <div className="text-center mt-16">
             <h2 className="text-3xl font-bold text-white">Ready to get started?</h2>
             <p className="mt-3 text-slate-400">Generate your first article for free.</p>
-            <button onClick={isLoggedIn ? onNavigateToApp : onNavigateToPricing} className="mt-6 bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
+            <button onClick={actualLoggedIn ? onNavigateToApp : onNavigateToPricing} className="mt-6 bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
               Start Generating
             </button>
           </div>

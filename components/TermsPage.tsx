@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { useAuth } from './AuthContext';
 
 interface TermsPageProps {
   onNavigateToAuth: () => void;
   onNavigateToApp?: () => void;
-  isLoggedIn: boolean;
   onNavigateToPrivacy: () => void;
 }
 
-export const TermsPage: React.FC<TermsPageProps> = ({ onNavigateToAuth, onNavigateToApp, isLoggedIn, onNavigateToPrivacy }) => {
+export const TermsPage: React.FC<TermsPageProps> = ({ onNavigateToAuth, onNavigateToApp, onNavigateToPrivacy }) => {
+  const { user } = useAuth();
+  const actualLoggedIn = !!user;
+  const handleHeaderClick = actualLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
   const [activeSection, setActiveSection] = useState<string | null>('introduction');
-  const handleHeaderClick = isLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
 
   const sections = [
     {
@@ -50,7 +52,7 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onNavigateToAuth, onNaviga
             <span className="inline-block px-2 py-1 bg-purple-600 text-black rounded">AI</span>rticle
           </button>
           <button onClick={handleHeaderClick} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-            {isLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
+            {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
           </button>
         </div>
       </header>

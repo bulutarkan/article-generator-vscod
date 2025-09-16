@@ -6,6 +6,7 @@ import { webCrawlerService } from '../services/webCrawlerService';
 import { performContentAnalysis } from '../services/contentAnalyticsService';
 import { Loader } from './Loader';
 import { ContentAnalysisModal } from './ContentAnalysisModal';
+import { useAuth } from './AuthContext';
 import type { Article, ContentAnalysis } from '../types';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
@@ -33,7 +34,11 @@ export const Generator: React.FC<GeneratorProps> = ({
   onNavigateToPricing,
   onNavigateToContact
 }) => {
+  const { loading: authLoading, user } = useAuth();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Only show loading if auth is ready AND we have actual generation in progress
+  const effectiveIsLoading = !authLoading && isLoading;
   const [error, setError] = useState<string | null>(null);
   const [tone, setTone] = useState<string>('Authoritative');
   const [brief, setBrief] = useState<string>('');
@@ -271,7 +276,8 @@ export const Generator: React.FC<GeneratorProps> = ({
     }
   }, [topic, location, tone, brief, enableInternalLinks, websiteUrl, onArticleGenerated]);
 
-  if (isLoading) {
+  // Show loading only when auth is ready and we're actually loading
+  if (effectiveIsLoading) {
     return <Loader />;
   }
 

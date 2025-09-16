@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { useAuth } from './AuthContext';
 
 interface PrivacyPageProps {
   onNavigateToAuth: () => void;
   onNavigateToApp?: () => void;
-  isLoggedIn: boolean;
   onNavigateToTerms: () => void;
 }
 
-export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNavigateToApp, isLoggedIn, onNavigateToTerms }) => {
+export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNavigateToApp, onNavigateToTerms }) => {
+  const { user } = useAuth();
+  const actualLoggedIn = !!user;
   const [activeSection, setActiveSection] = useState<string | null>('overview');
-  const handleHeaderClick = isLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
+  const handleHeaderClick = actualLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
 
   const sections = [
     {
@@ -50,7 +52,7 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNa
             <span className="inline-block px-2 py-1 bg-purple-600 text-black rounded">AI</span>rticle
           </button>
           <button onClick={handleHeaderClick} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-            {isLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
+            {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
           </button>
         </div>
       </header>
