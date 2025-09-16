@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckIcon } from './icons/CheckIcon';
 import { Footer } from './Footer';
+import { StaticPageTitle } from './PageTitle';
 
 interface PricingPageProps {
   onNavigateToAuth: () => void;
@@ -240,6 +241,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
 
   return (
     <>
+      <StaticPageTitle pageName="Pricing" />
       <header className="py-8 px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">

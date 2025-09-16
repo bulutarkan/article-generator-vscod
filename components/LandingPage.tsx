@@ -20,6 +20,7 @@ import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { Footer } from './Footer';
 import DemoSection from './DemoSection';
+import { LandingPageTitle } from './PageTitle';
 
 interface LandingPageProps {
   onNavigateToAuth: () => void;
@@ -208,6 +209,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className="min-h-screen flex flex-col">
+      <LandingPageTitle />
       {/* Header */}
       <motion.header
         className="px-4 fixed top-0 left-0 right-0 z-[100] bg-slate-900/85 backdrop-blur-md border-b border-slate-800/50 shadow-lg transition-all duration-300 flex items-center"

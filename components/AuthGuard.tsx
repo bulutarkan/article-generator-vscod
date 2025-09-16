@@ -29,11 +29,36 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireAuth = true }) =
     };
 
     checkUser();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabaseService.supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          const currentUser = await supabaseService.getCurrentUser();
+          setUser(currentUser);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {
-    await supabaseService.signOut();
-    setUser(null);
+    try {
+      await supabaseService.signOut();
+      // Force a re-check of the user state to ensure UI updates
+      const currentUser = await supabaseService.getCurrentUser();
+      setUser(currentUser);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if logout fails, clear the local state
+      setUser(null);
+    }
   };
 
   if (loading) {
@@ -45,10 +70,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireAuth = true }) =
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If user is logged in but trying to access auth pages, redirect to app
-  if (!requireAuth && user) {
-    return <Navigate to="/app" replace />;
-  }
+  // Allow logged-in users to access auth pages (AuthPage will handle navigation)
 
   // Special case: if this is the app route and user is authenticated, render AppLayout
   if (requireAuth && user && location.pathname.startsWith('/app')) {

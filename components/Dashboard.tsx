@@ -11,6 +11,7 @@ import { SlidersIcon } from './icons/SlidersIcon';
 import { GeoIcon } from './icons/GeoIcon';
 import { MegaphoneIcon } from './icons/MegaphoneIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
+import { AppPageTitle } from './PageTitle';
 
 interface DashboardProps {
   articles: Article[];
@@ -270,6 +271,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
 
   return (
     <div>
+      <AppPageTitle pageName="Dashboard" />
       {/* Stats Section */}
       <motion.div 
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8"

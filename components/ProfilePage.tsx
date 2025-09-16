@@ -12,8 +12,8 @@ import { CalendarIcon } from './icons/CalendarIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { IntegrationsManager } from './IntegrationsManager';
-
 import { ArticleCard } from './ArticleCard';
+import { AppPageTitle } from './PageTitle';
 
 interface ProfilePageProps {
   onBackToApp: () => void;
@@ -159,6 +159,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   return (
     <>
+      <AppPageTitle pageName="Profile" />
       <header className="py-8 text-center px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <div className="text-left">

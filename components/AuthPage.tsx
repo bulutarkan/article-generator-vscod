@@ -8,6 +8,7 @@ import { GithubIcon } from './icons/GithubIcon';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
 import { Footer } from './Footer';
+import { AuthPageTitle } from './PageTitle';
 
 interface AuthPageProps {
   onLogin: (user: User) => void;
@@ -191,6 +192,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onNavigateToPricing
 
   return (
     <div className="min-h-screen flex flex-col">
+      <AuthPageTitle type={mode} />
       <header className="py-8 px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">
