@@ -122,12 +122,43 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
   };
 
   const handleAddArticle = async (
-    articleData: Omit<Article, 'id' | 'topic' | 'location' | 'user_id' | 'tone'>,
+    articleData: Omit<Article, 'id' | 'createdAt' | 'topic' | 'location' | 'user_id' | 'tone' | 'created_at'>,
     topic: string,
     location: string,
     tone: string
   ) => {
     try {
+      // Add timeout to prevent hanging
+      const authCheckPromise = supabaseService.supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Authentication check timed out')), 10000)
+      );
+
+      let sessionResult;
+      try {
+        sessionResult = await Promise.race([authCheckPromise, timeoutPromise]) as any;
+      } catch (timeoutError) {
+        console.error('Authentication check timed out:', timeoutError);
+        throw new Error('Authentication check timed out. Please try again.');
+      }
+
+      const { data: { session }, error: authError } = sessionResult;
+
+      if (authError) {
+        console.error('Auth error during session check:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+
+      if (!session || !session.user) {
+        console.error('No active session found');
+        throw new Error('You are not logged in. Please log in again.');
+      }
+
+      if (session.user.id !== user.id) {
+        console.error('Session user mismatch');
+        throw new Error('Session mismatch. Please log in again.');
+      }
+
       const newArticle = await supabaseService.addArticle({
         ...articleData,
         user_id: user.id,
@@ -135,14 +166,29 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
         location,
         tone,
       });
+
       const updated = [newArticle, ...articles];
       saveArticles(updated);
       handleViewArticle(newArticle.id);
       setTopic('');
       setLocation('');
-    } catch (error) {
-      console.error('Error adding article', error);
-      throw error;
+    } catch (error: any) {
+      console.error('Error saving article:', error);
+
+      // Check if this is an auth-related error
+      if (error?.message?.includes('JWT') ||
+          error?.message?.includes('token') ||
+          error?.message?.includes('auth') ||
+          error?.message?.includes('session') ||
+          error?.code === 'PGRST301' ||
+          error?.status === 401) {
+        // Force logout to clear invalid session
+        await supabaseService.signOut();
+        throw new Error('Your session has expired. Please log in again.');
+      }
+
+      // Re-throw with user-friendly message
+      throw new Error(`Failed to save article: ${error?.message || 'Unknown error'}`);
     }
   };
 

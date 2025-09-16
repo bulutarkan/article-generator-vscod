@@ -26,9 +26,7 @@ const AppContent: React.FC = () => {
   const handleNavigateToPrivacy = () => navigate('/privacy');
 
   // Wrapper function to handle login navigation with User parameter
-  const handleLoginSuccess = (user: any) => {
-    navigate('/app');
-  };
+  const handleLoginSuccess = (user: any) => navigate('/app');
 
   return (
     <Routes>

@@ -17,7 +17,7 @@ interface GeneratorProps {
   setTopic: (topic: string) => void;
   location: string;
   setLocation: (location: string) => void;
-  onArticleGenerated: (article: Omit<Article, 'id' | 'createdAt' | 'topic' | 'location' | 'user_id' | 'tone'>, topic: string, location: string, tone: string) => Promise<void>;
+  onArticleGenerated: (article: Omit<Article, 'id' | 'createdAt' | 'topic' | 'location' | 'user_id' | 'tone' | 'created_at'>, topic: string, location: string, tone: string) => Promise<void>;
   onNavigateToFeatures?: () => void;
   onNavigateToPricing?: () => void;
   onNavigateToContact?: () => void;
@@ -221,7 +221,9 @@ export const Generator: React.FC<GeneratorProps> = ({
         internalLinksContext
       );
 
+      console.log('🔄 Calling onArticleGenerated to save article...');
       await onArticleGenerated(result, topic, location, tone);
+      console.log('✅ Article saved successfully, clearing form...');
 
       // Clear local state after successful generation
       setTopic('');

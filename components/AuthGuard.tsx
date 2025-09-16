@@ -21,7 +21,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireAuth = true }) =
         const currentUser = await supabaseService.getCurrentUser();
         setUser(currentUser);
       } catch (error) {
-        console.error('Error checking user:', error);
+        console.error('Auth check error:', error);
         setUser(null);
       } finally {
         setLoading(false);
@@ -33,8 +33,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireAuth = true }) =
     // Listen for auth state changes
     const { data: { subscription } } = supabaseService.supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN') {
           const currentUser = await supabaseService.getCurrentUser();
           setUser(currentUser);
         } else if (event === 'SIGNED_OUT') {
@@ -46,7 +45,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireAuth = true }) =
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [requireAuth]);
 
   const handleLogout = async () => {
     try {

@@ -9,7 +9,15 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storage: window.localStorage,
+    storageKey: 'supabase.auth.token'
+  }
+});
 
 // Auth functions
 export const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
@@ -171,31 +179,62 @@ export const getArticles = async (userId?: string): Promise<Article[]> => {
   return (data || []).map(transformToCamelCase);
 };
 
-export const addArticle = async (article: Omit<Article, 'id' | 'created_at'>): Promise<Article> => {
+export const addArticle = async (article: Omit<Article, 'id' | 'createdAt'>): Promise<Article> => {
+  // Data validation
+  if (!article.user_id) {
+    throw new Error('User ID is required');
+  }
+  if (!article.title || article.title.trim().length === 0) {
+    throw new Error('Article title is required');
+  }
+  if (!article.topic || article.topic.trim().length === 0) {
+    throw new Error('Article topic is required');
+  }
+  if (!article.articleContent || article.articleContent.trim().length === 0) {
+    throw new Error('Article content is required');
+  }
+  if (!article.location || article.location.trim().length === 0) {
+    throw new Error('Article location is required');
+  }
+  if (!article.tone || article.tone.trim().length === 0) {
+    throw new Error('Article tone is required');
+  }
+
+  // Validate content length
+  const wordCount = article.articleContent.trim().split(/\s+/).length;
+  if (wordCount < 100) {
+    throw new Error(`Article content is too short (${wordCount} words). Minimum 100 words required.`);
+  }
+
+  // Validate keywords array
+  if (!Array.isArray(article.keywords) || article.keywords.length === 0) {
+    throw new Error('Article must have at least one keyword');
+  }
+
   // Convert camelCase to snake_case for Supabase
   const snakeCaseArticle = {
     user_id: article.user_id,
-    title: article.title,
-    topic: article.topic,
-    articlecontent: article.articleContent,
-    metadescription: article.metaDescription,
+    title: article.title.trim(),
+    topic: article.topic.trim(),
+    articlecontent: article.articleContent.trim(),
+    metadescription: article.metaDescription?.trim() || '',
     keywords: article.keywords,
-    monthly_searches: article.monthlySearches,
-    primary_keyword: article.primaryKeyword,
-    keyword_difficulty: article.keywordDifficulty,
-    content_quality: article.content_quality,
-    tone: article.tone,
-    location: article.location,
-    // SEO metrics fields - handle optional seoMetrics
-    seo_readability_score: article.seoMetrics?.readabilityScore || null,
-    seo_keyword_density: article.seoMetrics?.keywordDensity || null,
-    seo_overall_score: article.seoMetrics?.seoScore || null,
-    seo_content_quality: article.seoMetrics?.subMetrics.contentQuality || null,
-    seo_target_keywords: article.seoMetrics?.subMetrics.targetKeywords || null,
-    seo_technical_seo: article.seoMetrics?.subMetrics.technicalSeo || null,
-    seo_engagement: article.seoMetrics?.subMetrics.engagement || null,
-    seo_structure: article.seoMetrics?.subMetrics.structure || null,
-    seo_originality: article.seoMetrics?.subMetrics.originality || 0
+    monthly_searches: article.monthlySearches || 0,
+    primary_keyword: article.primaryKeyword?.trim() || '',
+    keyword_difficulty: article.keywordDifficulty || 0,
+    content_quality: article.content_quality || [],
+    tone: article.tone.trim(),
+    location: article.location.trim(),
+    // SEO metrics fields - handle optional seoMetrics (convert floats to integers)
+    seo_readability_score: article.seoMetrics?.readabilityScore ? Math.round(article.seoMetrics.readabilityScore) : null,
+    seo_keyword_density: article.seoMetrics?.keywordDensity ? Math.round(article.seoMetrics.keywordDensity) : null,
+    seo_overall_score: article.seoMetrics?.seoScore ? Math.round(article.seoMetrics.seoScore) : null,
+    seo_content_quality: article.seoMetrics?.subMetrics?.contentQuality ? Math.round(article.seoMetrics.subMetrics.contentQuality) : null,
+    seo_target_keywords: article.seoMetrics?.subMetrics?.targetKeywords ? Math.round(article.seoMetrics.subMetrics.targetKeywords) : null,
+    seo_technical_seo: article.seoMetrics?.subMetrics?.technicalSeo ? Math.round(article.seoMetrics.subMetrics.technicalSeo) : null,
+    seo_engagement: article.seoMetrics?.subMetrics?.engagement ? Math.round(article.seoMetrics.subMetrics.engagement) : null,
+    seo_structure: article.seoMetrics?.subMetrics?.structure ? Math.round(article.seoMetrics.subMetrics.structure) : null,
+    seo_originality: article.seoMetrics?.subMetrics?.originality ? Math.round(article.seoMetrics.subMetrics.originality) : 0
   };
 
   const { data, error } = await supabase
@@ -203,7 +242,12 @@ export const addArticle = async (article: Omit<Article, 'id' | 'created_at'>): P
     .insert([snakeCaseArticle])
     .select()
     .single();
-  if (error) throw error;
+
+  if (error) {
+    console.error('Supabase insert error:', error);
+    throw error;
+  }
+
   return transformToCamelCase(data);
 };
 
