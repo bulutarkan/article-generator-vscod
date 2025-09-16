@@ -226,6 +226,24 @@ export const deleteArticle = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
+export const getArticleById = async (id: string): Promise<Article | null> => {
+  const { data, error } = await supabase
+    .from('articles')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // Article not found
+      return null;
+    }
+    throw error;
+  }
+
+  return transformToCamelCase(data);
+};
+
 // Integration functions
 export const getIntegrations = async (): Promise<UserIntegration[]> => {
   const { data: { user } } = await supabase.auth.getUser();
