@@ -203,7 +203,7 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
         </div>
         <button
           onClick={fetchStatistics}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          className="flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white gap-2"
           disabled={isLoading}
         >
           {isLoading ? (
@@ -220,31 +220,32 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Total Articles Card */}
-        <div className="card p-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-neutral-400">Total Articles Generated</p>
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Total Articles Generated</p>
+          <div className="flex items-start gap-5">
+            <BarChartIcon className="h-10 w-10 text-primary-400 opacity-50" />
             <p className="text-3xl font-bold text-white mt-1">{articles.length}</p>
           </div>
-          <BarChartIcon className="h-10 w-10 text-primary-400 opacity-50" />
+          
         </div>
 
         {/* Total Words Card */}
-        <div className="card p-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-neutral-400">Total Words Generated</p>
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Total Words Generated</p>
+          <div className="flex items-start gap-5">
+            <SparkleIcon className="h-10 w-10 text-accent-400 opacity-50" />
             <p className="text-3xl font-bold text-white mt-1">{totalWordsGenerated.toLocaleString()}</p>
           </div>
-          <SparkleIcon className="h-10 w-10 text-accent-400 opacity-50" />
         </div>
 
         {/* Last Refresh Time */}
-        <div className="card p-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-neutral-400">Last Data Refresh</p>
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Last Data Refresh</p>
+          <div className="flex items-center gap-5">
+            <RefreshCcwIcon className="h-10 w-10 text-neutral-400 opacity-50" />
             <p className="text-xl font-bold text-white mt-1">{lastRefresh.toLocaleTimeString()}</p>
             <p className="text-xs text-neutral-500">{lastRefresh.toLocaleDateString()}</p>
           </div>
-          <RefreshCcwIcon className="h-10 w-10 text-neutral-400 opacity-50" />
         </div>
       </div>
 

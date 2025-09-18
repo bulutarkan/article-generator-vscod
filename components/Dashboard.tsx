@@ -286,7 +286,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
   return (
     <div>
       <AppPageTitle pageName="Dashboard" />
-      <div className="flex flex-row items-center gap-2 mb-6">
+      <div className="flex flex-row items-center gap-2 mb-10">
         <Tooltip
           content={
             <div className="flex flex-row flex-wrap gap-4 sm:gap-6">

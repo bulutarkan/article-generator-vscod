@@ -90,7 +90,7 @@ export const AiRecommendationCard: React.FC<AiRecommendationCardProps> = ({ reco
           >
             <IconComponent className="h-6 w-6" />
           </motion.div>
-          <h4 className={`text-sm font-bold text-slate-100 ${groupHoverTextColorClass} flex-1`}>{recommendation.title}</h4>
+          <h4 className={`text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 ${groupHoverTextColorClass} flex-1`}>{recommendation.title}</h4>
           {recommendation.value && (
             <span className={`px-3 py-1 rounded-full text-sm font-bold ${baseColorClass.replace(/from-|to-|border-|text-/g, 'bg-').replace(/\/\d+/g, '')} bg-opacity-70`}>
               {recommendation.value}
