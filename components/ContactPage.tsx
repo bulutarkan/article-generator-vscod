@@ -1,7 +1,7 @@
 import React from 'react';
 import { Footer } from './Footer';
 import type { User } from '../types';
-import { StaticPageTitle } from './PageTitle';
+import { ContactPageTitle } from './PageTitle';
 import { useAuth } from './AuthContext';
 
 interface ContactPageProps {
@@ -21,7 +21,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNa
 
   return (
     <>
-      <StaticPageTitle pageName="Contact" />
+      <ContactPageTitle />
       <header className="py-8 px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">

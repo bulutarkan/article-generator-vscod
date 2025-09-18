@@ -89,6 +89,7 @@ export interface Article {
   keywordDifficulty: number;
   content_quality: string[];
   tone: string;
+  imageUrl?: string; // Added for Open Graph image support
   seoMetrics?: SEOMetrics; // Optional for backward compatibility
   created_at?: string; // For backward compatibility
 }

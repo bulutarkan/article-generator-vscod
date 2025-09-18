@@ -11,7 +11,7 @@ import { SlidersIcon } from './icons/SlidersIcon';
 import { GeoIcon } from './icons/GeoIcon';
 import { MegaphoneIcon } from './icons/MegaphoneIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
-import { AppPageTitle } from './PageTitle';
+import { DashboardPageTitle } from './PageTitle';
 import { ArticleCardSkeleton } from './ArticleCardSkeleton';
 import { Tooltip } from './Tooltip';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
@@ -241,7 +241,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
   if (isLoading) {
     return (
       <div>
-        <AppPageTitle pageName="Dashboard" />
+        <DashboardPageTitle />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {Array.from({ length: 6 }).map((_, index) => (
             <ArticleCardSkeleton key={index} />
@@ -266,7 +266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
         >
           <FilesIcon className="h-16 w-16 mx-auto mb-4 text-neutral-600" />
         </motion.div>
-        <h2 className="text-3xl font-bold text-white mb-4 font-heading">Dashboard is Empty</h2>
+        <h1 className="text-3xl font-bold text-white mb-4 font-heading">Dashboard is Empty</h1>
         <p className="text-lg text-neutral-400 mb-8 font-body max-w-md mx-auto">You haven't generated any articles yet. Start creating content with AI-powered assistance!</p>
         <motion.button
           onClick={() => onNavigate('generator')}
@@ -285,7 +285,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
 
   return (
     <div>
-      <AppPageTitle pageName="Dashboard" />
+      <DashboardPageTitle />
+      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6">Your Articles</h1>
       <div className="flex flex-row items-center gap-2 mb-10">
         <Tooltip
           content={

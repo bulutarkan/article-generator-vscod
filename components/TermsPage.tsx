@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Footer } from './Footer';
-import { StaticPageTitle } from './PageTitle';
+import { TermsPageTitle } from './PageTitle';
 import { useAuth } from './AuthContext';
 
 interface TermsPageProps {
@@ -45,7 +45,7 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onNavigateToAuth, onNaviga
 
   return (
     <>
-      <StaticPageTitle pageName="Terms" />
+      <TermsPageTitle />
       <header className="py-8 px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">

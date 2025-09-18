@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { TrashIcon } from './icons/TrashIcon';
 import { UserIcon } from './icons/UserIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { AdminPanelPageTitle } from './PageTitle';
 
 interface AdminPanelProps {
   onBackToApp: () => void;
@@ -45,6 +46,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp, currentUser
 
   return (
     <>
+      <AdminPanelPageTitle />
       <header className="py-8 text-center px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <div className="text-left">

@@ -37,10 +37,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onNavigateToPricing
 
   // Transition states
   const [keywordTransitioning, setKeywordTransitioning] = useState(false);
-  const [countryTransitioning, setCountryTransitioning] = useState(false);
   const [keywordOpacity, setKeywordOpacity] = useState(1);
-  const [countryOpacity, setCountryOpacity] = useState(1);
   const [keywordBlur, setKeywordBlur] = useState(0);
+  const [countryTransitioning, setCountryTransitioning] = useState(false);
+  const [countryOpacity, setCountryOpacity] = useState(1);
   const [countryBlur, setCountryBlur] = useState(0);
 
   // Keyword groups (4 groups of 8 keywords each)
@@ -244,6 +244,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onNavigateToPricing
               <div className={`${mode === 'login' ? 'lg:col-span-1' : ''} flex justify-center`}>
                 <div className="w-full max-w-md">
                   <div className="bg-white/5 p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+                    <h1 className="text-2xl font-bold text-white mb-6 text-center">{title}</h1>
                     <form onSubmit={handleSubmit} className="space-y-6">
                       {/* First Name and Last Name Fields for Register */}
                       {mode === 'register' && (

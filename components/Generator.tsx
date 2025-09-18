@@ -11,7 +11,7 @@ import type { Article, ContentAnalysis } from '../types';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
 import { ChevronDown, ChevronUp, Copy } from 'lucide-react';
-import { AppPageTitle } from './PageTitle';
+import { GeneratorPageTitle } from './PageTitle';
 
 interface GeneratorProps {
   topic: string;
@@ -283,7 +283,8 @@ export const Generator: React.FC<GeneratorProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-      <AppPageTitle pageName="Generator" />
+      <GeneratorPageTitle />
+      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 text-center">Generate New Articles</h1>
       {(onNavigateToFeatures || onNavigateToPricing || onNavigateToContact) && (
         <nav className="mb-8 flex justify-center items-center gap-2 p-1 bg-white/5 rounded-lg w-fit mx-auto">
           {onNavigateToFeatures && (
@@ -385,9 +386,9 @@ export const Generator: React.FC<GeneratorProps> = ({
             <div className="flex items-center space-x-3">
               <Copy className="w-6 h-6 text-blue-600" />
               <div>
-                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                <h2 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
                   Bulk Article Generation
-                </h3>
+                </h2>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   Generate multiple articles at once with advanced settings
                 </p>

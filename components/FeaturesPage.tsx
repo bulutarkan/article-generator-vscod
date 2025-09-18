@@ -17,7 +17,7 @@ import { ImageIcon } from './icons/ImageIcon';
 import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { Footer } from './Footer';
-import { StaticPageTitle } from './PageTitle';
+import { FeaturesPageTitle } from './PageTitle';
 import { useAuth } from './AuthContext';
 
 interface FeaturesPageProps {
@@ -108,7 +108,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, on
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <StaticPageTitle pageName="Features" />
+      <FeaturesPageTitle />
       <header className="py-8 px-4">
         <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
           <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">

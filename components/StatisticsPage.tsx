@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { AppPageTitle } from './PageTitle';
+import { StatisticsPageTitle } from './PageTitle';
 import { BarChartIcon } from './icons/BarChartIcon';
 import { generateArticleStatsRecommendations } from '../services/geminiService';
 import type { Article, AiRecommendation } from '../types';
@@ -144,7 +144,8 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
         transition={{ duration: 0.3 }}
         className="space-y-8"
       >
-        <AppPageTitle pageName="Statistics" />
+        <StatisticsPageTitle />
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 text-center">Your Article Statistics</h1>
         <div className="card p-6 text-center">
           <SkeletonLoader />
           <p className="text-neutral-400 mt-4">Loading statistics...</p>
@@ -162,7 +163,8 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
         transition={{ duration: 0.3 }}
         className="space-y-8"
       >
-        <AppPageTitle pageName="Statistics" />
+        <StatisticsPageTitle />
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 text-center">Your Article Statistics</h1>
         <div className="card p-6 text-center">
           <p className="text-neutral-300 text-lg mb-4">Please log in to view your article statistics.</p>
           <button
@@ -184,7 +186,8 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
       transition={{ duration: 0.3 }}
       className="space-y-8"
     >
-      <AppPageTitle pageName="Statistics" />
+      <StatisticsPageTitle />
+      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 text-center">Your Article Statistics</h1>
 
       <div className="flex justify-between items-center mb-4">
         <div className="flex space-x-2">
@@ -251,7 +254,7 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
 
       {/* Daily Article Creation Chart */}
       <div className="card p-6">
-        <h3 className="text-xl font-semibold text-white mb-4">Daily Article Creation</h3>
+        <h2 className="text-xl font-semibold text-white mb-4">Daily Article Creation</h2>
         {dailyArticleCounts.length > 0 ? (
           <div className="h-64"> {/* Chart container */}
             <LineChart data={chartData} />
@@ -263,9 +266,9 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
 
       {/* AI-based Comments and Improvements */}
       <div className="card p-6 relative"> {/* Added relative for positioning */}
-        <h3 className="text-xl font-semibold text-white mb-10 flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-white mb-10 flex items-center gap-2">
           <SparkleIcon className="h-6 w-6 text-yellow-400" /> AI Insights & Recommendations
-        </h3>
+        </h2>
         {isAiLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             {Array.from({ length: 3 }).map((_, index) => (

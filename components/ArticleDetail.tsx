@@ -254,7 +254,13 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
 
   return (
     <div className="animate-fade-in-up max-w-7xl mx-auto flex flex-col h-full">
-      <ArticlePageTitle articleTitle={article.title} />
+      <ArticlePageTitle
+        articleTitle={article.title}
+        articleDescription={article.metaDescription}
+        articleKeywords={article.keywords?.join(', ')}
+        articleOgImageUrl={article.imageUrl}
+        articleOgUrl={`https://www.airticle.com/articles/${slugify(article.title)}`}
+      />
       <div className="flex-shrink-0">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <button
@@ -353,6 +359,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
       />
 
       <div className="flex-1 overflow-y-auto min-h-0 pr-4 -mr-4">
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6">{article.title}</h1>
         {isEditing ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Editor Column */}
