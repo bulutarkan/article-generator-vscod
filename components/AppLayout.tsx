@@ -98,6 +98,7 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [topic, setTopic] = useState('');
   const [location, setLocation] = useState('');
@@ -105,8 +106,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
 
   useEffect(() => {
     const loadArticles = async () => {
+      setIsLoading(true);
       const userArticles = await supabaseService.getArticles(user.id);
       setArticles(userArticles);
+      setIsLoading(false);
     };
     loadArticles();
   }, [user.id]);
@@ -279,6 +282,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
                   >
                     <Dashboard
                       articles={articles}
+                      isLoading={isLoading}
                       onDeleteArticle={handleDeleteArticle}
                       onViewArticle={handleViewArticle}
                       onNavigate={handleNavigate}

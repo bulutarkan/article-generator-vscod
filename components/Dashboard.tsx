@@ -12,9 +12,11 @@ import { GeoIcon } from './icons/GeoIcon';
 import { MegaphoneIcon } from './icons/MegaphoneIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { AppPageTitle } from './PageTitle';
+import { ArticleCardSkeleton } from './ArticleCardSkeleton';
 
 interface DashboardProps {
   articles: Article[];
+  isLoading: boolean;
   onDeleteArticle: (id: string) => void;
   onViewArticle: (id: string) => void;
   onNavigate: (page: 'generator' | 'calendar') => void;
@@ -141,7 +143,7 @@ const PaginationButtons: React.FC<{
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle, onViewArticle, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDeleteArticle, onViewArticle, onNavigate }) => {
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [filterKeyword, setFilterKeyword] = useState('');
@@ -236,6 +238,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, onDeleteArticle,
       uniqueKeywords
     };
   }, [articles]);
+
+  if (isLoading) {
+    return (
+      <div>
+        <AppPageTitle pageName="Dashboard" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <ArticleCardSkeleton key={index} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (articles.length === 0) {
     return (
