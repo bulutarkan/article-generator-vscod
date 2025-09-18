@@ -349,10 +349,14 @@ You must return the output as a single, valid JSON object that adheres to the us
 
 **Content & SEO Rules:**
 - **Word Count:** The article content must be 2,000-2,500 words.
-- **Structure:** The article must include an engaging introduction, informative body, and clear conclusion. Use Markdown for headings (e.g., ## Subheading, ### Subheading, #### Subheading). Introduction paragraph MUST NOT have headings above.
+- **Structure & Hierarchy:** The article must have an engaging introduction, informative body, and a clear conclusion. Use Markdown for headings. Main topics should be '## H2' headings. For sub-topics that belong under a main H2 heading, use '### H3' headings. This creates a well-structured article with a clear hierarchy.
+  - **Example 1 (Medical):** A 'Recovery Timeline' section (H2) should contain sub-sections like 'Week 1' (H3), 'Month 1' (H3), etc.
+  - **Example 2 (Business):** A 'Digital Marketing Strategy' section (H2) should contain sub-sections like 'Content Marketing' (H3), 'SEO Tactics' (H3), and 'Social Media Engagement' (H3).
+Introduction paragraph MUST NOT have headings above.
 - **Tone:** The tone of voice for the article must be **${tone}**.
 - **Emphasis:** Use '**text**' for bold emphasis.
 - **Readability:** Aim for clarity and avoid jargon. Keep sentences concise.
+- **Numbered Lists for Steps:** If the content includes step-by-step instructions or a process (e.g., 'How to prepare for ..', 'Implementation steps of ..' ,'Process of ..' etc.), you MUST format it as a numbered list (e.g., 1. First step, 2. Second step). This is crucial for readability.
 - **SEO Optimization:** Use the provided topic as the main keyword and include related secondary keywords.
 - **Article Title Rule:** Generate 3-5 title variations that are SEO-optimized. Each title must not exceed 60 characters and must follow the format "xxxx: xxxx". Titles must never include the target location or its abbreviations. Focus on the primary keyword and its synonyms for better SEO performance.
 - **Meta Description:** Write a compelling meta description (155-160 characters).
