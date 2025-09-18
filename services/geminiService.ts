@@ -356,7 +356,11 @@ Introduction paragraph MUST NOT have headings above.
 - **Tone:** The tone of voice for the article must be **${tone}**.
 - **Emphasis:** Use '**text**' for bold emphasis.
 - **Readability:** Aim for clarity and avoid jargon. Keep sentences concise.
-- **Numbered Lists for Steps:** If the content includes step-by-step instructions or a process (e.g., 'How to prepare for ..', 'Implementation steps of ..' ,'Process of ..' etc.), you MUST format it as a numbered list (e.g., 1. First step, 2. Second step). This is crucial for readability.
+- **Numbered List Formatting (CRITICAL):** If the content includes step-by-step instructions or a process (e.g., 'How to prepare for surgery'), you MUST format it as a numbered list. For any numbered list, each item MUST start on a new line. A line break is absolutely required after each item.
+  - **Correct Example:**
+    1. First item.
+    2. Second item.
+  - **Incorrect Example (Do not use):** '1. First item. 2. Second item.'
 - **SEO Optimization:** Use the provided topic as the main keyword and include related secondary keywords.
 - **Article Title Rule:** Generate 3-5 title variations that are SEO-optimized. Each title must not exceed 60 characters and must follow the format "xxxx: xxxx". Titles must never include the target location or its abbreviations. Focus on the primary keyword and its synonyms for better SEO performance.
 - **Meta Description:** Write a compelling meta description (155-160 characters).
