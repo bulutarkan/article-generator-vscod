@@ -41,6 +41,7 @@ export const initialize = (): void => {
     const adminUser: User = {
       id: crypto.randomUUID(),
       username: 'admin',
+      email: 'admin@example.com', // Added email
       passwordHash: hashValue('admin123', 'admin'),
       role: 'admin',
       secretQuestion: 'Default admin question?',
@@ -66,6 +67,7 @@ export const registerUser = (username: string, password: string, secretQuestion:
   const newUser: User = {
     id: crypto.randomUUID(),
     username,
+    email: username, // Assuming username can be used as email for registration
     passwordHash: hashValue(password, username),
     role: 'user',
     secretQuestion,
@@ -90,7 +92,7 @@ export const loginUser = (username: string, password: string): User => {
 export const getUsers = (): (User & { articleCount: number })[] => {
   const db = getDB();
   return db.users.map(user => {
-    const articleCount = db.articles.filter(article => article.userId === user.id).length;
+    const articleCount = db.articles.filter(article => article.user_id === user.id).length; // Changed userId to user_id
     return { ...user, articleCount };
   });
 };
@@ -99,7 +101,7 @@ export const deleteUser = (userId: string): void => {
   const db = getDB();
   db.users = db.users.filter(u => u.id !== userId);
   // Also delete all articles by this user
-  db.articles = db.articles.filter(a => a.userId !== userId);
+  db.articles = db.articles.filter(a => a.user_id !== userId); // Changed userId to user_id
   saveDB(db);
 };
 
@@ -183,16 +185,16 @@ export const clearSession = (): void => {
 export const getArticlesForUser = (userId: string): Article[] => {
   const db = getDB();
   return db.articles
-    .filter(article => article.userId === userId)
+    .filter(article => article.user_id === userId) // Changed userId to user_id
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
-export const addArticleForUser = (userId: string, articleData: Omit<Article, 'id' | 'userId' | 'createdAt'>): Article => {
+export const addArticleForUser = (userId: string, articleData: Omit<Article, 'id' | 'user_id' | 'createdAt'>): Article => { // Changed userId to user_id in Omit
   const db = getDB();
   const newArticle: Article = {
     ...articleData,
     id: crypto.randomUUID(),
-    userId: userId,
+    user_id: userId, // Changed userId to user_id
     createdAt: new Date().toISOString(),
   };
   db.articles.push(newArticle);
@@ -202,7 +204,7 @@ export const addArticleForUser = (userId: string, articleData: Omit<Article, 'id
 
 export const updateArticleForUser = (userId: string, articleId: string, updates: Partial<Omit<Article, 'id'>>): Article | null => {
   const db = getDB();
-  const articleIndex = db.articles.findIndex(a => a.id === articleId && a.userId === userId);
+  const articleIndex = db.articles.findIndex(a => a.id === articleId && a.user_id === userId); // Changed userId to user_id
 
   if (articleIndex === -1) {
     return null;
@@ -216,6 +218,6 @@ export const updateArticleForUser = (userId: string, articleId: string, updates:
 
 export const deleteArticleForUser = (userId: string, articleId: string): void => {
   const db = getDB();
-  db.articles = db.articles.filter(a => !(a.id === articleId && a.userId === userId));
+  db.articles = db.articles.filter(a => !(a.id === articleId && a.user_id === userId)); // Changed userId to user_id
   saveDB(db);
 };

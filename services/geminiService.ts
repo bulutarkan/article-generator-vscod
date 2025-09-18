@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Article, KeywordSuggestion } from '../types';
+import type { Article, KeywordSuggestion, AiRecommendation } from '../types'; // Import AiRecommendation
 import { calculateSEOMetrics } from './seoAnalysisService';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY as string });
@@ -366,7 +366,7 @@ Introduction paragraph MUST NOT have headings above.
 - **Meta Description:** Write a compelling meta description (155-160 characters).
 - **Keywords:** Provide a list of 5-10 relevant primary and secondary keywords.
 - **Keyword Difficulty:** Estimate the keyword difficulty for the primary keyword on a scale of 0-100.
-- **Content Quality Tags:** Provide 2-3 tags that best describe the content, keeping the requested tone of voice ('${tone}') in mind. Choose from tags like "Standard", "Comprehensive", "Authoritative", "Extended", "In-depth", "Engaging", "Technical", "User-Friendly".
+- **Content Quality Tags:** Provide 2-3 tags that best describe the content, keeping the requested tone of voice('${tone}') in mind. Choose from tags like "Standard", "Comprehensive", "Authoritative", "Extended", "In-depth", "Engaging", "Technical", "User-Friendly".
 - **Medical Research:** If the topic is medical, find the most relevant scientific research article. Summarize its key findings in one paragraph and seamlessly integrate this summary into the main article content where it fits best. DO NOT use a placeholder or a separate JSON key for this.
 - **CK Health Turkey Section:** Include a dedicated section for "CK Health Turkey", positioning it as a top provider for international patients for services like bariatric surgery. Include a clear call-to-action prompting users to get in touch for a consultation or to visit the website, but do not invent specific contact details like phone numbers or social media handles.
 - **Price Comparison Table:** Include a price comparison table if:
@@ -611,4 +611,107 @@ Return the full JSON object.`;
 
     // If all models failed, throw the last error
     throw lastError || new Error("All AI models are currently unavailable. Please try again later.");
+}
+
+interface ArticleStats {
+  totalArticles: number;
+  totalWords: number;
+  dailyCounts: { date: string; count: number }[];
+}
+
+export async function generateArticleStatsRecommendations(stats: ArticleStats): Promise<AiRecommendation[]> {
+  const systemInstruction = "You are an AI content strategist. Your task is to analyze the provided article statistics and offer actionable recommendations and insights to improve the user's content generation flow and strategy.\n\n" +
+  "Consider the following:\n" +
+  "- Total number of articles generated.\n" +
+  "- Total words generated.\n" +
+  "- Daily article creation trends (e.g., consistency, peaks, troughs).\n" +
+  "- The goal is to provide **concise, data-driven, and actionable advice** with specific examples, numbers, or percentages from the provided stats. Avoid excessive detail.\n\n" +
+  "Provide 3-6 concise, actionable recommendations. Each recommendation MUST be a valid JSON object structured according to the AiRecommendation interface.\n\n" +
+  "**CRITICAL JSON FORMATTING RULES:**\n" +
+  "- The entire response MUST be a single, valid JSON array `[...]`.\n" +
+  "- Each item in the array MUST be a JSON object `{...}`.\n" +
+  "- All string values MUST be properly quoted with double quotes.\n" +
+  "- DO NOT include any comments or additional text outside the JSON array.\n" +
+  "- Ensure all required properties (`id`, `title`, `description`) are present.\n" +
+  "- Use a variety of icon names (e.g., \"trend-up\", \"calendar\", \"file-text\", \"bar-chart\", \"info\", \"sparkle\", \"trend-down\").\n" +
+  "- Use a variety of color hints (e.g., \"green\", \"blue\", \"orange\", \"red\", \"purple\", \"gray\").\n\n" +
+  "**AiRecommendation Interface Properties:**\n" +
+  "- `id`: A unique identifier (string).\n" +
+  "- `title`: A short, descriptive title for the recommendation (string).\n" +
+  "- `description`: A brief (1-3 sentences), detailed explanation of the recommendation, including specific, real information, examples, numbers, or percentages from the provided stats. Focus on impact and action.\n" +
+  "- `value`: (Optional) A key metric or number associated with the recommendation (string, e.g., \"75%\", \"1500 words\").\n" +
+  "- `icon`: (Optional) A suggestive icon name (string).\n" +
+  "- `color`: (Optional) A color hint for visual emphasis (string).\n\n" +
+  "Return the recommendations as a JSON array of objects, adhering strictly to the AiRecommendation interface.";
+
+  const prompt = "Based on the user's article statistics, provide 3-6 actionable recommendations to improve their content strategy. Use the provided statistics within the descriptions.\n\n" +
+  "Here are the user's article statistics:\n" +
+  "- Total Articles: ${stats.totalArticles}\n" +
+  "- Total Words: ${stats.totalWords}\n" +
+  "- Daily Article Creation (last 30 days): ${JSON.stringify(stats.dailyCounts)}\n\n" +
+  "Generate 3-6 actionable recommendations based on these statistics, formatted as an array of AiRecommendation objects.";
+
+  const modelsToTry = ["gemini-2.0-flash-exp", "gemini-1.5-flash"];
+  const maxRetriesPerModel = 2; // Max retries for each model
+  const delayBetweenRetriesMs = 5000; // 5 seconds delay
+
+  let lastError: any = null;
+
+  for (let attempt = 0; attempt < modelsToTry.length * maxRetriesPerModel; attempt++) {
+    const modelIndex = Math.floor(attempt / maxRetriesPerModel) % modelsToTry.length;
+    const modelName = modelsToTry[modelIndex];
+    const retryCountForModel = attempt % maxRetriesPerModel;
+
+    try {
+      console.log(`Trying model: ${modelName} (overall attempt ${attempt + 1}, model retry ${retryCountForModel + 1})`);
+
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                value: { type: Type.STRING, nullable: true },
+                icon: { type: Type.STRING, nullable: true },
+                color: { type: Type.STRING, nullable: true }
+              },
+              required: ["id", "title", "description"]
+            }
+          }
+        }
+      });
+      return JSON.parse(response.text) as AiRecommendation[];
+    } catch (error: any) {
+      console.error(`AI stats recommendation model ${modelName} failed:`, error);
+      console.error(`Error details:`, JSON.stringify(error, null, 2));
+      lastError = error;
+
+      // If it's a 503 (overloaded) or other transient error, retry with delay
+      if (error?.status === 503 || error?.code === 503 || error?.message?.includes('overloaded') || retryCountForModel < maxRetriesPerModel - 1) {
+        console.log(`Retrying ${modelName} in ${delayBetweenRetriesMs / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delayBetweenRetriesMs));
+        continue; // Continue to the next attempt (which might be the same model or the next in line)
+      } else {
+        // If max retries for this model are exhausted and it's not a transient error, break and let the outer loop try another model or fallback
+        break;
+      }
+    }
+  }
+
+  console.warn("All models failed for AI stats recommendations after retries, returning default.");
+  return [{
+    id: "default-rec",
+    title: "AI Recommendations Unavailable",
+    description: "AI recommendations are currently unavailable. The AI service may be overloaded or unreachable. Please try again later.",
+    icon: "info",
+    color: "gray"
+  }];
 }

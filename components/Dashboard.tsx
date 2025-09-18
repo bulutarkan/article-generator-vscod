@@ -13,24 +13,26 @@ import { MegaphoneIcon } from './icons/MegaphoneIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { AppPageTitle } from './PageTitle';
 import { ArticleCardSkeleton } from './ArticleCardSkeleton';
+import { Tooltip } from './Tooltip';
+import { ChevronDownIcon } from './icons/ChevronDownIcon';
 
 interface DashboardProps {
   articles: Article[];
   isLoading: boolean;
   onDeleteArticle: (id: string) => void;
   onViewArticle: (id: string) => void;
-  onNavigate: (page: 'generator' | 'calendar') => void;
+  onNavigate: (page: 'generator' | 'calendar' | 'statistics') => void;
 }
 
 const StatCard: React.FC<{ icon: React.FC<React.SVGProps<SVGSVGElement>>; label: string; value: string | number; }> = ({ icon: Icon, label, value }) => (
-  <motion.div 
-    className="card h-full min-h-[80px]"
+  <motion.div
+    className="flex flex-row items-center card h-full min-h-[80px]"
     whileHover={{ y: -2 }}
     transition={{ duration: 0.2 }}
   >
-    <div className="flex items-start gap-3 p-3 sm:p-4">
-      <motion.div 
-        className="p-2 sm:p-3 bg-gradient-to-br from-primary-500/20 to-accent-500/20 rounded-lg border border-primary-500/30 flex-shrink-0"
+    <div className="flex items-start gap-2 p-2 sm:p-3">
+      <motion.div
+        className="p-1 sm:p-2 bg-gradient-to-br from-primary-500/20 to-accent-500/20 rounded-lg border border-primary-500/30 flex-shrink-0"
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 2, repeat: Infinity }}
       >
@@ -38,7 +40,7 @@ const StatCard: React.FC<{ icon: React.FC<React.SVGProps<SVGSVGElement>>; label:
       </motion.div>
       <div className="flex-1 min-w-0">
         <p className="text-xs sm:text-sm text-neutral-400 font-body line-clamp-1">{label}</p>
-        <p className="text-lg sm:text-xl font-semibold text-white mt-1 font-heading">{value}</p>
+        <p className="text-sm font-semibold text-white mt-1 font-heading">{value}</p>
       </div>
     </div>
   </motion.div>
@@ -92,11 +94,10 @@ const PaginationButtons: React.FC<{
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className={`p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
-          currentPage === 1
-            ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-            : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
-        }`}
+        className={`p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 ${currentPage === 1
+          ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+          : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+          }`}
       >
         <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -112,11 +113,10 @@ const PaginationButtons: React.FC<{
           ) : (
             <button
               onClick={() => onPageChange(page as number)}
-              className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-w-[2rem] ${
-                currentPage === page
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
-              }`}
+              className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-w-[2rem] ${currentPage === page
+                ? 'bg-indigo-500 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                }`}
             >
               {page}
             </button>
@@ -128,11 +128,10 @@ const PaginationButtons: React.FC<{
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className={`p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
-          currentPage === totalPages
-            ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-            : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
-        }`}
+        className={`p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 ${currentPage === totalPages
+          ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+          : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+          }`}
       >
         <span className="hidden sm:inline">Next</span>
         <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,13 +253,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
 
   if (articles.length === 0) {
     return (
-      <motion.div 
+      <motion.div
         className="text-center py-16 text-neutral-500"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <motion.div 
+        <motion.div
           className="p-8 bg-neutral-800/50 rounded-2xl border border-neutral-700/50 inline-block mb-6"
           animate={{ scale: [1, 1.02, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -269,8 +268,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
         </motion.div>
         <h2 className="text-3xl font-bold text-white mb-4 font-heading">Dashboard is Empty</h2>
         <p className="text-lg text-neutral-400 mb-8 font-body max-w-md mx-auto">You haven't generated any articles yet. Start creating content with AI-powered assistance!</p>
-        <motion.button 
-          onClick={() => onNavigate('generator')} 
+        <motion.button
+          onClick={() => onNavigate('generator')}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-500 to-accent-500 px-6 py-3 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 font-body"
@@ -287,62 +286,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
   return (
     <div>
       <AppPageTitle pageName="Dashboard" />
-      {/* Stats Section */}
-      <motion.div 
-        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8"
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          visible: { 
-            opacity: 1, 
-            y: 0,
-            transition: { 
-              duration: 0.6, 
-              staggerChildren: 0.1 
-            }
+      <div className="flex flex-row items-center gap-2 mb-6">
+        <Tooltip
+          content={
+            <div className="flex flex-row flex-wrap gap-4 sm:gap-6">
+              {stats && (
+                <>
+                  <StatCard icon={FilesIcon} label="Total Articles" value={stats.totalArticles} />
+                  <StatCard icon={FileTextIcon} label="Total Words" value={stats.totalWords} />
+                  <StatCard icon={BarChartIcon} label="Avg. KW Difficulty" value={stats.avgDifficulty} />
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => onNavigate('calendar')}
+                  >
+                    <StatCard icon={CalendarIcon} label="Content Calendar" value="Plan" />
+                  </div>
+                   <div
+                    className="cursor-pointer"
+                    onClick={() => onNavigate('statistics')}
+                  >
+                    <StatCard icon={BarChartIcon} label="More statistics" value="View" />
+                  </div>
+                </>
+              )}
+            </div>
           }
-        }}
-        initial="hidden"
-        animate="visible"
-      >
-        {stats && (
-          <>
-            <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-              <StatCard icon={FilesIcon} label="Total Articles" value={stats.totalArticles} />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-              <StatCard icon={FileTextIcon} label="Total Words" value={stats.totalWords} />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-              <StatCard icon={BarChartIcon} label="Avg. KW Difficulty" value={stats.avgDifficulty} />
-            </motion.div>
-            <motion.div 
-              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-              whileHover={{ scale: 1.02 }}
-              className="cursor-pointer"
-              onClick={() => onNavigate('calendar')}
-            >
-              <StatCard icon={CalendarIcon} label="Content Calendar" value="Plan" />
-            </motion.div>
-          </>
-        )}
-      </motion.div>
+        >
+          <button className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+            <BarChartIcon className="h-5 w-5" />
+            <span>Statistics</span>
+            <ChevronDownIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
+        {/* Search Toggle Button - Placed next to Statistics button */}
+        <button
+          onClick={() => setShowSearchBar(!showSearchBar)}
+          className={`p-3 rounded-lg transition-all duration-200 ${showSearchBar
+            ? 'bg-indigo-500 text-white'
+            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          title="Toggle search and filters"
+        >
+          <SearchIcon className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Compact Search and Filter Section */}
       <div className="mb-6">
-        {/* Search Toggle Button - Always visible */}
-        <div className="flex justify-center mb-3">
-          <button
-            onClick={() => setShowSearchBar(!showSearchBar)}
-            className={`p-2 rounded-lg transition-all duration-200 ${
-              showSearchBar
-                ? 'bg-indigo-500 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-            title="Toggle search and filters"
-          >
-            <SearchIcon className="h-4 w-4" />
-          </button>
-        </div>
+        {/* The search input and filters UI will be shown/hidden based on showSearchBar state */}
 
         {/* Compact Search and Filter Section - Show all when toggled */}
         {showSearchBar && (
@@ -491,7 +482,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
       </div>
 
       {/* Articles Grid */}
-      <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+      <div className="animate-fade-in-up mt-[-1rem]" style={{ animationDelay: '0.1s' }}>
         {filteredArticles.length === 0 ? (
           <div className="text-center py-12 sm:py-16 text-slate-500">
             <SearchIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-slate-600" />

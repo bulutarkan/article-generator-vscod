@@ -14,8 +14,8 @@ import { TwitterIcon } from './icons/TwitterIcon';
 import type { User, Article } from '../types';
 
 interface HeaderProps {
-  currentPage: 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar';
-  onNavigate: (page: 'generator' | 'dashboard' | 'profile' | 'calendar') => void;
+  currentPage: 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar' | 'statistics' | 'admin';
+  onNavigate: (page: 'generator' | 'dashboard' | 'profile' | 'calendar' | 'statistics' | 'admin') => void;
   user: User | null;
   onLogout: () => void;
   onNavigateToAdmin?: () => void;

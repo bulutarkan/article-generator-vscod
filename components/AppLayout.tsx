@@ -10,6 +10,7 @@ import { AiAssistant } from './AiAssistant';
 import { ContentCalendar } from './ContentCalendar';
 import { ProfilePage } from './ProfilePage';
 import { AdminPanel } from './AdminPanel';
+import { StatisticsPage } from './StatisticsPage';
 import type { Article, User } from '../types';
 import * as supabaseService from '../services/supabase';
 
@@ -212,7 +213,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
     }
   };
 
-  const handleNavigate = (targetPage: 'generator' | 'dashboard' | 'profile' | 'calendar') => {
+  const handleNavigate = (targetPage: 'generator' | 'dashboard' | 'profile' | 'calendar' | 'statistics') => {
     if (targetPage === 'profile') {
       navigate('/app/profile');
     } else {
@@ -225,12 +226,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
     ? articles.find(a => a.id === selectedArticleId) || null
     : null;
 
-  const getCurrentPage = (): 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar' => {
+  const getCurrentPage = (): 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar' | 'statistics' | 'admin' => {
     const path = window.location.pathname;
     if (path.includes('/profile')) return 'profile';
     if (path.includes('/calendar')) return 'calendar';
     if (path.includes('/generator')) return 'generator';
+    if (path.includes('/statistics')) return 'statistics';
     if (path.includes('/article/')) return 'article';
+    if (path.includes('/admin')) return 'admin';
     return 'dashboard';
   };
 
@@ -381,6 +384,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
                       currentUser={user}
                       onLogout={onLogout}
                     />
+                  </motion.div>
+                }
+              />
+              <Route
+                path="/statistics"
+                element={
+                  <motion.div
+                    key="statistics"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <StatisticsPage articles={articles} isLoading={isLoading} />
                   </motion.div>
                 }
               />

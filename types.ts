@@ -73,7 +73,7 @@ export interface SEOMetrics {
 
 export interface Article {
   id: string;
-  user_id: string;
+  user_id: string; // Changed from userId to user_id for consistency with db.ts
   title: string;
   topic: string;
   createdAt: string;
@@ -95,11 +95,14 @@ export interface Article {
 
 export interface User {
   id: string;
+  username: string;
   email: string;
-  username?: string;
+  passwordHash: string;
+  role: 'user' | 'admin';
+  secretQuestion: string;
+  secretAnswerHash: string;
   firstName?: string;
   lastName?: string;
-  role?: string;
 }
 
 // Bulk Generation Types
@@ -176,4 +179,13 @@ export interface CalendarEvent {
   end: Date;   // Added for react-big-calendar compatibility
   article_id?: string;
   notes?: string;
+}
+
+export interface AiRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  value?: string;
+  icon?: string;
+  color?: string;
 }

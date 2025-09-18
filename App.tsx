@@ -15,6 +15,7 @@ import { BulkGenerationProvider } from './components/BulkGenerationContext';
 import { FloatingProgressBar } from './components/FloatingProgressBar';
 import { ToastProvider } from './src/services/ToastContext';
 
+
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
 

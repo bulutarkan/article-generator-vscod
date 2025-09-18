@@ -270,7 +270,7 @@ const ChatView: React.FC<{ article: Article | null }> = ({ article }) => {
 // --- Main Assistant Component ---
 interface AiAssistantProps {
   article: Article | null;
-  currentPage: 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar';
+  currentPage: 'generator' | 'dashboard' | 'article' | 'profile' | 'calendar' | 'statistics' | 'admin';
   setTopic: (topic: string) => void;
   setLocation: (location: string) => void;
 }
