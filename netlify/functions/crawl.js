@@ -71,7 +71,7 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({
-        keywords: relevantKeywords.slice(0, 5), // Return top 5 keywords
+        keywords: relevantKeywords.slice(0, 10), // Return top 10 keywords
         internalLinksContext: internalLinksContext,
         linksCount: linksCount,
         relevantCount: relevantCount
@@ -109,7 +109,7 @@ function extractTextFromHTML(htmlText) {
     .trim();
 }
 
-// Extract keywords from topic (improved to include multi-word phrases)
+// Extract keywords from topic (improved to include multi-word phrases and better relevance)
 function extractKeywords(topic) {
   const baseKeywords = topic
     .toLowerCase()
@@ -119,46 +119,8 @@ function extractKeywords(topic) {
 
   let extendedKeywords = [...baseKeywords];
 
-  // Add specific long-tail keywords based on common medical/tourism topics
-  if (topic.toLowerCase().includes('gastric sleeve')) {
-    extendedKeywords.push(
-      'gastric sleeve surgery', 'sleeve gastrectomy', 'gastric sleeve in turkey',
-      'gastric sleeve cost', 'gastric sleeve recovery', 'gastric sleeve benefits'
-    );
-  }
-  if (topic.toLowerCase().includes('bariatric surgery')) {
-    extendedKeywords.push(
-      'bariatric surgery options', 'types of bariatric surgery', 'bariatric surgery in turkey',
-      'bariatric surgery cost', 'bariatric surgery recovery'
-    );
-  }
-  if (topic.toLowerCase().includes('weight loss surgery')) {
-    extendedKeywords.push(
-      'weight loss surgery in turkey', 'types of weight loss surgery', 'weight loss surgery cost',
-      'weight loss surgery benefits', 'weight loss surgery recovery'
-    );
-  }
-  if (topic.toLowerCase().includes('medical tourism')) {
-    extendedKeywords.push(
-      'medical tourism in turkey', 'turkey medical tourism cost', 'best medical tourism destinations',
-      'medical tourism advantages', 'medical tourism packages'
-    );
-  }
-  if (topic.toLowerCase().includes('dental implants')) {
-    extendedKeywords.push(
-      'dental implants in turkey', 'dental implants cost turkey', 'best dental implants',
-      'dental implants procedure', 'full mouth dental implants'
-    );
-  }
-  if (topic.toLowerCase().includes('hair transplant')) {
-    extendedKeywords.push(
-      'hair transplant in turkey', 'hair transplant cost turkey', 'best hair transplant clinic',
-      'fue hair transplant', 'dhi hair transplant'
-    );
-  }
-
-  // Generate N-grams (bigrams and trigrams) from the topic
-  const topicWords = topic.toLowerCase().split(/\s+/).filter(word => word.length > 1);
+  // Generate N-grams (bigrams and trigrams) from the topic itself
+  const topicWords = topic.toLowerCase().split(/\s+/).filter(word => word.length > 1 && !isStopWord(word));
   for (let i = 0; i < topicWords.length - 1; i++) {
     extendedKeywords.push(`${topicWords[i]} ${topicWords[i+1]}`); // Bigrams
     if (i < topicWords.length - 2) {
@@ -166,29 +128,68 @@ function extractKeywords(topic) {
     }
   }
 
-  // Add specific single words for broader medical/tourism context (if not already covered by phrases)
-  extendedKeywords.push(
-    'weight', 'loss', 'surgery', 'bariatric', 'obesity', 'treatment',
-    'sleeve', 'gastrectomy', 'laparoscopic', 'procedure', 'operation',
-    'medical', 'hospital', 'clinic', 'surgical', 'care', 'health', 'medicine',
-    'tourism', 'healthcare', 'international', 'istanbul', 'antalya', 'doctor',
-    'dental', 'implant', 'hair', 'transplant'
-  );
+  // Add specific long-tail keywords conditionally based on topic
+  if (topic.toLowerCase().includes('gastric sleeve')) {
+    extendedKeywords.push(
+      'gastric sleeve surgery', 'sleeve gastrectomy', 'gastric sleeve in turkey',
+      'gastric sleeve cost', 'gastric sleeve recovery', 'gastric sleeve benefits'
+    );
+  } else if (topic.toLowerCase().includes('bariatric surgery')) {
+    extendedKeywords.push(
+      'bariatric surgery options', 'types of bariatric surgery', 'bariatric surgery in turkey',
+      'bariatric surgery cost', 'bariatric surgery recovery'
+    );
+  } else if (topic.toLowerCase().includes('weight loss surgery')) {
+    extendedKeywords.push(
+      'weight loss surgery in turkey', 'types of weight loss surgery', 'weight loss surgery cost',
+      'weight loss surgery benefits', 'weight loss surgery recovery'
+    );
+  } else if (topic.toLowerCase().includes('medical tourism')) {
+    extendedKeywords.push(
+      'medical tourism in turkey', 'turkey medical tourism cost', 'best medical tourism destinations',
+      'medical tourism advantages', 'medical tourism packages'
+    );
+  } else if (topic.toLowerCase().includes('dental implants')) {
+    extendedKeywords.push(
+      'dental implants in turkey', 'dental implants cost turkey', 'best dental implants',
+      'dental implants procedure', 'full mouth dental implants'
+    );
+  } else if (topic.toLowerCase().includes('hair transplant')) {
+    extendedKeywords.push(
+      'hair transplant in turkey', 'hair transplant cost turkey', 'best hair transplant clinic',
+      'fue hair transplant', 'dhi hair transplant', 'hair restoration'
+    );
+  }
+
+  // Add broader but still relevant terms only if the topic is general medical/tourism
+  if (extendedKeywords.length < 10) { // Only add if we don't have enough specific keywords
+    if (topic.toLowerCase().includes('medical') || topic.toLowerCase().includes('surgery') || topic.toLowerCase().includes('health')) {
+      extendedKeywords.push(
+        'medical', 'hospital', 'clinic', 'surgical', 'care', 'health', 'medicine', 'doctor', 'treatment', 'procedure', 'operation'
+      );
+    }
+    if (topic.toLowerCase().includes('tourism') || topic.toLowerCase().includes('turkey') || topic.toLowerCase().includes('international')) {
+      extendedKeywords.push(
+        'tourism', 'healthcare', 'international', 'istanbul', 'antalya', 'travel', 'clinic'
+      );
+    }
+  }
 
   // Remove plural 's' from some keywords for variations
-  const slugVariations = extendedKeywords.map(word => word.replace(/s$/, ''));
-  extendedKeywords.push(...slugVariations);
+  const singularVariations = extendedKeywords.map(word => word.replace(/s$/, ''));
+  extendedKeywords.push(...singularVariations);
 
   // Remove duplicates and filter by length
   return [...new Set(extendedKeywords)].filter(word => word.length > 2);
 }
 
-// Find relevant keywords in content - prioritize longer phrases
+// Find relevant keywords in content - prioritize longer phrases and topic relevance
 function findRelevantKeywords(textContent, topicKeywords) {
   const relevantKeywords = new Map(); // Use a Map to store keywords and their scores
   const textLower = textContent.toLowerCase();
 
   // First, find and score multi-word keywords (longer phrases first)
+  // Sort topicKeywords by length in descending order to prioritize longer phrases
   const sortedTopicKeywords = [...topicKeywords].sort((a, b) => b.length - a.length);
 
   for (const keyword of sortedTopicKeywords) {
@@ -196,24 +197,50 @@ function findRelevantKeywords(textContent, topicKeywords) {
       // If a longer phrase is found, it should take precedence over its constituent single words
       // e.g., "gastric sleeve surgery" should override "gastric", "sleeve", "surgery"
       if (keyword.split(' ').length > 1) {
-        // Remove any single-word components if the phrase is found
-        keyword.split(' ').forEach(part => relevantKeywords.delete(part));
+        // Remove any single-word components that are part of this phrase
+        keyword.split(' ').forEach(part => {
+            if (relevantKeywords.has(part) && !sortedTopicKeywords.includes(part)) { // Only remove if it's a single word and not a specific topic keyword itself
+                relevantKeywords.delete(part);
+            }
+        });
       }
-      relevantKeywords.set(keyword, (relevantKeywords.get(keyword) || 0) + 1);
+      relevantKeywords.set(keyword, (relevantKeywords.get(keyword) || 0) + 1); // Increment score for the keyword
     }
   }
 
-  // Also include top single words from the content, but don't override phrases
-  const additionalWords = findAdditionalRelevantWords(textContent); // No topicKeywords needed here
+  // Add top single words from the content, but only if they are not already part of a found phrase
+  // or are not already explicitly added as a topic keyword.
+  const additionalWords = findAdditionalRelevantWords(textContent);
   for (const word of additionalWords) {
-    if (!relevantKeywords.has(word)) { // Only add if not already added as part of a phrase
+    // Check if the word is already covered by a multi-word phrase
+    let isCoveredByPhrase = false;
+    for (const relevantPhrase of relevantKeywords.keys()) {
+        if (relevantPhrase.includes(word) && relevantPhrase.split(' ').length > 1) {
+            isCoveredByPhrase = true;
+            break;
+        }
+    }
+    if (!isCoveredByPhrase && !relevantKeywords.has(word)) {
       relevantKeywords.set(word, (relevantKeywords.get(word) || 0) + 1);
     }
   }
 
   // Convert map to array, sort by score (frequency), and take top N
+  // Prioritize keywords that are direct matches from the original topic or its n-grams
   return Array.from(relevantKeywords.keys())
-              .sort((a, b) => (relevantKeywords.get(b) || 0) - (relevantKeywords.get(a) || 0))
+              .sort((a, b) => {
+                const aIsTopicKeyword = topicKeywords.includes(a);
+                const bIsTopicKeyword = topicKeywords.includes(b);
+
+                if (aIsTopicKeyword && !bIsTopicKeyword) return -1;
+                if (!aIsTopicKeyword && bIsTopicKeyword) return 1;
+
+                // For keywords that are equally topic-relevant (or not), sort by length (longer first) then frequency
+                if (a.length !== b.length) {
+                    return b.length - a.length;
+                }
+                return (relevantKeywords.get(b) || 0) - (relevantKeywords.get(a) || 0);
+              })
               .slice(0, 5); // Return top 5 keywords
 }
 

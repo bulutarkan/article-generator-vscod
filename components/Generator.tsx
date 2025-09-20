@@ -454,7 +454,7 @@ export const Generator: React.FC<GeneratorProps> = ({
         >
           {isCrawling ? (
             <>
-              <Loader small />
+              <Loader message="Crawling website for SEO keywords..." />
               <span>Crawling...</span>
             </>
           ) : (

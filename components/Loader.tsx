@@ -11,22 +11,31 @@ const loadingMessages = [
   'Almost there, polishing the final draft...'
 ];
  
-export const Loader: React.FC = () => {
-  const [message, setMessage] = useState(loadingMessages[0]);
+interface LoaderProps {
+  message?: string; // Optional custom message
+}
+
+export const Loader: React.FC<LoaderProps> = ({ message: customMessage }) => {
+  const [internalMessage, setInternalMessage] = useState(loadingMessages[0]);
 
   useEffect(() => {
+    if (customMessage) {
+      setInternalMessage(customMessage);
+      return; // If custom message is provided, don't use internal rotation
+    }
+
     let index = 0;
     const intervalId = setInterval(() => {
       if (index < loadingMessages.length - 1) {
         index = index + 1;
-        setMessage(loadingMessages[index]);
+        setInternalMessage(loadingMessages[index]);
       } else {
         clearInterval(intervalId); // Stop interval after the last message
       }
     }, 2500);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [customMessage]); // Re-run effect if customMessage changes
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-in-up">
@@ -40,7 +49,7 @@ export const Loader: React.FC = () => {
       <div className="w-full max-w-md mx-auto bg-slate-700/50 rounded-full h-2 mt-8 overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full animate-progress"></div>
       </div>
-      <p key={message} className="mt-4 text-slate-400 h-6 animate-fade-in-up" style={{ animationDuration: '0.5s' }}>{message}</p>
+      <p key={internalMessage} className="mt-4 text-slate-400 h-6 animate-fade-in-up" style={{ animationDuration: '0.5s' }}>{customMessage || internalMessage}</p>
     </div>
   );
 };
