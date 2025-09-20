@@ -6,6 +6,10 @@ import { TopicIcon } from './icons/TopicIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ToggleSwitch } from './ToggleSwitch';
 
+import { Globe } from 'lucide-react'; // Import Globe icon
+import { Loader } from './Loader'; // Import Loader component
+import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword type
+
 interface ArticleFormProps {
   topic: string;
   setTopic: (topic: string) => void;
@@ -23,6 +27,12 @@ interface ArticleFormProps {
   isLoading: boolean;
   onAnalyzeContent?: () => void;
   isAnalyzing?: boolean;
+  // New props for keyword suggestions
+  isCrawling: boolean;
+  suggestedKeywords: SuggestedKeyword[];
+  handleCrawlWebsite: () => Promise<void>;
+  handleKeywordToggle: (keyword: string) => void;
+  crawlingError: string | null;
 }
 
 export const ArticleForm: React.FC<ArticleFormProps> = ({
@@ -42,6 +52,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   isLoading,
   onAnalyzeContent,
   isAnalyzing = false,
+  // Destructure new props
+  isCrawling,
+  suggestedKeywords,
+  handleCrawlWebsite,
+  handleKeywordToggle,
+  crawlingError,
 }) => {
   const tones = ['Authoritative', 'Formal', 'Professional', 'Casual', 'Funny'];
 
@@ -87,7 +103,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g., 'Best coffee shops'"
-            className="bg-slate-900/80 border border-slate-700 rounded-md px-4 py-2 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200"
+            className="text-sm bg-slate-900/80 border border-slate-700 rounded-md px-4 py-2 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200"
           />
         </div>
 
@@ -102,9 +118,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLocationOpen(!isLocationOpen)}
-                className={`relative w-full cursor-default rounded-md bg-slate-900/80 border border-slate-700 py-2 pl-3 pr-10 text-left text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm transition-all duration-300 ${
-                  topic.trim() && location.trim() ? 'pr-16' : 'pr-10'
-                }`}
+                className={`relative w-full cursor-default rounded-md bg-slate-900/80 border border-slate-700 py-2 pl-3 pr-10 text-left text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm transition-all duration-300 ${topic.trim() && location.trim() ? 'pr-16' : 'pr-10'
+                  }`}
               >
                 <span className="block truncate">{location || 'Select a Country...'}</span>
                 <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -200,7 +215,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
           onChange={(e) => setBrief(e.target.value)}
           placeholder="Add any specific requirements, focus areas, or additional context for your article..."
           rows={3}
-          className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 resize-none"
+          className="text-sm w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 resize-none"
         />
         <p className="text-xs text-slate-500 mt-1">
           You can request comparison tables, mention specific brands, or add any other details you'd like included in the article.
@@ -240,6 +255,68 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
               <p className="text-xs text-slate-500 mt-1">
                 We'll analyze your website and add relevant internal links to improve SEO.
               </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Keyword Suggestion Section */}
+      <div className="mt-8 mb-6 p-4 bg-gray-800 rounded-lg shadow-lg border border-slate-700">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center">
+          <Globe className="w-4 h-4 mr-2 text-blue-400" />
+          SEO Keyword Suggestions (Web Crawling)
+        </h3>
+        <p className="text-xs text-gray-400 mb-4">
+          Crawl the specified website (from "Add Internal Links" section) to identify relevant keywords for your article's topic.
+        </p>
+
+        {enableInternalLinks && ( // Only show if internal links are enabled
+          <div className="mb-4">
+            <button
+              onClick={handleCrawlWebsite}
+              disabled={isCrawling || !websiteUrl.trim() || !topic.trim()}
+              className="w-max bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              {isCrawling ? (
+                <>
+                  <Loader message="Crawling website for SEO keywords..." />
+                  <span>Crawling...</span>
+                </>
+              ) : (
+                <>
+                  <Globe className="w-4 h-4" />
+                  <span className="text-sm">Crawl Keywords</span>
+                </>
+              )}
+            </button>
+            {crawlingError && (
+              <div className="mt-4 text-red-400 text-sm">
+                Error crawling website: {crawlingError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {suggestedKeywords.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-base font-medium text-white mb-3">Suggested Keywords (Top 10)</h4>
+            <div className="flex flex-wrap gap-2">
+              {suggestedKeywords.map((sk, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleKeywordToggle(sk.keyword)}
+                  className={`px-3 py-1 rounded-full text-sm transition-all duration-200
+                    ${sk.selected
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                    }`}
+                >
+                  {sk.keyword}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 text-gray-400 text-sm">
+              Selected keywords will be passed to the AI for SEO optimization.
             </div>
           </div>
         )}

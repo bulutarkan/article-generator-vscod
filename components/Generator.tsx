@@ -421,80 +421,12 @@ export const Generator: React.FC<GeneratorProps> = ({
         isLoading={isLoading}
         onAnalyzeContent={handlePerformAnalysis}
         isAnalyzing={isAnalyzing}
+        isCrawling={isCrawling}
+        suggestedKeywords={suggestedKeywords}
+        handleCrawlWebsite={handleCrawlWebsite}
+        handleKeywordToggle={handleKeywordToggle}
+        crawlingError={crawlingError}
       />
-
-      {/* Keyword Suggestion Section */}
-      <div className="mt-8 mb-6 p-4 bg-gray-800 rounded-lg shadow-lg">
-        <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-          <Globe className="w-6 h-6 mr-2 text-blue-400" />
-          SEO Keyword Suggestions (Web Crawling)
-        </h3>
-        <p className="text-gray-400 mb-4">
-          Crawl a target website to identify relevant keywords for your article's topic.
-        </p>
-
-        <div className="mb-4">
-          <label htmlFor="websiteUrlInput" className="block text-sm font-medium text-gray-300 mb-2">
-            Target Website URL
-          </label>
-          <input
-            type="url"
-            id="websiteUrlInput"
-            className="w-full px-4 py-2 rounded-md bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., https://example.com/blog"
-            value={websiteUrl}
-            onChange={(e) => setWebsiteUrl(e.target.value)}
-          />
-        </div>
-
-        <button
-          onClick={handleCrawlWebsite}
-          disabled={isCrawling || !websiteUrl.trim() || !topic.trim()}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
-        >
-          {isCrawling ? (
-            <>
-              <Loader message="Crawling website for SEO keywords..." />
-              <span>Crawling...</span>
-            </>
-          ) : (
-            <>
-              <Globe className="w-5 h-5" />
-              <span>Crawl Website for Keywords</span>
-            </>
-          )}
-        </button>
-
-        {crawlingError && (
-          <div className="mt-4 text-red-400 text-sm">
-            Error crawling website: {crawlingError}
-          </div>
-        )}
-
-        {suggestedKeywords.length > 0 && (
-          <div className="mt-6">
-            <h4 className="text-lg font-medium text-white mb-3">Suggested Keywords (Top 5)</h4>
-            <div className="flex flex-wrap gap-2">
-              {suggestedKeywords.map((sk, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleKeywordToggle(sk.keyword)}
-                  className={`px-3 py-1 rounded-full text-sm transition-all duration-200
-                    ${sk.selected
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
-                    }`}
-                >
-                  {sk.keyword}
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 text-gray-400 text-sm">
-              Selected keywords will be passed to the AI for SEO optimization.
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Bulk Generation Section */}
       <div className="mt-8 mb-6">
