@@ -16,6 +16,11 @@ export interface KeywordSuggestion {
   volume: number;
 }
 
+export interface SuggestedKeyword {
+  keyword: string;
+  selected: boolean;
+}
+
 export interface ContentAnalysis {
   keywordMetrics: {
     searchVolume: number;

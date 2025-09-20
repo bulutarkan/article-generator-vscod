@@ -30,93 +30,53 @@ exports.handler = async (event) => {
     const htmlText = await response.text();
     console.log(`📄 HTML content length: ${htmlText.length} characters`);
 
-    let contextParts = [];
-
     // 1. ANAHTAR KELİME ARAMA (İçerik zenginleştirme için)
     console.log('🔍 Extracting keyword context...');
-    const keywordContext = extractWebsiteContext(htmlText, topic);
-    if (keywordContext) {
-      contextParts.push(keywordContext);
-      console.log('✅ Keyword context extracted');
-    }
+    const topicKeywords = extractKeywords(topic);
+    const textContent = extractTextFromHTML(htmlText);
+    const relevantKeywords = findRelevantKeywords(textContent, topicKeywords);
 
     // 2. INTERNAL LINKING (SEO için)
     console.log('🔗 Finding all internal links...');
-
-    // Tüm <a href> linklerini tara (navigation değil)
     const allInternalLinks = extractAllInternalLinks(htmlText, url);
     console.log(`🔗 Found ${allInternalLinks.length} total internal links`);
 
-    // Initialize variables outside the if block
-    let relevantLinks = [];
+    let internalLinksContext = '';
     let linksCount = allInternalLinks?.length || 0;
     let relevantCount = 0;
 
-    console.log(`📊 Link processing initialized: linksCount=${linksCount}, relevantCount=${relevantCount}`);
-
     if (allInternalLinks.length > 0) {
-      // Topic ile alakalı linkleri filtrele - GELIŞMIŞ MATCHING
-      const topicKeywords = extractKeywords(topic);
-      console.log(`🔍 Topic keywords: ${topicKeywords.join(', ')}`);
-
-      // Linkleri skorla ve sırala
       const scoredLinks = allInternalLinks.map(link => ({
         ...link,
         score: calculateTopicRelevanceScore(link, topicKeywords, topic)
       })).sort((a, b) => b.score - a.score);
 
-      // Minimum skor threshold'u ile filtrele
-      const minScoreThreshold = 0.3; // Daha düşük threshold
-      relevantLinks = scoredLinks.filter(link => link.score >= minScoreThreshold);
-      relevantCount = relevantLinks.length;
+      const minScoreThreshold = 0.3;
+      const relevantInternalLinks = scoredLinks.filter(link => link.score >= minScoreThreshold);
+      relevantCount = relevantInternalLinks.length;
 
-      console.log(`📊 Link scores calculated. All links: ${scoredLinks.length}, Relevant: ${relevantCount}`);
-
-      if (relevantLinks.length > 0) {
-        // İlk 8 highly relevant link + ek 7 link daha (daha fazla link seç)
-        const topLinks = relevantLinks.slice(0, 8);
+      if (relevantInternalLinks.length > 0) {
+        const topLinks = relevantInternalLinks.slice(0, 8);
         const additionalLinks = scoredLinks
           .filter(link => !topLinks.some(tl => tl.url === link.url) && link.score > 0)
           .slice(0, 7);
 
         const allSelectedLinks = [...topLinks, ...additionalLinks];
-        const linkContext = `Internal links related to "${topic}": ${allSelectedLinks.map(link => `<a href="${link.url}">${link.title}</a>`).join(', ')}`;
-        contextParts.push(linkContext);
-        console.log(`✅ Found ${relevantCount} relevant links (score >= ${minScoreThreshold})`);
-        console.log(`📋 Links sent to AI: ${allSelectedLinks.map(link => `${link.title} -> ${link.url}`).join(' | ')}`);
-      } else {
-        console.log('⚠️ No relevant internal links found for topic');
+        internalLinksContext = `Internal links related to "${topic}": ${allSelectedLinks.map(link => `<a href="${link.url}">${link.title}</a>`).join(', ')}`;
       }
     }
 
-    // 3. CONTEXT'İ BİRLEŞTİR
-    const finalContext = contextParts.join('\n\n');
-
-    console.log(`📝 Final context length: ${finalContext.length}, linksCount: ${linksCount}, relevantCount: ${relevantCount}`);
-
-    if (finalContext) {
-      console.log('🎉 Combined context ready for AI');
-      return {
-        statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({
-          context: finalContext,
-          linksCount: linksCount,
-          relevantCount: relevantCount
-        })
-      };
-    } else {
-      console.log('❌ No context found');
-      return {
-        statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({
-          context: '',
-          linksCount: linksCount,
-          relevantCount: relevantCount
-        })
-      };
-    }
+    // Return the keywords and internal links context
+    return {
+      statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        keywords: relevantKeywords.slice(0, 5), // Return top 5 keywords
+        internalLinksContext: internalLinksContext,
+        linksCount: linksCount,
+        relevantCount: relevantCount
+      })
+    };
 
   } catch (error) {
     console.error('💥 Netlify function error:', error);
@@ -126,58 +86,27 @@ exports.handler = async (event) => {
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({
         error: error.message,
-        stack: error.stack.substring(0, 500) // Limit stack trace
+        stack: error.stack.substring(0, 500)
       })
     };
   }
 };
 
-// Extract website context and keywords
+// Extract website context and keywords (now returns array of keywords)
 function extractWebsiteContext(htmlText, topic) {
-  try {
-    console.log('🔍 Extracting keyword context from HTML...');
-
-    // HTML'den text içeriği çıkar
-    const textContent = extractTextFromHTML(htmlText);
-    console.log(`📝 Extracted text length: ${textContent.length} characters`);
-
-    // Topic keywords'lerini çıkar
-    const topicKeywords = extractKeywords(topic);
-    console.log(`🔍 Searching for topic keywords: ${topicKeywords.join(', ')}`);
-
-    // İçerikte topic ile alakalı anahtar kelimeler bul
-    const relevantKeywords = findRelevantKeywords(textContent, topicKeywords);
-    console.log(`✅ Found relevant keywords: ${relevantKeywords.join(', ')}`);
-
-    // AI için context hazırla
-    const context = relevantKeywords.length > 0
-      ? `Website context related to "${topic}": ${relevantKeywords.join(', ')}`
-      : '';
-
-    return context;
-
-  } catch (error) {
-    console.error('💥 Context extraction error:', error);
-    return '';
-  }
+  const textContent = extractTextFromHTML(htmlText);
+  const topicKeywords = extractKeywords(topic);
+  return findRelevantKeywords(textContent, topicKeywords);
 }
 
 // Extract text from HTML
 function extractTextFromHTML(htmlText) {
-  try {
-    // HTML tag'lerini kaldır ve sadece text içeriği al
-    const textContent = htmlText
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Script tag'lerini kaldır
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Style tag'lerini kaldır
-      .replace(/<[^>]+>/g, ' ') // Tüm HTML tag'lerini kaldır
-      .replace(/\s+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
-      .trim();
-
-    return textContent;
-  } catch (error) {
-    console.error('Text extraction error:', error);
-    return '';
-  }
+  return htmlText
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Extract keywords from topic
@@ -188,10 +117,8 @@ function extractKeywords(topic) {
     .filter(word => word.length > 2)
     .map(word => word.replace(/[^\w]/g, ''));
 
-  // Topic'a göre synonym'ler ve related terms'ler ekle
   const extendedKeywords = [...baseKeywords];
 
-  // Medical topics için özel genişletmeler
   if (topic.toLowerCase().includes('gastric') || topic.toLowerCase().includes('sleeve')) {
     extendedKeywords.push(
       'weight', 'loss', 'surgery', 'bariatric', 'obesity', 'treatment',
@@ -213,11 +140,9 @@ function extractKeywords(topic) {
     );
   }
 
-  // URL slug variations ekle
-  const slugVariations = baseKeywords.map(word => word.replace(/s$/, '')); // Remove plural 's'
+  const slugVariations = baseKeywords.map(word => word.replace(/s$/, ''));
   extendedKeywords.push(...slugVariations);
 
-  // Duplicate'ları kaldır
   return [...new Set(extendedKeywords)].filter(word => word.length > 2);
 }
 
@@ -226,18 +151,15 @@ function findRelevantKeywords(textContent, topicKeywords) {
   const relevantKeywords = [];
   const textLower = textContent.toLowerCase();
 
-  // Topic keywords'lerini ara
   for (const keyword of topicKeywords) {
     if (textLower.includes(keyword)) {
       relevantKeywords.push(keyword);
     }
   }
 
-  // Ek olarak alakalı kelimeler bul (topic keywords'lerine benzer)
   const additionalKeywords = findAdditionalRelevantWords(textContent, topicKeywords);
   relevantKeywords.push(...additionalKeywords);
 
-  // Duplicate'ları kaldır ve ilk 10 kelimeyi al
   return [...new Set(relevantKeywords)].slice(0, 10);
 }
 
@@ -246,18 +168,15 @@ function findAdditionalRelevantWords(textContent, topicKeywords) {
   const additionalWords = [];
   const textLower = textContent.toLowerCase();
 
-  // Basit word frequency analizi
   const words = textContent.toLowerCase().match(/\b\w{3,}\b/g) || [];
   const wordFreq = {};
 
-  // Kelime frekansını hesapla
   words.forEach(word => {
     if (!isStopWord(word)) {
       wordFreq[word] = (wordFreq[word] || 0) + 1;
     }
   });
 
-  // En sık geçen kelimeleri al (stop words hariç)
   const sortedWords = Object.entries(wordFreq)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
@@ -277,28 +196,19 @@ function extractAllInternalLinks(htmlText, baseUrl) {
   const links = [];
 
   try {
-    console.log('🔍 Starting detailed link extraction...');
-
-    // 1. STANDART <a> TAGLERINI ÇEK
     const standardLinks = extractStandardLinks(htmlText, baseUrl);
     links.push(...standardLinks);
 
-    // 2. NAVIGATION LINKLERINI ÇEK (submenu'ler dahil)
     const navLinks = extractNavigationLinks(htmlText, baseUrl);
     links.push(...navLinks);
 
-    // 3. MENU VE DROPDOWN LINKLERINI ÇEK
     const menuLinks = extractMenuLinks(htmlText, baseUrl);
     links.push(...menuLinks);
 
-    console.log(`📊 Total links found: ${links.length}`);
-
-    // Duplicate linkleri temizle
     const uniqueLinks = links.filter((link, index, self) =>
       index === self.findIndex(l => l.url === link.url)
     );
 
-    console.log(`🧹 After deduplication: ${uniqueLinks.length} unique links`);
     return uniqueLinks;
 
   } catch (error) {
@@ -310,8 +220,6 @@ function extractAllInternalLinks(htmlText, baseUrl) {
 // Extract standard links
 function extractStandardLinks(htmlText, baseUrl) {
   const links = [];
-
-  // Regex ile tüm linkleri parse et (tırnaklı ve tırnaksız)
   const linkRegex = /<a[^>]+href=(["']?)([^"'\s>]+)\1[^>]*>([^<]*)<\/a>/gi;
   let match;
 
@@ -319,15 +227,13 @@ function extractStandardLinks(htmlText, baseUrl) {
     const href = match[2];
     const text = match[3]?.trim() || '';
 
-    // Relative URL'leri absolute'e çevir
     let absoluteUrl;
     try {
       absoluteUrl = new URL(href, baseUrl).href;
     } catch {
-      continue; // Invalid URL, skip
+      continue;
     }
 
-    // Filtreleme
     if (isValidInternalLink(absoluteUrl, baseUrl)) {
       let finalTitle = text;
       if (!finalTitle || finalTitle.length === 0) {
@@ -347,8 +253,6 @@ function extractStandardLinks(htmlText, baseUrl) {
 // Extract navigation links
 function extractNavigationLinks(htmlText, baseUrl) {
   const links = [];
-
-  // Navigation elementlerini bulmak için regex pattern'leri
   const navPatterns = [
     /<nav[^>]*>([\s\S]*?)<\/nav>/gi,
     /<div[^>]*class="[^"]*nav[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
@@ -377,8 +281,6 @@ function extractNavigationLinks(htmlText, baseUrl) {
 // Extract menu links
 function extractMenuLinks(htmlText, baseUrl) {
   const links = [];
-
-  // Menu ve dropdown pattern'leri
   const menuPatterns = [
     /<div[^>]*class="[^"]*dropdown[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
     /<div[^>]*class="[^"]*submenu[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
@@ -403,20 +305,17 @@ function extractMenuLinks(htmlText, baseUrl) {
 // Check if link is valid internal link
 function isValidInternalLink(url, baseUrl) {
   try {
-    // Domain kontrolü
     const baseDomain = new URL(baseUrl).hostname;
     const linkDomain = new URL(url).hostname;
 
     if (baseDomain !== linkDomain) {
-      return false; // External link
+      return false;
     }
 
-    // Ana sayfa kontrolü
     if (url === baseUrl || url === baseUrl + '/') {
-      return false; // Homepage
+      return false;
     }
 
-    // Geçersiz linkler
     if (url.includes('#') ||
         url.includes('javascript:') ||
         url.includes('mailto:') ||
@@ -442,12 +341,10 @@ function isValidInternalLink(url, baseUrl) {
 // Extract title from URL
 function extractTitleFromUrl(url) {
   try {
-    // URL'den slug'ı çıkar ve title yap
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
     const lastPart = pathParts[pathParts.length - 1] || '';
 
-    // Slug'ı title'a çevir (kebab-case'tan)
     return lastPart
       .replace(/[-_]/g, ' ')
       .replace(/\b\w/g, l => l.toUpperCase());
@@ -462,46 +359,40 @@ function calculateTopicRelevanceScore(link, topicKeywords, originalTopic) {
   const urlPath = link.url.toLowerCase();
   let score = 0;
 
-  // 1. EXACT KEYWORD MATCHES (En yüksek puan)
   for (const keyword of topicKeywords) {
     if (linkText.includes(keyword)) {
-      score += 2.0; // Exact match = 2 puan
+      score += 2.0;
     }
   }
 
-  // 2. URL PATH ANALYSIS (Yüksek puan)
   const urlParts = urlPath.split(/[-_/]/).filter(part => part.length > 2);
   for (const keyword of topicKeywords) {
     if (urlParts.includes(keyword)) {
-      score += 1.5; // URL'de keyword = 1.5 puan
+      score += 1.5;
     }
   }
 
-  // 3. FUZZY MATCHING (Orta puan)
   const fuzzyMatches = findFuzzyMatches(linkText, topicKeywords);
-  score += fuzzyMatches * 0.8; // Fuzzy match = 0.8 puan
+  score += fuzzyMatches * 0.8;
 
-  // 4. MEDICAL TERMINOLOGY BONUS
   if (originalTopic.toLowerCase().includes('gastric') || originalTopic.toLowerCase().includes('sleeve')) {
     const medicalTerms = ['weight', 'loss', 'surgery', 'bariatric', 'obesity', 'treatment', 'procedure'];
     for (const term of medicalTerms) {
       if (linkText.includes(term)) {
-        score += 0.5; // Medical term bonus = 0.5 puan
+        score += 0.5;
       }
     }
   }
 
-  // 5. TITLE QUALITY BONUS
   if (link.title && link.title.length > 10) {
-    score += 0.3; // Good title bonus = 0.3 puan
+    score += 0.3;
   }
 
-  // 6. URL LENGTH PENALTY
   if (link.url.length > 100) {
-    score -= 0.2; // Uzun URL penalty = -0.2 puan
+    score -= 0.2;
   }
 
-  return Math.max(0, score); // Minimum 0
+  return Math.max(0, score);
 }
 
 // Find fuzzy matches
@@ -509,7 +400,6 @@ function findFuzzyMatches(text, keywords) {
   let fuzzyCount = 0;
 
   for (const keyword of keywords) {
-    // Levenshtein distance benzeri basit fuzzy matching
     const words = text.split(/\s+/);
     for (const word of words) {
       if (calculateLevenshteinDistance(word, keyword) <= 2 && word.length > 3) {

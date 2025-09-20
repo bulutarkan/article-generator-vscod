@@ -31,13 +31,12 @@ export class WebCrawlerService {
     return [];
   }
 
-  async getWebsiteContext(websiteUrl: string, topic: string): Promise<string> {
+  async getSuggestedKeywords(websiteUrl: string, topic: string): Promise<{ keywords: string[], internalLinksContext: string }> {
     try {
-      console.log('🔍 Calling Netlify function for website crawling...');
+      console.log('🔍 Calling Netlify function for keyword suggestions and internal links...');
       console.log('🌐 Website:', websiteUrl);
       console.log('📝 Topic:', topic);
 
-      // Use Netlify function for server-side crawling (no CORS issues)
       const NETLIFY_FUNCTION_URL = '/.netlify/functions/crawl';
 
       const response = await fetch(`${NETLIFY_FUNCTION_URL}?url=${encodeURIComponent(websiteUrl)}&topic=${encodeURIComponent(topic)}`, {
@@ -49,46 +48,30 @@ export class WebCrawlerService {
 
       if (!response.ok) {
         console.warn(`❌ Netlify function failed: ${response.status}`);
-        return '';
+        return { keywords: [], internalLinksContext: '' };
       }
 
       const data = await response.json();
 
       if (data.error) {
         console.error('💥 Netlify function error:', data.error);
-        return '';
+        return { keywords: [], internalLinksContext: '' };
       }
 
       console.log('✅ Netlify crawler completed successfully');
       console.log(`📊 Links found: ${data.linksCount || 0}`);
       console.log(`🔗 Relevant links: ${data.relevantCount || 0}`);
+      console.log(`💡 Suggested Keywords: ${data.keywords?.join(', ')}`);
 
-      return data.context || '';
+      return {
+        keywords: data.keywords || [],
+        internalLinksContext: data.internalLinksContext || ''
+      };
 
     } catch (error) {
       console.error('💥 Netlify function call error:', error);
-      return '';
+      return { keywords: [], internalLinksContext: '' };
     }
-  }
-
-  async analyzeAndFilterPages(pages: PageInfo[], topic: string): Promise<PageInfo[]> {
-    if (!pages.length) return [];
-
-    // Topic keywords'lerini çıkar
-    const keywords = this.extractKeywords(topic);
-
-    // Sayfaları filtrele ve skorla
-    const scoredPages = pages.map(page => ({
-      ...page,
-      score: this.calculateRelevanceScore(page, keywords)
-    }));
-
-    // Skora göre sırala ve en iyi 5'i al
-    return scoredPages
-      .filter(page => page.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map(({ score, ...page }) => page);
   }
 
   private async getSitemapUrlFromRobotsTxt(websiteUrl: string): Promise<string | null> {

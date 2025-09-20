@@ -336,16 +336,21 @@ function isResponseComplete(responseText: string): boolean {
     }
 }
 
-export async function generateSeoGeoArticle(topic: string, location: string, tone: string, brief?: string, enableInternalLinks?: boolean, websiteUrl?: string, internalLinksContext?: string): Promise<Omit<Article, 'id' | 'topic' | 'location' | 'user_id' | 'tone'>> {
-    if (!topic.trim() || !location || !tone) {
+export async function generateSeoGeoArticle(topic: string, location: string, tone: string, brief?: string, enableInternalLinks?: boolean, websiteUrl?: string, internalLinksContext?: string, seoKeywords: string[] = []): Promise<Omit<Article, 'id' | 'topic' | 'location' | 'user_id' | 'tone'>> {
+    if (!topic.trim() || !location.trim() || !tone) {
         throw new Error("Topic, location, and tone are required.");
     }
+
+    const keywordInstruction = seoKeywords.length > 0
+        ? `\n**SEO Keywords to Incorporate:** You MUST naturally integrate the following keywords throughout the article content to improve SEO: ${seoKeywords.join(', ')}.`
+        : '';
 
     const systemInstruction = `You are an expert SEO strategist and senior medical content writer for "CK Health Turkey".
 Your task is to generate a high-quality, SEO-optimized article based on a topic, target location, and a specified tone of voice.
 You must return the output as a single, valid JSON object that adheres to the user-provided schema.
 
 **Audience:** International patients (especially from the UK) comparing medical services in Turkey versus their home location.
+${keywordInstruction}
 
 **Content & SEO Rules:**
 - **Word Count:** The article content must be 2,000-2,500 words.

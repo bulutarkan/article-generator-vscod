@@ -10,15 +10,16 @@ import { useAuth } from './AuthContext';
 import type { Article, ContentAnalysis } from '../types';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
-import { ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Globe } from 'lucide-react';
 import { AppPageTitle } from './PageTitle';
+import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword type
 
 interface GeneratorProps {
   topic: string;
   setTopic: (topic: string) => void;
   location: string;
   setLocation: (location: string) => void;
-  onArticleGenerated: (article: Omit<Article, 'id' | 'createdAt' | 'topic' | 'location' | 'user_id' | 'tone' | 'created_at'>, topic: string, location: string, tone: string) => Promise<void>;
+  onArticleGenerated: (article: Omit<Article, 'id' | 'createdAt' | 'topic' | 'location' | 'user_id' | 'tone' | 'created_at'>, topic: string, location: string, tone: string, seoKeywords: string[]) => Promise<void>;
   onNavigateToFeatures?: () => void;
   onNavigateToPricing?: () => void;
   onNavigateToContact?: () => void;
@@ -44,6 +45,13 @@ export const Generator: React.FC<GeneratorProps> = ({
   const [brief, setBrief] = useState<string>('');
   const [enableInternalLinks, setEnableInternalLinks] = useState<boolean>(false);
   const [websiteUrl, setWebsiteUrl] = useState<string>('');
+
+  // Keyword Suggestion states
+  const [isCrawling, setIsCrawling] = useState<boolean>(false);
+  const [suggestedKeywords, setSuggestedKeywords] = useState<SuggestedKeyword[]>([]);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [crawlingError, setCrawlingError] = useState<string | null>(null);
+
 
   // Content Analysis states
   const [showAnalysisModal, setShowAnalysisModal] = useState<boolean>(false);
@@ -208,10 +216,13 @@ export const Generator: React.FC<GeneratorProps> = ({
       if (enableInternalLinks && websiteUrl) {
         try {
           console.log('Starting web crawler for internal links...');
-          internalLinksContext = await webCrawlerService.getWebsiteContext(websiteUrl, topic);
-          console.log('Web crawler completed successfully');
+          const crawlResult = await webCrawlerService.getSuggestedKeywords(websiteUrl, topic);
+          internalLinksContext = crawlResult.internalLinksContext;
+          // Note: We are no longer directly setting suggestedKeywords here, as this is for internal links.
+          // Keyword suggestions are handled by the dedicated crawling function.
+          console.log('Web crawler for internal links completed successfully');
         } catch (crawlerError) {
-          console.warn('Web crawler failed, proceeding without internal links:', crawlerError);
+          console.warn('Web crawler for internal links failed, proceeding without internal links:', crawlerError);
           // Crawler hatası olsa bile makale üretimine devam et
         }
       }
@@ -223,11 +234,12 @@ export const Generator: React.FC<GeneratorProps> = ({
         brief,
         enableInternalLinks,
         websiteUrl,
-        internalLinksContext
+        internalLinksContext,
+        selectedKeywords
       );
 
       console.log('🔄 Calling onArticleGenerated to save article...');
-      await onArticleGenerated(result, topic, location, tone);
+      await onArticleGenerated(result, topic, location, tone, selectedKeywords);
       console.log('✅ Article saved successfully, clearing form...');
 
       // Clear local state after successful generation
@@ -274,7 +286,43 @@ export const Generator: React.FC<GeneratorProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [topic, location, tone, brief, enableInternalLinks, websiteUrl, onArticleGenerated]);
+  }, [topic, location, tone, brief, enableInternalLinks, websiteUrl, onArticleGenerated, selectedKeywords]);
+
+  const handleCrawlWebsite = useCallback(async () => {
+    if (!websiteUrl.trim() || !topic.trim()) {
+      setCrawlingError('Please provide both a website URL and an article topic to crawl.');
+      return;
+    }
+
+    setIsCrawling(true);
+    setCrawlingError(null);
+    setSuggestedKeywords([]);
+    setSelectedKeywords([]);
+
+    try {
+      const { keywords } = await webCrawlerService.getSuggestedKeywords(websiteUrl, topic);
+      setSuggestedKeywords(keywords.map(k => ({ keyword: k, selected: true })));
+      setSelectedKeywords(keywords);
+    } catch (e: any) {
+      console.error('Web crawling for keywords failed:', e);
+      setCrawlingError(e.message || 'Failed to crawl website for keywords.');
+    } finally {
+      setIsCrawling(false);
+    }
+  }, [websiteUrl, topic]);
+
+  const handleKeywordToggle = useCallback((keyword: string) => {
+    setSuggestedKeywords(prev =>
+      prev.map(sk =>
+        sk.keyword === keyword ? { ...sk, selected: !sk.selected } : sk
+      )
+    );
+    setSelectedKeywords(prev =>
+      prev.includes(keyword)
+        ? prev.filter(k => k !== keyword)
+        : [...prev, keyword]
+    );
+  }, []);
 
   // Show loading only when auth is ready and we're actually loading
   if (effectiveIsLoading) {
@@ -374,6 +422,79 @@ export const Generator: React.FC<GeneratorProps> = ({
         onAnalyzeContent={handlePerformAnalysis}
         isAnalyzing={isAnalyzing}
       />
+
+      {/* Keyword Suggestion Section */}
+      <div className="mt-8 mb-6 p-4 bg-gray-800 rounded-lg shadow-lg">
+        <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+          <Globe className="w-6 h-6 mr-2 text-blue-400" />
+          SEO Keyword Suggestions (Web Crawling)
+        </h3>
+        <p className="text-gray-400 mb-4">
+          Crawl a target website to identify relevant keywords for your article's topic.
+        </p>
+
+        <div className="mb-4">
+          <label htmlFor="websiteUrlInput" className="block text-sm font-medium text-gray-300 mb-2">
+            Target Website URL
+          </label>
+          <input
+            type="url"
+            id="websiteUrlInput"
+            className="w-full px-4 py-2 rounded-md bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., https://example.com/blog"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+          />
+        </div>
+
+        <button
+          onClick={handleCrawlWebsite}
+          disabled={isCrawling || !websiteUrl.trim() || !topic.trim()}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
+        >
+          {isCrawling ? (
+            <>
+              <Loader small />
+              <span>Crawling...</span>
+            </>
+          ) : (
+            <>
+              <Globe className="w-5 h-5" />
+              <span>Crawl Website for Keywords</span>
+            </>
+          )}
+        </button>
+
+        {crawlingError && (
+          <div className="mt-4 text-red-400 text-sm">
+            Error crawling website: {crawlingError}
+          </div>
+        )}
+
+        {suggestedKeywords.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-lg font-medium text-white mb-3">Suggested Keywords (Top 5)</h4>
+            <div className="flex flex-wrap gap-2">
+              {suggestedKeywords.map((sk, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleKeywordToggle(sk.keyword)}
+                  className={`px-3 py-1 rounded-full text-sm transition-all duration-200
+                    ${sk.selected
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                    }`}
+                >
+                  {sk.keyword}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 text-gray-400 text-sm">
+              Selected keywords will be passed to the AI for SEO optimization.
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Bulk Generation Section */}
       <div className="mt-8 mb-6">
