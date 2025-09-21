@@ -275,7 +275,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
             <button
               onClick={handleCrawlWebsite}
               disabled={isCrawling || !websiteUrl.trim() || !topic.trim()}
-              className="w-max bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
               {isCrawling ? (
                 <>

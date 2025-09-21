@@ -109,139 +109,200 @@ function extractTextFromHTML(htmlText) {
     .trim();
 }
 
-// Extract keywords from topic (improved to include multi-word phrases and better relevance)
+// Extract keywords from topic (improved for higher relevance and more dynamic N-gram generation)
 function extractKeywords(topic) {
-  const baseKeywords = topic
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(word => word.length > 2)
-    .map(word => word.replace(/[^\w]/g, ''));
+  const topicLower = topic.toLowerCase();
+  let generatedKeywords = new Set();
 
-  let extendedKeywords = [...baseKeywords];
+  // 1. Add original topic and its base words, prioritizing phrases from the topic
+  const baseWords = topicLower.split(/\s+/).filter(word => word.length > 2 && !isStopWord(word));
+  if (baseWords.length > 1) { // If topic is a phrase, add the whole phrase and its n-grams first
+      generatedKeywords.add(topicLower); // Add the full topic as a keyword
+  }
+  baseWords.forEach(word => generatedKeywords.add(word.replace(/[^\w]/g, '')));
 
-  // Generate N-grams (bigrams and trigrams) from the topic itself
-  const topicWords = topic.toLowerCase().split(/\s+/).filter(word => word.length > 1 && !isStopWord(word));
+
+  // 2. Generate N-grams (bigrams and trigrams) from the topic itself
+  const topicWords = topicLower.split(/\s+/).filter(word => word.length > 1 && !isStopWord(word));
   for (let i = 0; i < topicWords.length - 1; i++) {
-    extendedKeywords.push(`${topicWords[i]} ${topicWords[i+1]}`); // Bigrams
+    generatedKeywords.add(`${topicWords[i]} ${topicWords[i+1]}`); // Bigrams
     if (i < topicWords.length - 2) {
-      extendedKeywords.push(`${topicWords[i]} ${topicWords[i+1]} ${topicWords[i+2]}`); // Trigrams
+      generatedKeywords.add(`${topicWords[i]} ${topicWords[i+1]} ${topicWords[i+2]}`); // Trigrams
     }
   }
 
-  // Add specific long-tail keywords conditionally based on topic
-  if (topic.toLowerCase().includes('gastric sleeve')) {
-    extendedKeywords.push(
-      'gastric sleeve surgery', 'sleeve gastrectomy', 'gastric sleeve in turkey',
-      'gastric sleeve cost', 'gastric sleeve recovery', 'gastric sleeve benefits'
-    );
-  } else if (topic.toLowerCase().includes('bariatric surgery')) {
-    extendedKeywords.push(
-      'bariatric surgery options', 'types of bariatric surgery', 'bariatric surgery in turkey',
-      'bariatric surgery cost', 'bariatric surgery recovery'
-    );
-  } else if (topic.toLowerCase().includes('weight loss surgery')) {
-    extendedKeywords.push(
-      'weight loss surgery in turkey', 'types of weight loss surgery', 'weight loss surgery cost',
-      'weight loss surgery benefits', 'weight loss surgery recovery'
-    );
-  } else if (topic.toLowerCase().includes('medical tourism')) {
-    extendedKeywords.push(
-      'medical tourism in turkey', 'turkey medical tourism cost', 'best medical tourism destinations',
-      'medical tourism advantages', 'medical tourism packages'
-    );
-  } else if (topic.toLowerCase().includes('dental implants')) {
-    extendedKeywords.push(
-      'dental implants in turkey', 'dental implants cost turkey', 'best dental implants',
-      'dental implants procedure', 'full mouth dental implants'
-    );
-  } else if (topic.toLowerCase().includes('hair transplant')) {
-    extendedKeywords.push(
-      'hair transplant in turkey', 'hair transplant cost turkey', 'best hair transplant clinic',
-      'fue hair transplant', 'dhi hair transplant', 'hair restoration'
-    );
+  // 3. Add specific long-tail keywords conditionally based on topic
+  // These are more targeted and less broad than previous iterations
+  if (topicLower.includes('gastric sleeve')) {
+    generatedKeywords.add('gastric sleeve surgery');
+    generatedKeywords.add('sleeve gastrectomy');
+    generatedKeywords.add('gastric sleeve in turkey');
+  } else if (topicLower.includes('bariatric surgery')) {
+    generatedKeywords.add('bariatric surgery options');
+    generatedKeywords.add('types of bariatric surgery');
+    generatedKeywords.add('bariatric surgery in turkey');
+  } else if (topicLower.includes('weight loss surgery')) {
+    generatedKeywords.add('weight loss surgery in turkey');
+    generatedKeywords.add('types of weight loss surgery');
+  } else if (topicLower.includes('medical tourism')) {
+    generatedKeywords.add('medical tourism in turkey');
+    generatedKeywords.add('turkey medical tourism cost');
+  } else if (topicLower.includes('dental implants')) {
+    generatedKeywords.add('dental implants in turkey');
+    generatedKeywords.add('dental implants cost turkey');
+  } else if (topicLower.includes('hair transplant')) {
+    generatedKeywords.add('hair transplant in turkey');
+    generatedKeywords.add('hair transplant cost turkey');
+    generatedKeywords.add('fue hair transplant');
+    generatedKeywords.add('dhi hair transplant');
+  } else if (topicLower.includes('eye surgeries') || topicLower.includes('eye surgery')) {
+    generatedKeywords.add('eye surgery cost');
+    generatedKeywords.add('types of eye surgery');
+    generatedKeywords.add('laser eye surgery');
+    generatedKeywords.add('cataract surgery');
+    generatedKeywords.add('eye surgery in turkey');
+    generatedKeywords.add('lasik surgery');
   }
 
-  // Add broader but still relevant terms only if the topic is general medical/tourism
-  if (extendedKeywords.length < 10) { // Only add if we don't have enough specific keywords
-    if (topic.toLowerCase().includes('medical') || topic.toLowerCase().includes('surgery') || topic.toLowerCase().includes('health')) {
-      extendedKeywords.push(
-        'medical', 'hospital', 'clinic', 'surgical', 'care', 'health', 'medicine', 'doctor', 'treatment', 'procedure', 'operation'
-      );
-    }
-    if (topic.toLowerCase().includes('tourism') || topic.toLowerCase().includes('turkey') || topic.toLowerCase().includes('international')) {
-      extendedKeywords.push(
-        'tourism', 'healthcare', 'international', 'istanbul', 'antalya', 'travel', 'clinic'
-      );
-    }
+  // 4. Add relevant single words based on detected specific topics, but avoid overly general ones.
+  // These are added more cautiously now.
+  const relevantSingleWords = new Set();
+  if (generatedKeywords.has('gastric sleeve surgery') || generatedKeywords.has('bariatric surgery') || generatedKeywords.has('weight loss surgery')) {
+    relevantSingleWords.add('obesity'); relevantSingleWords.add('treatment'); relevantSingleWords.add('procedure');
+    relevantSingleWords.add('weight'); relevantSingleWords.add('loss'); relevantSingleWords.add('surgery');
+  }
+  if (generatedKeywords.has('dental implants')) {
+    relevantSingleWords.add('dentist'); relevantSingleWords.add('teeth'); relevantSingleWords.add('oral health');
+  }
+  if (generatedKeywords.has('hair transplant')) {
+    relevantSingleWords.add('hair loss'); relevantSingleWords.add('scalp'); relevantSingleWords.add('follicle');
+  }
+  if (generatedKeywords.has('eye surgeries') || generatedKeywords.has('eye surgery cost')) {
+    relevantSingleWords.add('vision'); relevantSingleWords.add('ophthalmology'); relevantSingleWords.add('eye health'); relevantSingleWords.add('eyes');
+  }
+  // Only add these if they are highly relevant to the main topic or already part of other generated keywords
+  if (topicLower.includes('turkey') || topicLower.includes('istanbul') || topicLower.includes('antalya') || generatedKeywords.has('medical tourism in turkey')) {
+    relevantSingleWords.add('turkey'); relevantSingleWords.add('istanbul'); relevantSingleWords.add('antalya');
+    relevantSingleWords.add('hospital'); relevantSingleWords.add('clinic'); relevantSingleWords.add('international');
+    relevantSingleWords.add('medical'); relevantSingleWords.add('healthcare'); relevantSingleWords.add('travel');
   }
 
-  // Remove plural 's' from some keywords for variations
-  const singularVariations = extendedKeywords.map(word => word.replace(/s$/, ''));
-  extendedKeywords.push(...singularVariations);
+  // Add relevant single words to generatedKeywords only if they are not already present
+  relevantSingleWords.forEach(word => generatedKeywords.add(word));
 
-  // Remove duplicates and filter by length
-  return [...new Set(extendedKeywords)].filter(word => word.length > 2);
+  // Final filtering: Remove plural 's' from some keywords for variations and filter out too short/numeric
+  const singularVariations = Array.from(generatedKeywords).map(word => word.replace(/s$/, ''));
+  singularVariations.forEach(word => generatedKeywords.add(word));
+
+  return Array.from(generatedKeywords).filter(word => word.length > 2 && !/^\d+$/.test(word));
 }
 
-// Find relevant keywords in content - prioritize longer phrases and topic relevance
+// Find relevant keywords in content - heavily prioritize topic-related phrases and filter irrelevant terms
 function findRelevantKeywords(textContent, topicKeywords) {
   const relevantKeywords = new Map(); // Use a Map to store keywords and their scores
   const textLower = textContent.toLowerCase();
 
-  // First, find and score multi-word keywords (longer phrases first)
+  // Create a base relevance score for each topic keyword based on its length (longer phrases get higher base score)
+  const topicKeywordScores = new Map();
+  topicKeywords.forEach(kw => {
+    topicKeywordScores.set(kw, kw.split(' ').length * 1000); // Significantly increased base score for phrases
+  });
+
+  // First pass: Find and score all topic-generated keywords present in the content
   // Sort topicKeywords by length in descending order to prioritize longer phrases
   const sortedTopicKeywords = [...topicKeywords].sort((a, b) => b.length - a.length);
 
   for (const keyword of sortedTopicKeywords) {
     if (textLower.includes(keyword)) {
-      // If a longer phrase is found, it should take precedence over its constituent single words
-      // e.g., "gastric sleeve surgery" should override "gastric", "sleeve", "surgery"
-      if (keyword.split(' ').length > 1) {
-        // Remove any single-word components that are part of this phrase
-        keyword.split(' ').forEach(part => {
-            if (relevantKeywords.has(part) && !sortedTopicKeywords.includes(part)) { // Only remove if it's a single word and not a specific topic keyword itself
-                relevantKeywords.delete(part);
-            }
-        });
-      }
-      relevantKeywords.set(keyword, (relevantKeywords.get(keyword) || 0) + 1); // Increment score for the keyword
+      let currentScore = relevantKeywords.get(keyword) || 0;
+      relevantKeywords.set(keyword, currentScore + (topicKeywordScores.get(keyword) || 500)); // Add base score, higher default
     }
   }
 
-  // Add top single words from the content, but only if they are not already part of a found phrase
-  // or are not already explicitly added as a topic keyword.
-  const additionalWords = findAdditionalRelevantWords(textContent);
-  for (const word of additionalWords) {
-    // Check if the word is already covered by a multi-word phrase
-    let isCoveredByPhrase = false;
+  // Second pass: Add top single words from the content, but with very strict relevance checks
+  const wordsInContent = textLower.match(/\b\w{3,}\b/g) || [];
+  const wordFrequency = new Map();
+  wordsInContent.forEach(word => {
+    if (!isStopWord(word) && !/^\d+$/.test(word)) {
+      wordFrequency.set(word, (wordFrequency.get(word) || 0) + 1);
+    }
+  });
+
+  // Define a very strict list of general terms to filter out if they are not part of a relevant phrase
+  const strictGeneralTermsToFilter = new Set([
+    'medical', 'international', 'turkey', 'hospital', 'clinic', 'surgery', 'health', 'treatment', 'procedure', 'operation', 'doctor',
+    'best', 'cost', 'types', 'benefits', 'recovery', 'options', 'tourism', 'travel', 'packages', 'guide', 'review', 'top', 'latest',
+    'september', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'october', 'november', 'december',
+    'and', 'or', 'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'from', 'with', 'for', 'about', 'just', 'only', 'also', 'more', 'less', 'very', 'much', 'many', 'few', 'some', 'any', 'all', 'none', 'every', 'each', 'other', 'another', 'such', 'what', 'where', 'when', 'why', 'how', 'who', 'whom', 'whose', 'which', 'wherever', 'whenever', 'whatever', 'whoever', 'whomever', 'whichever',
+    'contact', 'privacy', 'blog', 'home', 'about', 'service', 'services', 'solution', 'solutions', 'product', 'products', 'team', 'company', 'get', 'find', 'learn', 'read', 'click', 'here', 'more', 'info', 'information', 'page', 'site', 'website', 'online', 'new', 'old', 'good', 'bad', 'great', 'small', 'large', 'high', 'low', 'first', 'last', 'next', 'previous', 'today', 'tomorrow', 'yesterday', 'day', 'week', 'month', 'year', 'time', 'years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'email', 'phone', 'address' // Expanded common noise words
+  ]);
+
+  wordFrequency.forEach((freq, word) => {
+    // Check if the word is part of an already found multi-word relevant phrase
+    let isPartOfRelevantPhrase = false;
     for (const relevantPhrase of relevantKeywords.keys()) {
-        if (relevantPhrase.includes(word) && relevantPhrase.split(' ').length > 1) {
-            isCoveredByPhrase = true;
-            break;
-        }
+      if (relevantPhrase.split(' ').length > 1 && relevantPhrase.includes(word)) {
+        isPartOfRelevantPhrase = true;
+        break;
+      }
     }
-    if (!isCoveredByPhrase && !relevantKeywords.has(word)) {
-      relevantKeywords.set(word, (relevantKeywords.get(word) || 0) + 1);
+
+    if (!isPartOfRelevantPhrase) {
+      let wordRelevanceScore = freq; // Base score is frequency
+
+      // Boost if the word is semantically close to any topic keyword
+      let isSemanticallyClose = false;
+      for (const topicKw of topicKeywords) {
+        // More robust check: word is part of topic keyword, or vice versa, or Levenshtein distance is small
+        if (topicKw.includes(word) || word.includes(topicKw) || calculateLevenshteinDistance(word, topicKw) <= 1) { // Levenshtein distance 1 for very close matches
+          isSemanticallyClose = true;
+          wordRelevanceScore += 100; // Significant boost for semantic closeness
+          break;
+        }
+      }
+      
+      // Only add to relevantKeywords if it's semantically close AND has a reasonable frequency,
+      // OR if it's a very specific term from the initial topicKeywords list.
+      if (isSemanticallyClose && freq > 1) { // Require reasonable frequency for single words (reduced from 2)
+        relevantKeywords.set(word, (relevantKeywords.get(word) || 0) + wordRelevanceScore);
+      } else if (topicKeywords.includes(word) && word.split(' ').length === 1) { // Ensure original single topic keywords are kept
+        relevantKeywords.set(word, (relevantKeywords.get(word) || 0) + wordRelevanceScore + 200); // Boost original single topic keywords
+      }
+    }
+  });
+
+  // Final filtering and sorting
+  let finalResultCandidates = Array.from(relevantKeywords.entries())
+    .filter(([kw, score]) => {
+      // Always keep multi-word keywords that were generated from the topic
+      if (topicKeywords.includes(kw) && kw.split(' ').length > 1) {
+        return true;
+      }
+      // Filter out single general terms unless they have an extremely high score
+      if (strictGeneralTermsToFilter.has(kw) && kw.split(' ').length === 1) {
+          return score > 300; // Only keep if it's exceptionally relevant (e.g., very high freq and semantically close) - Increased threshold
+      }
+      return true;
+    })
+    .sort((a, b) => b[1] - a[1]) // Sort by score descending
+    .map(entry => entry[0]); // Get just the keyword strings
+
+  // Ensure we return up to 10 keywords, prioritizing the most relevant
+  // Fallback to top single words if not enough relevant phrases are found
+  let finalKeywords = [];
+  let phrases = finalResultCandidates.filter(kw => kw.split(' ').length > 1);
+  let singles = finalResultCandidates.filter(kw => kw.split(' ').length === 1);
+
+  finalKeywords.push(...phrases);
+  
+  // Add single words until we have 10, but prioritize high-scoring ones
+  for (let i = 0; finalKeywords.length < 10 && i < singles.length; i++) {
+    if (!finalKeywords.includes(singles[i])) { // Avoid duplicates
+        finalKeywords.push(singles[i]);
     }
   }
 
-  // Convert map to array, sort by score (frequency), and take top N
-  // Prioritize keywords that are direct matches from the original topic or its n-grams
-  return Array.from(relevantKeywords.keys())
-              .sort((a, b) => {
-                const aIsTopicKeyword = topicKeywords.includes(a);
-                const bIsTopicKeyword = topicKeywords.includes(b);
-
-                if (aIsTopicKeyword && !bIsTopicKeyword) return -1;
-                if (!aIsTopicKeyword && bIsTopicKeyword) return 1;
-
-                // For keywords that are equally topic-relevant (or not), sort by length (longer first) then frequency
-                if (a.length !== b.length) {
-                    return b.length - a.length;
-                }
-                return (relevantKeywords.get(b) || 0) - (relevantKeywords.get(a) || 0);
-              })
-              .slice(0, 5); // Return top 5 keywords
+  return finalKeywords.slice(0, 10);
 }
 
 // Find additional relevant words (general high-frequency words in content)
