@@ -42,7 +42,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onDelete, onV
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onView(article.id); }}
     >
       <div className="flex flex-col h-full">
-        <h3 className="text-xl font-bold text-slate-100 group-hover:text-indigo-400 transition-colors duration-300 leading-tight">
+        <h3 className="text-lg font-bold text-slate-100 group-hover:text-indigo-400 transition-colors duration-300 leading-tight">
           {article.title}
         </h3>
         

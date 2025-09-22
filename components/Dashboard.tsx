@@ -312,7 +312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
             </div>
           }
         >
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+          <button className="text-sm flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
             <BarChartIcon className="h-5 w-5" />
             <span>Statistics</span>
             <ChevronDownIcon className="h-4 w-4" />
@@ -321,7 +321,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
         {/* Search Toggle Button - Placed next to Statistics button */}
         <button
           onClick={() => setShowSearchBar(!showSearchBar)}
-          className={`p-3 rounded-lg transition-all duration-200 ${showSearchBar
+          className={`p-2.5 rounded-lg transition-all duration-200 ${showSearchBar
             ? 'bg-indigo-500 text-white'
             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
             }`}
@@ -504,7 +504,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
               {currentPageArticles.map((article) => (
                 <ArticleCard key={article.id} article={article} onDelete={onDeleteArticle} onView={onViewArticle} />
               ))}

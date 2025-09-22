@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
     : articles;
 
   return (
-    <header className="py-4 sm:py-8 text-center px-4">
+    <header className="py-4 sm:py-6 text-center px-4">
       {/* Center Layout - Hamburger + Logo + User Menu always centered */}
       <div className="flex justify-center items-center w-full max-w-7xl mx-auto">
         {/* Left Section - Hamburger Menu */}
@@ -200,7 +200,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, user, o
       </div>
 
       {/* Desktop Navigation */}
-      <nav className="hidden lg:flex justify-center items-center gap-2 p-1 bg-neutral-800/30 rounded-xl w-fit mx-auto animate-fade-in-up mt-6 backdrop-blur-sm border border-neutral-700/50" style={{ animationDelay: '0.2s' }}>
+      <nav className="hidden lg:flex justify-center items-center gap-2 p-1 bg-neutral-800/30 rounded-xl w-fit mx-auto animate-fade-in-up mt-4 backdrop-blur-sm border border-neutral-700/50" style={{ animationDelay: '0.2s' }}>
         <motion.button
           onClick={() => window.location.href = '/'}
           whileHover={{ scale: 1.05 }}
