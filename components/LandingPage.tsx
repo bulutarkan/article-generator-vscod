@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { AnimatedCounter } from './AnimatedCounter';
 import Typed from 'typed.js';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
@@ -212,6 +213,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   ];
 
+  const stats = [
+    { value: 50000, suffix: '+', label: 'Articles Generated', color: 'indigo' },
+    { value: 10000, suffix: '+', label: 'Active Users', color: 'purple' },
+    { value: 95, suffix: '%', label: 'Satisfaction Rate', color: 'indigo' },
+    { value: '24', suffix: '/7', label: 'AI Support', color: 'purple', isText: true },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
       <LandingPageTitle />
@@ -381,49 +389,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </motion.div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <div className="text-4xl sm:text-5xl font-bold text-indigo-400 mb-2 font-mono">50K+</div>
-              <div className="text-slate-400">Articles Generated</div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <div className="text-4xl sm:text-5xl font-bold text-purple-400 mb-2 font-mono">10K+</div>
-              <div className="text-slate-400">Active Users</div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <div className="text-4xl sm:text-5xl font-bold text-indigo-400 mb-2 font-mono">95%</div>
-              <div className="text-slate-400">Satisfaction Rate</div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <div className="text-4xl sm:text-5xl font-bold text-purple-400 mb-2 font-mono">24/7</div>
-              <div className="text-slate-400">AI Support</div>
-            </motion.div>
+            {stats.map((stat, index) => (
+              <AnimatedCounter
+                key={index}
+                {...stat}
+                delay={index * 0.1}
+              />
+            ))}
           </div>
         </div>
       </section>
