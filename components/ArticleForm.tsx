@@ -13,6 +13,7 @@ import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword typ
 // File parsing imports
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
 
 interface ArticleFormProps {
   topic: string;
@@ -102,12 +103,48 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
-    // Simple and stable PDF handler - formats as DOCX-style acknowledgment
-    // This provides clear instructions for manual content addition
-    const message = `DOCX File: ${file.name.replace('.pdf', '_acknowledged.docx')}
-Document Content:
+    try {
+      // Configure PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
-PDF file "${file.name}" has been successfully loaded.
+      // Load the PDF document
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      let fullText = '';
+
+      // Extract text from each page
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+
+        // Extract text items and join them
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+
+        if (pageText) {
+          fullText += pageText + '\n\n';
+        }
+      }
+
+      // Clean up the extracted text
+      fullText = fullText
+        .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+        .trim();
+
+      // Add file info header
+      const fileInfo = `PDF File: ${file.name}\nDocument Content:\n\n`;
+
+      return fileInfo + fullText;
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      // Fallback message in case PDF parsing fails
+      const message = `PDF File: ${file.name}\nDocument Content:
+
+PDF file "${file.name}" has been successfully loaded, but automatic text extraction failed.
 
 To use the PDF content:
 1. Open the PDF file in a PDF viewer or browser
@@ -117,9 +154,12 @@ To use the PDF content:
 
 This will ensure the AI can use your research data in the article.
 
-File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
 
-    return message;
+Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+
+      return message;
+    }
   };
 
   const parseDOCXFile = async (file: File): Promise<string> => {

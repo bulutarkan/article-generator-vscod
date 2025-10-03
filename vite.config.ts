@@ -4,6 +4,7 @@ import type { ViteDevServer } from 'vite';
 
 export default defineConfig({
   assetsInclude: ['**/*.mp4'],
+  publicDir: 'public',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
