@@ -13,6 +13,8 @@ import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword typ
 // File parsing imports
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+const pdfParse = require('pdf-parse');
+const Papa = require('papaparse');
 
 interface ArticleFormProps {
   topic: string;
@@ -103,11 +105,32 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
     try {
-      // Simple fallback - in browser environment, this is limited
-      return `PDF File: ${file.name}\n\nBrowser-based PDF parsing is limited. Please extract text content manually from the PDF and paste it in the brief section above, or consider converting to DOCX format.\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-    } catch (error) {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const data = await pdfParse(buffer);
+
+      let content = data.text.trim();
+
+      // Clean up the content
+      content = content
+        .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
+        .replace(/^\s+|\s+$/g, ''); // Trim whitespace
+
+      // Add file metadata
+      const metadata = [
+        `PDF File: ${file.name}`,
+        `Total Pages: ${data.numpages}`,
+        `File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        `Extracted Content Length: ${content.length} characters`,
+        '',
+        'PDF Content:'
+      ].join('\n');
+
+      return metadata + '\n\n' + content;
+    } catch (error: any) {
       console.error('PDF parsing error:', error);
-      return `PDF File: ${file.name}\n\nUnable to process PDF file. Please extract text content manually and paste it in the brief section above.`;
+      // Fallback to basic info
+      return `PDF File: ${file.name}\n\nAdvanced PDF parsing failed: ${error.message}\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\n\nPlease extract text content manually and paste it in the brief section above, or convert to DOCX format.`;
     }
   };
 
@@ -135,28 +158,89 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   const parseCSVFile = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const csv = e.target?.result as string;
-          // Simple CSV parsing - assume comma separated values
-          const lines = csv.split('\n');
-          const headers = lines[0]?.split(',') || [];
-          let result = `CSV Content:\n\nHeaders: ${headers.join(', ')}\n\n`;
+      Papa.parse(file, {
+        header: false, // Let Papa detect headers
+        skipEmptyLines: true,
+        delimiter: '', // Auto-detect delimiter (comma, semicolon, tab, pipe)
+        complete: (results) => {
+          try {
+            const data = results.data as string[][];
+            const errors = results.errors;
 
-          for (let i = 1; i < lines.length; i++) {
-            if (lines[i].trim()) {
-              const values = lines[i].split(',');
-              result += `Row ${i}: ${values.join(' | ')}\n`;
+            // Handle parsing errors
+            if (errors && errors.length > 0) {
+              console.warn('CSV parsing warnings:', errors);
             }
+
+            if (data.length === 0) {
+              reject(new Error('CSV file appears to be empty'));
+              return;
+            }
+
+            // Detect if first row is header
+            const firstRow = data[0];
+            const secondRow = data[1];
+            let isHeaderRow = false;
+
+            if (secondRow) {
+              // Simple heuristic: if 70% of first row values are strings and 70% of second row are numbers/strings different from first row
+              const firstRowStringRatio = firstRow.filter(cell =>
+                typeof cell === 'string' && cell.trim().length > 0 && isNaN(Number(cell))
+              ).length / firstRow.length;
+
+              const secondRowDifferentFromFirst = secondRow.filter((cell, index) =>
+                firstRow[index] !== cell
+              ).length / secondRow.length;
+
+              isHeaderRow = firstRowStringRatio > 0.7 && secondRowDifferentFromFirst > 0.5;
+            }
+
+            let result = [
+              `CSV File: ${file.name}`,
+              `Total Rows: ${data.length}`,
+              `File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+              `Detected Delimiter: ${results.meta.delimiter}`,
+              `Has Header Row: ${isHeaderRow ? 'Yes' : 'No'}`,
+              '',
+              'CSV Data:'
+            ].join('\n');
+
+            if (isHeaderRow) {
+              const headers = firstRow.map(h => String(h).trim());
+              result += '\n\nHeaders: ' + headers.join(' | ') + '\n\n';
+
+              // Data rows (skip header)
+              data.slice(1).slice(0, 50).forEach((row, index) => {
+                const values = row.map(cell =>
+                  cell === null || cell === undefined ? '[empty]' : String(cell).trim()
+                );
+                result += `Row ${index + 1}: ${values.join(' | ')}\n`;
+              });
+            } else {
+              // No header, just data
+              result += '\n\n';
+              data.slice(0, 50).forEach((row, index) => {
+                const values = row.map(cell =>
+                  cell === null || cell === undefined ? '[empty]' : String(cell).trim()
+                );
+                result += `Row ${index + 1}: ${values.join(' | ')}\n`;
+              });
+            }
+
+            // Show truncation if file is large
+            if (data.length > 50) {
+              result += `\n\n[...${data.length - 50} more rows truncated for preview...]`;
+            }
+
+            resolve(result);
+          } catch (error) {
+            reject(new Error(`Failed to process CSV data: ${error}`));
           }
-          resolve(result);
-        } catch (error) {
-          reject(new Error(`Failed to parse CSV: ${error}`));
+        },
+        error: (error) => {
+          reject(new Error(`CSV parsing failed: ${error.message}`));
         }
-      };
-      reader.onerror = () => reject(new Error('Failed to read CSV file'));
-      reader.readAsText(file);
+      });
     });
   };
 
