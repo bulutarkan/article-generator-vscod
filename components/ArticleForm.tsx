@@ -13,7 +13,6 @@ import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword typ
 // File parsing imports
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-import { createWorker } from 'tesseract.js';
 
 interface ArticleFormProps {
   topic: string;
@@ -103,89 +102,20 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
-    try {
-      // Use OCR approach for PDF text extraction
-      const fileUrl = URL.createObjectURL(file);
-
-      // Create a temporary canvas to render PDF page
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      // Use simple PDF.js-like extraction but without worker issues
-      const worker = await createWorker('eng+tur'); // English and Turkish OCR
-
-      let extractedText = '';
-
-      // For demonstration, we'll simulate extracting text
-      // In a real implementation, this would extract actual text from PDF pages
-      console.log('Starting PDF OCR extraction...');
-
-      // Mock extraction - replace with real implementation
-      extractedText = `
-Tirzepatid (Mounjaro/Zepbound), Glukagon benzeri Peptit-1 (GLP-1) ve Glikoz bağımlı İnsülinotropik Polipeptit (GIP) çift agonisti olarak, obezite ve Tip 2 diyabet tedavisinde farmakolojik bir dönüm noktasını temsil etmektedir.
-
-KLİNİK ÜSTÜNLÜK VE ETKİNLİK VERİLERİ
-- SURMOUNT-1 çalışması: 20% vücut ağırlığı kaybı
-- GLP-1/GIP mekanizması sayesinde mono-agonistler'e üstün
-- Kilometrik sonuçlar: 15-22% TLW (TÜM vücut ağırlığı kaybı)
-- Kardiyovasküler risk azalışı
-
-BARİATRİK CERRAHİ İLE KARŞILAŞTIRMA
-Bariatrik cerrahi %25-35% TLW sağlar ancak %14-30 yeniden kilo alma riski vardır.
-Mounjaro ile kombine tedavi en optimal yaklaşım olabilir.
-
-PATİENT SEÇİMİ VE YAN ETKİLERİ
-- Vücut Kitle İndeksi ≥30 kg/m² olan hastalar
-- Oksipital gastrointestinal yan etkiler (genellikle hafif)
-- Düzenli takip ve doz titrasyonu önemli
-
-TEKNİK RAPOR SONUÇLARI
-- Global pazar büyümesi: CAGR %18.6
-- Beklenen pazar boyutu 2032: 55.48 milyar USD
-- Türkiye pazarı: Avantajlı erişim ve düşük maliyet
-
-Bu PDF dosyası, Mounjaro'nun obezite tedavisindeki rolü, klinik etkinliği ve gelecekteki pazar potansiyeli konusunda kapsamlı bir analiz sağlamaktadır.
-      `.trim();
-
-      await worker.terminate();
-
-      // Clean up
-      URL.revokeObjectURL(fileUrl);
-
-      // Format as DOCX content (as user requested)
-      let content = `DOCX File: ${file.name.replace('.pdf', '_extracted.docx')}
+    // Simple and stable PDF handler - formats as DOCX-style acknowledgment
+    // Avoids complex parsing that breaks the browser
+    return `DOCX File: ${file.name.replace('.pdf', '_acknowledged.docx')}
 Document Content:
 
-${extractedText}
+PDF file "${file.name}" has been successfully loaded and acknowledged.
 
----
-Original PDF: ${file.name}
+For maximum content utilization:
+• Open the PDF in a PDF viewer or browser
+• Copy all text content (Ctrl+A, Ctrl+C)
+• Paste into the "Brief" field above
+
 File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
-Extraction Method: OCR-based text recognition
-Language: English + Turkish support
-
-*** PDF içeriği başarıyla çıkarıldı ve AI için hazırlandı ***`;
-
-      return content;
-
-    } catch (error: any) {
-      console.error('PDF OCR extraction failed:', error);
-
-      // Fallback to basic message
-      return `DOCX File: ${file.name.replace('.pdf', '_extraction_failed.docx')}
-Document Content:
-
-PDF text extraction encountered an error: ${error.message}
-
-File: ${file.name}
-Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
-
-Please try:
-1. Converting PDF to DOCX format first
-2. Or copy-paste the content manually into the brief field above
-
-The system will handle DOCX files perfectly.`;
-    }
+Status: File loaded and ready for manual content addition`;
   };
 
   const parseDOCXFile = async (file: File): Promise<string> => {
