@@ -1,0 +1,24 @@
+This is a test file with headings
+
+# Main Heading 1
+This is some content under H1
+
+## Sub Heading 1.1
+More content here
+
+### Sub Sub Heading 1.1.1
+Even more content
+
+# Main Heading 2
+Content for second H1
+
+## Sub Heading 2.1
+Sub content
+
+# Main Heading 3
+Third main heading
+
+## Sub Heading 3.1
+## Sub Heading 3.2
+### Deep Heading 3.2.1
+

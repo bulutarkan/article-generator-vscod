@@ -193,6 +193,19 @@ body {
   }
 }
 
+/* ContentEditable Placeholder Support */
+[contentEditable="true"]:empty:before {
+  content: attr(data-placeholder);
+  color: var(--neutral-400);
+  font-style: italic;
+  pointer-events: none;
+  display: block;
+}
+
+[contentEditable="true"]:empty:focus:before {
+  display: none;
+}
+
 /* Smooth page transitions */
 .page-enter {
   opacity: 0;

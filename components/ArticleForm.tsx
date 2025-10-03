@@ -14,6 +14,8 @@ import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword typ
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
+import { CopyIcon } from './icons/CopyIcon';
+import { EyeIcon } from './icons/EyeIcon';
 
 interface ArticleFormProps {
   topic: string;
@@ -65,6 +67,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   handleKeywordToggle,
   crawlingError,
 }) => {
+  // Initialize contenteditable with existing brief content
+  useEffect(() => {
+    if (briefRef.current && briefRef.current.textContent !== brief) {
+      briefRef.current.textContent = brief;
+    }
+  }, [brief]);
   const tones = ['Authoritative', 'Formal', 'Professional', 'Casual', 'Funny'];
 
   const [isLocationOpen, setIsLocationOpen] = useState(false);
@@ -79,7 +87,51 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
+  const [isUploadingFile, setIsUploadingFile] = useState<boolean>(false);
+  const [showContentPreview, setShowContentPreview] = useState<boolean>(false);
+  const [expandedPreview, setExpandedPreview] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Brief contenteditable state
+  const briefRef = useRef<HTMLDivElement>(null);
+
+  // Heading extraction state
+  const [extractedHeadings, setExtractedHeadings] = useState<{level: number, text: string, slug: string}[]>([]);
+
+  // Slug generation function - creates readable slugs from headings
+  const generateSlug = (text: string): string => {
+    return text
+      .replace(/^[\d\s\.]+\s*/, '') // Remove leading numbers, dots, and spaces
+      .replace(/[^\w\sğüşöçıİĞÜŞÖÇı\/,&\(\)-:]/g, '') // Keep Turkish characters and specific special chars: / , & ( ) - :
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .trim()
+      .split(' ')
+      .filter(word => word.length > 0)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+      .replace(/^[\d\s]+/, ''); // Additional cleanup for any remaining leading numbers
+  };
+
+  const extractHeadingsFromContent = (content: string): {level: number, text: string, slug: string}[] => {
+    const headings: {level: number, text: string, slug: string}[] = [];
+    const lines = content.split('\n');
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#')) {
+        const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (match) {
+          const level = match[1].length;
+          const text = match[2].trim();
+          const slug = generateSlug(text);
+          headings.push({ level, text, slug });
+        }
+      }
+    });
+
+    return headings;
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -166,13 +218,85 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
   const parseDOCXFile = async (file: File): Promise<string> => {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      let content = result.value.trim();
+
+      // Use HTML conversion to detect Word heading styles (Başlık 1, Başlık 2, etc.)
+      const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
+      const htmlContent = htmlResult.value;
+
+      // Extract headings from HTML with proper levels
+      const headingRegex = /<h([1-6])[^>]*>(.*?)<\/h[1-6]>/gi;
+      let match;
+      let processedContent = htmlContent;
+      const headings: Array<{ level: number, text: string }> = [];
+
+      while ((match = headingRegex.exec(htmlContent)) !== null) {
+        const level = parseInt(match[1]);
+        let text = match[2]
+          .replace(/<[^>]*>/g, '') // Remove any nested tags in heading text
+          .trim();
+
+        headings.push({ level, text: text });
+
+        // Replace HTML heading with markdown equivalent
+        const hashes = '#'.repeat(level);
+        processedContent = processedContent.replace(match[0], `\n${hashes} ${text}\n`);
+      }
+
+      let content = '';
+      if (headings.length > 0) {
+        // If headings found, strip other HTML tags from content
+        content = processedContent.replace(/<[^>]*>/g, '').trim();
+      } else {
+        // Fallback: extract raw text if no headings found
+        const rawResult = await mammoth.extractRawText({ arrayBuffer });
+        content = rawResult.value.trim();
+
+        // Apply basic pattern detection for unstyled documents
+        const lines = content.split('\n');
+        let processedLines: string[] = [];
+        let detectedHeadings: string[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (line.length < 10 || line.length > 150) {
+            processedLines.push(line);
+            continue;
+          }
+
+          // Basic heading pattern detection for Turkish text
+          const isPotentialHeading =
+            /^[A-ZĞÜŞİÖÇ][A-Za-zğüşöçıİĞÜŞÖÇ\s]/.test(line.trim()) &&
+            line.split(/\s+/).length >= 2 && line.split(/\s+/).length <= 12 &&
+            !line.match(/[.!?]\s*$/) &&
+            !line.toLowerCase().includes(' ve ') &&
+            !line.toLowerCase().includes(' ile ') &&
+            !line.toLowerCase().includes(' için ') &&
+            /[aeıioöuü]/i.test(line) &&
+            line.length >= 3;
+
+          if (isPotentialHeading && !detectedHeadings.includes(line)) {
+            detectedHeadings.push(line);
+            processedLines.push(`## ${line}`);
+            processedLines.push('');
+          } else {
+            processedLines.push(line);
+          }
+        }
+
+        if (detectedHeadings.length > 0) {
+          content = processedLines.join('\n');
+        }
+      }
 
       // Clean up the content
       content = content
-        .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
-        .replace(/^\s+|\s+$/g, ''); // Trim whitespace
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      // Extract headings for reference system
+      const rawHeadings = extractHeadingsFromContent(content);
+      setExtractedHeadings(rawHeadings);
 
       // Add file info
       const fileInfo = `DOCX File: ${file.name}\nDocument Content:\n\n`;
@@ -180,7 +304,6 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
       return fileInfo + content;
     } catch (error) {
       console.error('DOCX parsing error:', error);
-      // Fallback to basic file info
       return `DOCX File: ${file.name}\n\nUnable to extract full content from DOCX file. Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   };
@@ -340,6 +463,13 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
       console.log('✅ FILE PARSING COMPLETE');
       console.log('📄 Extracted content length:', content.length, 'characters');
       console.log('📋 Content preview:', content.slice(0, 150) + '...');
+
+      // Start the loading animation for 1 second before showing the file
+      setIsUploadingFile(true);
+      setTimeout(() => {
+        setIsUploadingFile(false);
+        setShowContentPreview(true);
+      }, 1000);
     } catch (error: any) {
       console.error('File parsing error:', error);
       setParsingError(error.message || 'Failed to parse file');
@@ -352,11 +482,257 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
   const handleFileRemove = useCallback(() => {
     setUploadedFile(null);
     setFileContent('');
+    setExtractedHeadings([]); // Clear headings when file is removed
     setParsingError(null);
+    setShowContentPreview(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   }, []);
+
+  // Brief with @ reference support
+  const [showReferenceSuggestions, setShowReferenceSuggestions] = useState(false);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [expandedHeadings, setExpandedHeadings] = useState<Set<string>>(new Set());
+
+  const insertHeadingReference = (headingSlug: string) => {
+    if (briefRef.current) {
+      // Find the heading to get its level and color
+      const heading = extractedHeadings.find(h => h.slug === headingSlug);
+      if (!heading) return;
+
+      const editor = briefRef.current;
+      const selection = window.getSelection();
+      const range = selection?.getRangeAt(0);
+
+      if (!range) return;
+
+      // Create main span container
+      const span = document.createElement('span');
+      span.className = `inline-flex items-center px-2 py-1 mx-1 text-xs font-medium rounded ${getHeadingColor(heading.level)} cursor-pointer hover:scale-105 transition-all duration-200`;
+      span.title = `Heading reference: ${headingSlug}`;
+      span.contentEditable = 'false'; // Make it non-editable
+
+      // Create X button container
+      const xButton = document.createElement('span');
+      xButton.className = 'mr-1 cursor-pointer hover:bg-red-500/50 rounded border border-red-500/30 flex items-center justify-center w-5 h-5 flex-shrink-0';
+      xButton.title = 'Click to remove this reference';
+      xButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (span.parentNode) {
+          span.parentNode.removeChild(span);
+          // Update brief state after removal
+          const newContent = editor.textContent || '';
+          setBrief(newContent);
+        }
+      });
+
+      // Create X text (simpler than SVG)
+      xButton.textContent = '×';
+      xButton.style.fontSize = '12px';
+      xButton.style.fontWeight = 'bold';
+      xButton.style.lineHeight = '1';
+      xButton.style.color = '#fbbf24'; // amber-400
+
+      // Create text span
+      const textSpan = document.createElement('span');
+      textSpan.textContent = headingSlug;
+
+      // Assemble the structure
+      span.appendChild(xButton);
+      span.appendChild(textSpan);
+
+      // Check if user typed @ before cursor - if so, replace the @
+      const content = editor.textContent || '';
+      const cursorPos = range.startOffset;
+      const textBeforeCursor = content.slice(0, cursorPos);
+      const atIndex = textBeforeCursor.lastIndexOf('@');
+
+      if (atIndex !== -1) {
+        // Find the content up to next space or end after @
+        const textAfterAt = content.slice(atIndex + 1);
+        const spaceAfterAt = textAfterAt.indexOf(' ');
+        const replaceLength = spaceAfterAt === -1 ? textAfterAt.length : spaceAfterAt;
+
+        // Set range to cover from @ to end of word
+        range.setStart(range.startContainer, atIndex);
+        range.setEnd(range.startContainer, cursorPos + replaceLength);
+        range.deleteContents();
+      }
+
+      // Insert the span at cursor
+      range.insertNode(span);
+
+      // Move cursor after the span
+      const newRange = document.createRange();
+      newRange.setStartAfter(span);
+      newRange.setEndAfter(span);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+
+      editor.focus();
+
+      setShowReferenceSuggestions(false);
+    }
+  };
+
+  const getHeadingColor = (level: number) => {
+    switch (level) {
+      case 1: return 'bg-red-500/20 border-red-500/40 text-red-200';
+      case 2: return 'bg-orange-500/20 border-orange-500/40 text-orange-200';
+      case 3: return 'bg-yellow-500/20 border-yellow-500/40 text-yellow-200';
+      case 4: return 'bg-green-500/20 border-green-500/40 text-green-200';
+      case 5: return 'bg-blue-500/20 border-blue-500/40 text-blue-200';
+      case 6: return 'bg-purple-500/20 border-purple-500/40 text-purple-200';
+      default: return 'bg-gray-500/20 border-gray-500/40 text-gray-200';
+    }
+  };
+
+  // Organize headings hierarchically
+  const organizeHeadingsHierarchically = (headings: {level: number, text: string, slug: string}[]) => {
+    const root: any[] = [];
+    const stack: any[] = [{ children: root, level: 0 }];
+
+    headings.forEach(heading => {
+      // Find the right parent level
+      while (stack.length > 1 && stack[stack.length - 1].level >= heading.level) {
+        stack.pop();
+      }
+
+      const parent = stack[stack.length - 1];
+      const newNode = { ...heading, children: [] };
+      parent.children.push(newNode);
+
+      stack.push(newNode);
+    });
+
+    return root;
+  };
+
+  const toggleExpansion = (headingSlug: string) => {
+    const newExpanded = new Set(expandedHeadings);
+    if (newExpanded.has(headingSlug)) {
+      newExpanded.delete(headingSlug);
+    } else {
+      newExpanded.add(headingSlug);
+    }
+    setExpandedHeadings(newExpanded);
+  };
+
+  const hasChildren = (heading: {level: number, children: any[]}) => {
+    return heading.children && heading.children.length > 0;
+  };
+
+  const renderHeadingTree = (headings: any[], level = 1): React.ReactNode => {
+    const marginLeft = (level - 1) * 16; // 16px indentation per level
+
+    return headings.map((heading, index) => (
+      <div key={`${heading.level}-${heading.slug}-${index}`}>
+          <button
+          onClick={(e) => {
+            e.preventDefault();
+            insertHeadingReference(heading.slug);
+          }}
+          className={`w-full text-left px-2 py-2 text-sm rounded border transition-all duration-150 flex items-center ${
+            suggestionIndex === index
+              ? `${getHeadingColor(heading.level)} scale-[1.01]`
+              : `hover:bg-slate-700 bg-slate-900/50 border-slate-600 text-slate-300 hover:border-slate-500`
+          }`}
+          title={`Click to insert reference to: ${heading.text}`}
+          style={{ paddingLeft: `${marginLeft}px` }}
+        >
+          <div className="flex items-center flex-1 min-w-0">
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasChildren(heading)) {
+                  toggleExpansion(heading.slug);
+                }
+              }}
+              className={`flex items-center mr-2 ${hasChildren(heading) ? 'cursor-pointer' : 'cursor-default'}`}
+            >
+              {hasChildren(heading) && (
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${expandedHeadings.has(heading.slug) ? 'rotate-90' : ''}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              )}
+            </div>
+            <div className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${getHeadingColor(heading.level)} border mr-3`}>
+              H{heading.level}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-slate-200 font-medium truncate">{heading.slug}</div>
+            </div>
+          </div>
+        </button>
+
+        {/* Render children if expanded */}
+        {expandedHeadings.has(heading.slug) && hasChildren(heading) && (
+          <div>
+            {renderHeadingTree(heading.children, level + 1)}
+          </div>
+        )}
+      </div>
+    ));
+  };
+
+  const renderBriefContent = () => {
+    if (!brief) return null;
+
+    const parts: React.ReactNode[] = [];
+
+    // Find all @ references and highlight them
+    const regex = /(@[^\s]+)/g;
+    let match;
+    let hasReferences = false;
+
+    while ((match = regex.exec(brief)) !== null) {
+      const referenceText = match[1];
+      const fullText = match[0];
+
+      // Find if this reference matches any extracted heading
+      const matchedHeading = extractedHeadings.find(
+        heading => referenceText === `@${heading.slug}`
+      );
+
+      hasReferences = true;
+
+      // Add the highlighted reference with H tag
+      parts.push(
+        <span
+          key={match.index}
+          className={`inline-flex items-center px-3 py-1.5 mx-1 text-xs font-medium rounded-md border transition-all duration-200 ${
+            matchedHeading
+              ? `${getHeadingColor(matchedHeading.level)} cursor-pointer hover:scale-105`
+              : 'bg-gray-500/20 border-gray-500/40 text-gray-200'
+          }`}
+          title={matchedHeading ? `Heading: ${matchedHeading.text}` : 'Reference not found'}
+        >
+          <span className="font-bold mr-1">
+            {matchedHeading ? `H${matchedHeading.level}` : '?'}
+          </span>
+          {referenceText}
+        </span>
+      );
+    }
+
+    if (!hasReferences) {
+      return null;
+    }
+
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        {parts}
+      </div>
+    );
+  };
 
   // Get file type icon
   const getFileIcon = (fileType: string) => {
@@ -365,6 +741,34 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     if (fileType === 'text/csv') return '📊';
     if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return '📈';
     return '📄';
+  };
+
+  // Get file type color
+  const getFileTypeColor = (fileType: string) => {
+    if (fileType === 'application/pdf') return 'from-red-500/20 to-red-600/20 border-red-500/30';
+    if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'from-blue-500/20 to-blue-600/20 border-blue-500/30';
+    if (fileType === 'text/csv') return 'from-green-500/20 to-green-600/20 border-green-500/30';
+    if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30';
+    return 'from-gray-500/20 to-gray-600/20 border-gray-500/30';
+  };
+
+  // Copy content to clipboard
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(fileContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy content:', err);
+    }
+  };
+
+  // Calculate content stats
+  const getContentStats = (content: string) => {
+    const words = content.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const chars = content.length;
+    const lines = content.split('\n').length;
+    return { words, chars, lines };
   };
 
   return (
@@ -486,7 +890,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           <svg className="w-4 h-4 mr-2 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Brief (Optional)
+          Brief Text (Optional)
         </label>
 
         {/* Warning message when file is uploaded but brief is empty */}
@@ -499,18 +903,81 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           </div>
         )}
 
-        <textarea
-          id="brief"
-          value={brief}
-          onChange={(e) => setBrief(e.target.value)}
-          placeholder="Add any specific requirements, focus areas, or additional context for your article..."
-          rows={3}
-          className={`text-sm w-full bg-slate-900/80 rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 resize-none ${
-            fileContent && (!brief || brief.trim().length === 0)
-              ? 'border-2 border-orange-500/50'
-              : 'border border-slate-700'
-          }`}
-        />
+        <div className="relative">
+          <div
+            ref={briefRef}
+            contentEditable
+            onInput={(e) => {
+              const newValue = e.currentTarget.textContent || '';
+              setBrief(newValue);
+
+              // Check if user typed @ for showing suggestions
+              const lastAtIndex = newValue.lastIndexOf('@');
+              if (lastAtIndex !== -1 && extractedHeadings.length > 0) {
+                const textAfterAt = newValue.slice(lastAtIndex + 1);
+                // Show suggestions if @ is followed by optional text but no space
+                if (!textAfterAt.includes(' ') && textAfterAt.length < 20) {
+                  setShowReferenceSuggestions(true);
+                  setSuggestionIndex(0);
+                } else {
+                  setShowReferenceSuggestions(false);
+                }
+              } else {
+                setShowReferenceSuggestions(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (showReferenceSuggestions && extractedHeadings.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSuggestionIndex(prev =>
+                    prev < extractedHeadings.slice(0, 8).length - 1 ? prev + 1 : prev
+                  );
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSuggestionIndex(prev => prev > 0 ? prev - 1 : prev);
+                } else if (e.key === 'Enter' && suggestionIndex >= 0) {
+                  e.preventDefault();
+                  const heading = extractedHeadings.slice(0, 8)[suggestionIndex];
+                  if (heading) {
+                    insertHeadingReference(heading.slug);
+                  }
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setShowReferenceSuggestions(false);
+                }
+              }
+            }}
+            className={`w-full text-sm bg-slate-900/80 border rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 min-h-[80px] outline-none ${
+              fileContent && (!brief || brief.trim().length === 0)
+                ? 'border-2 border-orange-500/50'
+                : 'border border-slate-700'
+            }`}
+            suppressContentEditableWarning={true}
+            data-placeholder={brief.trim() === '' ? "Add any specific requirements, focus areas, or additional context for your article..." : undefined}
+            style={{ minHeight: '80px' }}
+          />
+
+          {/* Reference suggestions dropdown */}
+          {showReferenceSuggestions && extractedHeadings.length > 0 && (
+            <div className="absolute top-full left-4 mt-2 w-full sm:w-80 md:w-96 max-h-80 overflow-y-auto bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
+              <div className="p-2">
+                <div className="text-xs font-medium text-slate-300 mb-3">Select heading reference:</div>
+                <div className="space-y-1">
+                  {renderHeadingTree(organizeHeadingsHierarchically(extractedHeadings.slice(0, 20)))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Hint message for DOCX @ reference feature */}
+        {uploadedFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && extractedHeadings.length > 0 && (
+          <p className="text-xs text-blue-400 mt-1">
+            💡 Use "<strong>@</strong>" in the brief field to reference headings from the uploaded document. Press Enter to insert them as styled blocks.
+          </p>
+        )}
+
         <p className="text-xs text-slate-500 mt-1">
           You can request comparison tables, mention specific brands, or add any other details you'd like included in the article.
         </p>
@@ -552,7 +1019,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
         >
           {!uploadedFile ? (
             <div className="text-center">
-              <Upload className="w-10 h-10 text-slate-500 mx-auto mb-3" />
+              <Upload className="w-7 h-7 text-slate-500 mx-auto mb-3" />
               <p className="text-slate-400 text-sm mb-1">Drag and drop your research files here</p>
               <p className="text-slate-500 text-xs mb-3">or</p>
               <input
@@ -575,21 +1042,39 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
               </p>
             </div>
           ) : (
-            <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-4">
-              <div className="flex items-center space-x-3">
-                <div className="text-2xl">{getFileIcon(uploadedFile.type)}</div>
-                <div>
-                  <p className="text-slate-100 font-medium">{uploadedFile.name}</p>
-                  <p className="text-slate-400 text-sm">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+            <div
+              className={`bg-slate-700/50 rounded-lg p-4 transition-all duration-500 ease-out transform ${
+                isUploadingFile
+                  ? 'opacity-50 scale-95'
+                  : 'opacity-100 scale-100'
+              }`}
+            >
+              {isUploadingFile ? (
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 border-4 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+                  <div>
+                    <p className="text-slate-100 font-medium">File uploaded successfully</p>
+                    <p className="text-slate-400 text-sm">Analyzing content...</p>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={handleFileRemove}
-                className="p-1 hover:bg-slate-600 rounded transition-colors"
-                title="Remove file"
-              >
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="text-l">{getFileIcon(uploadedFile.type)}</div>
+                    <div>
+                      <p className="text-slate-100 text-sm">{uploadedFile.name}</p>
+                      <p className="text-slate-400 text-xs">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleFileRemove}
+                    className="p-1 hover:bg-slate-600 rounded transition-colors"
+                    title="Remove file"
+                  >
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -608,16 +1093,113 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           </div>
         )}
 
-        {/* Parsed Content Preview */}
-        {fileContent && (
-          <div className="mt-4">
-            <h4 className="text-sm font-medium text-slate-300 mb-2">Extracted Content Preview:</h4>
-            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto">
-              <pre className="text-slate-400 text-xs whitespace-pre-wrap">{fileContent.slice(0, 1000)}{fileContent.length > 1000 ? '\n\n[...content truncated for preview...]' : ''}</pre>
+        {/* Enhanced Content Preview */}
+        {fileContent && showContentPreview && uploadedFile && (
+          <div className={`mt-6 transition-all duration-700 ease-out ${
+            showContentPreview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}>
+            {/* Header with icon, title and stats */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getFileTypeColor(uploadedFile.type)} flex items-center justify-center border border-opacity-30`}>
+                  <span className="text-lg">{getFileIcon(uploadedFile.type)}</span>
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-slate-200">Extracted Content Preview</h4>
+                  <p className="text-xs text-slate-400">Ready to include in your article brief</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={copyToClipboard}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-md transition-colors text-sm"
+                  title="Copy all content to clipboard"
+                >
+                  <CopyIcon className="w-4 h-4" />
+                  <span className={copied ? 'text-green-400' : ''}>
+                    {copied ? 'Copied!' : 'Copy'}
+                  </span>
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              This content will be automatically included in your brief when generating the article.
-            </p>
+
+            {/* Content stats */}
+            <div className="flex flex-wrap gap-3 mb-4 text-xs">
+              <div className="flex items-center space-x-1 bg-slate-800 px-2 py-1 rounded-md">
+                <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                <span className="text-slate-300">{getContentStats(fileContent).words} words</span>
+              </div>
+              <div className="flex items-center space-x-1 bg-slate-800 px-2 py-1 rounded-md">
+                <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <span className="text-slate-300">{getContentStats(fileContent).chars} chars</span>
+              </div>
+              <div className="flex items-center space-x-1 bg-slate-800 px-2 py-1 rounded-md">
+                <svg className="w-3 h-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                <span className="text-slate-300">{getContentStats(fileContent).lines} lines</span>
+              </div>
+              <div className="flex items-center space-x-1 bg-slate-800 px-2 py-1 rounded-md">
+                <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span className="text-slate-300">{(uploadedFile.size / 1024).toFixed(0)} KB</span>
+              </div>
+            </div>
+
+            {/* Content display area */}
+            <div className={`bg-gradient-to-br ${getFileTypeColor(uploadedFile.type)} border rounded-lg p-4 transition-all duration-300 ${
+              expandedPreview ? 'max-h-96 overflow-y-auto' : 'max-h-48 overflow-hidden'
+            }`}>
+              <div className="prose prose-sm max-w-none">
+                <pre className="text-slate-200 text-xs leading-relaxed whitespace-pre-wrap font-mono bg-slate-900/50 p-3 rounded border border-slate-700/50">
+                  {expandedPreview
+                    ? fileContent
+                    : `${fileContent.slice(0, 800)}${fileContent.length > 800 ? '\n\n...\n\n' : ''}`
+                  }
+                </pre>
+              </div>
+
+              {/* Expand/collapse button */}
+              {fileContent.length > 800 && (
+                <div className="mt-3 flex justify-center">
+                  <button
+                    onClick={() => setExpandedPreview(!expandedPreview)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 rounded-md transition-colors text-sm border border-slate-600"
+                  >
+                    <span>{expandedPreview ? 'Show Less' : 'Show More'}</span>
+                    <svg
+                      className={`w-4 h-4 transition-transform duration-200 ${expandedPreview ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Info message */}
+            <div className="mt-3 flex items-center space-x-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-blue-300">
+                Uploaded document will be automatically included in your brief after you fill the brief text.
+                {fileContent.length > 2000 && (
+                  <span className="block text-amber-300 mt-1">
+                    ⚠️ Large content detected - AI may summarize for optimal results.
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
         )}
       </div>
