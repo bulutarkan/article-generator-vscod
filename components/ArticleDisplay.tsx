@@ -148,6 +148,27 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     return <p className="text-slate-300">No content available.</p>;
   }
 
+  // Developer-friendly styling helpers
+  const CalloutBox = ({ type, children }: { type: 'tip' | 'important' | 'keypoint' | 'warning', children: React.ReactNode }) => {
+    const config = {
+      tip: { icon: '💡', bg: 'bg-blue-500/10 border-blue-500/20', text: 'text-blue-300' },
+      important: { icon: '⚡', bg: 'bg-yellow-500/10 border-yellow-500/20', text: 'text-yellow-300' },
+      keypoint: { icon: '🎯', bg: 'bg-green-500/10 border-green-500/20', text: 'text-green-300' },
+      warning: { icon: '⚠️', bg: 'bg-red-500/10 border-red-500/20', text: 'text-red-300' }
+    };
+
+    const { icon, bg, text } = config[type];
+
+    return (
+      <div className={`${bg} border-l-4 ${text.replace('text-', 'border-')} p-4 rounded-r-md mb-4 bg-white/5 backdrop-blur-sm`}>
+        <div className="flex items-start gap-3">
+          <span className="text-lg flex-shrink-0">{icon}</span>
+          <div className="flex-1">{children}</div>
+        </div>
+      </div>
+    );
+  };
+
   const lines = content.split('\n');
   const elements: JSX.Element[] = [];
   let inFaqSection = false;
@@ -158,6 +179,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   let inTable = false;
   let tableRows: string[][] = [];
   let tableHeaders: string[] = [];
+  let sectionCounter = 0;
 
   const parseTableRow = (line: string): string[] => {
     // Remove leading/trailing | and split by |
@@ -183,12 +205,12 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   const renderMarkdownTable = (headers: string[], rows: string[][]): JSX.Element => {
     return (
       <div className="my-8">
-        <div className="overflow-x-auto rounded-lg border border-slate-700">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-white/10">
+        <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/30">
+          <table className="w-full text-left border-collapse font-mono">
+            <thead className="bg-indigo-500/10 border-b border-slate-700">
               <tr>
                 {headers.map((header, index) => (
-                  <th key={index} scope="col" className="p-4 text-sm font-semibold text-slate-200">
+                  <th key={index} scope="col" className="p-4 text-sm font-bold text-slate-100 border-r border-slate-700/50 last:border-r-0 bg-slate-900/50 animate-fade-in-stagger">
                     {renderWithBoldAndLinks(header)}
                   </th>
                 ))}
@@ -196,9 +218,9 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
             </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-t border-slate-700/80">
+                <tr key={rowIndex} className="border-b border-slate-700/50 last:border-b-0 hover:bg-slate-900/20 transition-colors animate-fade-in-stagger" style={{ animationDelay: `${rowIndex * 0.1}s` }}>
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="p-4 text-slate-300 font-medium">
+                    <td key={cellIndex} className="p-4 text-sm text-slate-300 font-mono border-r border-slate-700/30 last:border-r-0">
                       {renderWithBoldAndLinks(cell)}
                     </td>
                   ))}
@@ -224,7 +246,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     if (paragraphBuffer.length > 0) {
       const paragraphText = paragraphBuffer.join(' ');
       elements.push(
-        <p key={`p-${elements.length}`} className="text-slate-300 leading-relaxed mb-4">
+        <p key={`p-${elements.length}`} className="text-slate-300 leading-relaxed mb-4 font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 animate-fade-in-stagger hover:bg-slate-900/30 transition-colors terminal-cursor">
           {renderWithBoldAndLinks(paragraphText)}
         </p>
       );
@@ -235,7 +257,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   const flushList = () => {
     if (inList) {
       elements.push(
-        <ul key={`ul-${elements.length}`} className="list-disc space-y-2 mb-4 pl-6 text-slate-300">
+        <ul key={`ul-${elements.length}`} className="pl-0 space-y-1 mb-6 text-slate-300">
           {currentListItems}
         </ul>
       );
@@ -288,13 +310,14 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       flushTable();
       inFaqSection = true;
       elements.push(
-        <div key={`header-faq-container-${index}`} className="flex justify-between items-center border-b border-slate-700 mb-4 mt-8">
-          <h2 className="text-2xl font-bold text-slate-100 pb-2">
+        <div key={`header-faq-container-${index}`} className="flex justify-between items-center border-b border-slate-700 mb-4 mt-8 animate-fade-in-stagger">
+          <h2 className="text-2xl font-bold text-slate-100 pb-2 flex items-center gap-2">
+            <span className="text-blue-400 text-lg">❓</span>
             Frequently Asked Questions (FAQs)
           </h2>
           <button
             onClick={onShowFaqHtml}
-            className="flex shrink-0 items-center gap-2 px-3 py-1.5 rounded-md text-sm text-slate-300 bg-white/10 hover:bg-white/20 transition-colors"
+            className="flex shrink-0 items-center gap-2 px-3 py-1.5 rounded-md text-sm text-slate-300 bg-white/10 hover:bg-white/20 transition-colors hover:scale-105"
             aria-label="Get FAQ HTML"
           >
             <CodeIcon className="h-4 w-4" />
@@ -348,31 +371,77 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
         currentFaq.answer.push(trimmedLine);
       }
     } else {
+      // Developer-friendly content detection and callout creation
+      const content = trimmedLine.toLowerCase();
+
       if (trimmedLine.startsWith('##### ')) {
         flushParagraph();
         flushList();
         flushTable();
-        elements.push(<h5 key={index} className="text-base font-semibold mt-4 mb-2 text-slate-200">{renderWithBoldAndLinks(trimmedLine.substring(6))}</h5>);
+        elements.push(<h5 key={index} className="text-base font-semibold mt-4 mb-2 text-slate-200 flex items-center gap-2">
+          <span className="text-slate-500 text-xs">○</span>{renderWithBoldAndLinks(trimmedLine.substring(6))}
+        </h5>);
       } else if (trimmedLine.startsWith('#### ')) {
         flushParagraph();
         flushList();
         flushTable();
-        elements.push(<h4 key={index} className="text-lg font-semibold mt-5 mb-2 text-slate-200">{renderWithBoldAndLinks(trimmedLine.substring(5))}</h4>);
+        sectionCounter++;
+        elements.push(<h4 key={index} className="text-lg font-semibold mt-5 mb-3 text-slate-200 flex items-center gap-3 group animate-fade-in-stagger hover:translate-x-1 transition-transform cursor-default">
+          <span className="text-indigo-400 font-mono text-sm bg-indigo-500/20 px-2 py-1 rounded border border-indigo-500/30">{sectionCounter}</span>
+          {renderWithBoldAndLinks(trimmedLine.substring(5))}
+        </h4>);
       } else if (trimmedLine.startsWith('### ')) {
         flushParagraph();
         flushList();
         flushTable();
-        elements.push(<h3 key={index} className="text-xl font-semibold mt-6 mb-3 text-slate-200">{renderWithBoldAndLinks(trimmedLine.substring(4))}</h3>);
+        sectionCounter++;
+        elements.push(<h3 key={index} className="text-xl font-bold mt-6 mb-4 text-slate-100 border-l-4 border-indigo-400 pl-4 bg-gradient-to-r from-indigo-500/5 to-transparent animate-fade-in-stagger hover:border-indigo-300 transition-colors">
+          <span className="inline-flex items-center gap-2">
+            <span className="text-indigo-400">▶</span>
+            {renderWithBoldAndLinks(trimmedLine.substring(4))}
+          </span>
+        </h3>);
       } else if (trimmedLine.startsWith('## ')) {
         flushParagraph();
         flushList();
         flushTable();
-        elements.push(<h2 key={index} className="text-2xl font-bold mt-8 mb-4 text-slate-100 border-b border-slate-700 pb-2">{renderWithBoldAndLinks(trimmedLine.substring(3))}</h2>);
+        sectionCounter++;
+        elements.push(<h2 key={index} className="text-2xl font-bold mt-10 mb-6 text-slate-100 pb-3 border-b-2 border-slate-700/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 px-4 -mx-4 animate-fade-in-stagger hover:border-slate-600/70 transition-colors">
+          <span className="inline-flex items-center gap-3">
+            <span className="text-purple-400 text-3xl">✦</span>
+            {renderWithBoldAndLinks(trimmedLine.substring(3))}
+          </span>
+        </h2>);
+      } else if (content.includes('tip:') || content.includes('💡') || content.includes('pro tip')) {
+        // Extract tip content
+        flushParagraph();
+        flushList();
+        flushTable();
+        elements.push(<CalloutBox key={index} type="tip">
+          <span className="font-medium">{renderWithBoldAndLinks(trimmedLine)}</span>
+        </CalloutBox>);
+      } else if (content.includes('important:') || content.includes('⚡') || content.includes('warning') || content.includes('note:')) {
+        flushParagraph();
+        flushList();
+        flushTable();
+        elements.push(<CalloutBox key={index} type="important">
+          <span className="font-medium">{renderWithBoldAndLinks(trimmedLine)}</span>
+        </CalloutBox>);
+      } else if (content.includes('key point') || content.includes('🎯') || content.includes('key takeaway')) {
+        flushParagraph();
+        flushList();
+        flushTable();
+        elements.push(<CalloutBox key={index} type="keypoint">
+          <span className="font-medium">{renderWithBoldAndLinks(trimmedLine)}</span>
+        </CalloutBox>);
       } else if (trimmedLine.startsWith('* ')) {
         flushParagraph();
         flushTable();
         inList = true;
-        currentListItems.push(<li key={index}>{renderWithBoldAndLinks(trimmedLine.substring(2))}</li>);
+        currentListItems.push(<li key={index} className="text-slate-300 font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 mb-2 hover:bg-slate-900/30 animate-fade-in-stagger flex items-start gap-2 transition-colors">
+          <span className="text-indigo-400 mt-1 text-sm font-bold">▸</span>
+          <span className="flex-1">{renderWithBoldAndLinks(trimmedLine.substring(2))}</span>
+        </li>);
       } else {
         flushList();
         flushTable();
