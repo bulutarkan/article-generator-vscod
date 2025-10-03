@@ -103,19 +103,23 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
     // Simple and stable PDF handler - formats as DOCX-style acknowledgment
-    // Avoids complex parsing that breaks the browser
-    return `DOCX File: ${file.name.replace('.pdf', '_acknowledged.docx')}
+    // This provides clear instructions for manual content addition
+    const message = `DOCX File: ${file.name.replace('.pdf', '_acknowledged.docx')}
 Document Content:
 
-PDF file "${file.name}" has been successfully loaded and acknowledged.
+PDF file "${file.name}" has been successfully loaded.
 
-For maximum content utilization:
-• Open the PDF in a PDF viewer or browser
-• Copy all text content (Ctrl+A, Ctrl+C)
-• Paste into the "Brief" field above
+To use the PDF content:
+1. Open the PDF file in a PDF viewer or browser
+2. Select all content (Ctrl+A or Cmd+A)
+3. Copy the content (Ctrl+C or Cmd+C)
+4. Paste into the "Brief" field above
 
-File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
-Status: File loaded and ready for manual content addition`;
+This will ensure the AI can use your research data in the article.
+
+File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+
+    return message;
   };
 
   const parseDOCXFile = async (file: File): Promise<string> => {
