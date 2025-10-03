@@ -13,8 +13,6 @@ import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword typ
 // File parsing imports
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-const pdfParse = require('pdf-parse');
-const Papa = require('papaparse');
 
 interface ArticleFormProps {
   topic: string;
@@ -104,34 +102,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const data = await pdfParse(buffer);
-
-      let content = data.text.trim();
-
-      // Clean up the content
-      content = content
-        .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
-        .replace(/^\s+|\s+$/g, ''); // Trim whitespace
-
-      // Add file metadata
-      const metadata = [
-        `PDF File: ${file.name}`,
-        `Total Pages: ${data.numpages}`,
-        `File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        `Extracted Content Length: ${content.length} characters`,
-        '',
-        'PDF Content:'
-      ].join('\n');
-
-      return metadata + '\n\n' + content;
-    } catch (error: any) {
-      console.error('PDF parsing error:', error);
-      // Fallback to basic info
-      return `PDF File: ${file.name}\n\nAdvanced PDF parsing failed: ${error.message}\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\n\nPlease extract text content manually and paste it in the brief section above, or convert to DOCX format.`;
-    }
+    // Browser-compatible fallback for PDF parsing
+    return `PDF File: ${file.name}\n\nBrowser-based PDF parsing is limited. For best results, please extract text content manually from the PDF and paste it in the brief section above, or convert to DOCX format.\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\n\nNote: PDF files are accepted but text extraction may be limited in the browser environment.`;
   };
 
   const parseDOCXFile = async (file: File): Promise<string> => {
@@ -158,89 +130,82 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   const parseCSVFile = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      Papa.parse(file, {
-        header: false, // Let Papa detect headers
-        skipEmptyLines: true,
-        delimiter: '', // Auto-detect delimiter (comma, semicolon, tab, pipe)
-        complete: (results) => {
-          try {
-            const data = results.data as string[][];
-            const errors = results.errors;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csv = e.target?.result as string;
 
-            // Handle parsing errors
-            if (errors && errors.length > 0) {
-              console.warn('CSV parsing warnings:', errors);
-            }
+          // Simple CSV parsing - improve delimiter detection
+          let delimiter = ',';
+          const lines = csv.split('\n').filter(line => line.trim());
 
-            if (data.length === 0) {
-              reject(new Error('CSV file appears to be empty'));
-              return;
-            }
-
-            // Detect if first row is header
-            const firstRow = data[0];
-            const secondRow = data[1];
-            let isHeaderRow = false;
-
-            if (secondRow) {
-              // Simple heuristic: if 70% of first row values are strings and 70% of second row are numbers/strings different from first row
-              const firstRowStringRatio = firstRow.filter(cell =>
-                typeof cell === 'string' && cell.trim().length > 0 && isNaN(Number(cell))
-              ).length / firstRow.length;
-
-              const secondRowDifferentFromFirst = secondRow.filter((cell, index) =>
-                firstRow[index] !== cell
-              ).length / secondRow.length;
-
-              isHeaderRow = firstRowStringRatio > 0.7 && secondRowDifferentFromFirst > 0.5;
-            }
-
-            let result = [
-              `CSV File: ${file.name}`,
-              `Total Rows: ${data.length}`,
-              `File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
-              `Detected Delimiter: ${results.meta.delimiter}`,
-              `Has Header Row: ${isHeaderRow ? 'Yes' : 'No'}`,
-              '',
-              'CSV Data:'
-            ].join('\n');
-
-            if (isHeaderRow) {
-              const headers = firstRow.map(h => String(h).trim());
-              result += '\n\nHeaders: ' + headers.join(' | ') + '\n\n';
-
-              // Data rows (skip header)
-              data.slice(1).slice(0, 50).forEach((row, index) => {
-                const values = row.map(cell =>
-                  cell === null || cell === undefined ? '[empty]' : String(cell).trim()
-                );
-                result += `Row ${index + 1}: ${values.join(' | ')}\n`;
-              });
-            } else {
-              // No header, just data
-              result += '\n\n';
-              data.slice(0, 50).forEach((row, index) => {
-                const values = row.map(cell =>
-                  cell === null || cell === undefined ? '[empty]' : String(cell).trim()
-                );
-                result += `Row ${index + 1}: ${values.join(' | ')}\n`;
-              });
-            }
-
-            // Show truncation if file is large
-            if (data.length > 50) {
-              result += `\n\n[...${data.length - 50} more rows truncated for preview...]`;
-            }
-
-            resolve(result);
-          } catch (error) {
-            reject(new Error(`Failed to process CSV data: ${error}`));
+          if (lines.length < 1) {
+            resolve(`CSV File: ${file.name}\n\nCSV file appears to be empty.\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+            return;
           }
-        },
-        error: (error) => {
-          reject(new Error(`CSV parsing failed: ${error.message}`));
+
+          // Try to detect delimiter by counting occurrences in first few lines
+          const firstLine = lines[0];
+          const delimiters = [',', ';', '\t', '|'];
+          let maxCount = 0;
+
+          for (const d of delimiters) {
+            const count = (firstLine.match(new RegExp(`\\${d}`, 'g')) || []).length;
+            if (count > maxCount) {
+              maxCount = count;
+              delimiter = d;
+            }
+          }
+
+          // Parse data with detected delimiter
+          const data = lines.map(line => line.split(delimiter).map(cell => cell.trim()));
+
+          if (data.length === 0) {
+            reject(new Error('CSV file appears to be empty'));
+            return;
+          }
+
+          // Detect if first row is header (simple heuristic)
+          let isHeaderRow = false;
+          const firstRow = data[0];
+          const secondRow = data[1];
+
+          if (secondRow && firstRow.some(cell => isNaN(Number(cell)) && cell.length > 0)) {
+            const stringCellsInHeader = firstRow.filter(cell => isNaN(Number(cell)) && cell.length > 0).length;
+            const dataCells = secondRow.filter(cell => cell.length > 0).length;
+            isHeaderRow = stringCellsInHeader / firstRow.length > 0.6 && dataCells > 0;
+          }
+
+          const result = [
+            `CSV File: ${file.name}`,
+            `Total Rows: ${data.length}`,
+            `File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+            `Detected Delimiter: ${delimiter === '\t' ? 'TAB' : delimiter}`,
+            `Has Header Row: ${isHeaderRow ? 'Yes' : 'No'}`,
+            '',
+            'CSV Preview:'
+          ].join('\n');
+
+          let content = result + '\n\n';
+
+          // Show preview of data
+          const previewRows = data.slice(0, Math.min(10, data.length));
+          previewRows.forEach((row, index) => {
+            const rowLabel = isHeaderRow && index === 0 ? 'Headers' : `Row ${isHeaderRow ? index : index + 1}`;
+            content += `${rowLabel}: ${row.join(' | ')}\n`;
+          });
+
+          if (data.length > 10) {
+            content += `\n[...showing first 10 rows of ${data.length} total rows...]`;
+          }
+
+          resolve(content);
+        } catch (error) {
+          reject(new Error(`Failed to parse CSV: ${error}`));
         }
-      });
+      };
+      reader.onerror = () => reject(new Error('Failed to read CSV file'));
+      reader.readAsText(file);
     });
   };
 
