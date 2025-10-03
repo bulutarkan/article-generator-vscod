@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { countries } from '../data/countries';
 import { GeoIcon } from './icons/GeoIcon';
 import { MegaphoneIcon } from './icons/MegaphoneIcon';
@@ -6,9 +6,13 @@ import { TopicIcon } from './icons/TopicIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ToggleSwitch } from './ToggleSwitch';
 
-import { Globe } from 'lucide-react'; // Import Globe icon
+import { Globe, FileText, X, Upload } from 'lucide-react'; // Import additional icons
 import { Loader } from './Loader'; // Import Loader component
 import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword type
+
+// File parsing imports
+import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
 
 interface ArticleFormProps {
   topic: string;
@@ -67,6 +71,14 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const toneDropdownRef = useRef<HTMLDivElement>(null);
 
+  // File upload states
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [isParsing, setIsParsing] = useState<boolean>(false);
+  const [parsingError, setParsingError] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
@@ -87,6 +99,167 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   };
 
   const filteredCountries = countries.filter(c => c.toLowerCase().includes(locationSearch.toLowerCase()));
+
+  // File parsing functions
+  const parsePDFFile = async (file: File): Promise<string> => {
+    try {
+      // Simple fallback - in browser environment, this is limited
+      return `PDF File: ${file.name}\n\nBrowser-based PDF parsing is limited. Please extract text content manually from the PDF and paste it in the brief section above, or consider converting to DOCX format.\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      return `PDF File: ${file.name}\n\nUnable to process PDF file. Please extract text content manually and paste it in the brief section above.`;
+    }
+  };
+
+  const parseDOCXFile = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      let content = result.value.trim();
+
+      // Clean up the content
+      content = content
+        .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+        .replace(/^\s+|\s+$/g, ''); // Trim whitespace
+
+      // Add file info
+      const fileInfo = `DOCX File: ${file.name}\nDocument Content:\n\n`;
+
+      return fileInfo + content;
+    } catch (error) {
+      console.error('DOCX parsing error:', error);
+      // Fallback to basic file info
+      return `DOCX File: ${file.name}\n\nUnable to extract full content from DOCX file. Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  };
+
+  const parseCSVFile = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csv = e.target?.result as string;
+          // Simple CSV parsing - assume comma separated values
+          const lines = csv.split('\n');
+          const headers = lines[0]?.split(',') || [];
+          let result = `CSV Content:\n\nHeaders: ${headers.join(', ')}\n\n`;
+
+          for (let i = 1; i < lines.length; i++) {
+            if (lines[i].trim()) {
+              const values = lines[i].split(',');
+              result += `Row ${i}: ${values.join(' | ')}\n`;
+            }
+          }
+          resolve(result);
+        } catch (error) {
+          reject(new Error(`Failed to parse CSV: ${error}`));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read CSV file'));
+      reader.readAsText(file);
+    });
+  };
+
+  const parseXLSXFile = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      let result = 'Excel Content:\n\n';
+
+      workbook.SheetNames.forEach((sheetName, index) => {
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        result += `Sheet ${index + 1}: ${sheetName}\n`;
+        jsonData.slice(0, 50).forEach((row: any, rowIndex: number) => {
+          result += `Row ${rowIndex + 1}: ${Array.isArray(row) ? row.join(' | ') : row}\n`;
+        });
+        result += '\n';
+      });
+
+      return result;
+    } catch (error) {
+      throw new Error(`Failed to parse XLSX: ${error}`);
+    }
+  };
+
+  const handleFileUpload = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    console.log('📎 FILE UPLOAD STARTED');
+    console.log('📄 File:', file.name, `(${file.size} bytes)`);
+    console.log('🔧 File type:', file.type);
+
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setParsingError('File size must be less than 10MB');
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setParsingError('Only PDF, DOCX, CSV, and XLSX files are supported');
+      return;
+    }
+
+    setIsParsing(true);
+    setParsingError(null);
+    setUploadedFile(file);
+
+    try {
+      let content = '';
+
+      if (file.type === 'application/pdf') {
+        content = await parsePDFFile(file);
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        content = await parseDOCXFile(file);
+      } else if (file.type === 'text/csv') {
+        content = await parseCSVFile(file);
+      } else if (file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+        content = await parseXLSXFile(file);
+      }
+
+      setFileContent(content);
+      setParsingError(null);
+      console.log('✅ FILE PARSING COMPLETE');
+      console.log('📄 Extracted content length:', content.length, 'characters');
+      console.log('📋 Content preview:', content.slice(0, 150) + '...');
+    } catch (error: any) {
+      console.error('File parsing error:', error);
+      setParsingError(error.message || 'Failed to parse file');
+      setFileContent('');
+    } finally {
+      setIsParsing(false);
+    }
+  }, []);
+
+  const handleFileRemove = useCallback(() => {
+    setUploadedFile(null);
+    setFileContent('');
+    setParsingError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  // Get file type icon
+  const getFileIcon = (fileType: string) => {
+    if (fileType === 'application/pdf') return '📄';
+    if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return '📝';
+    if (fileType === 'text/csv') return '📊';
+    if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return '📈';
+    return '📄';
+  };
 
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 shadow-lg backdrop-blur-sm">
@@ -220,6 +393,112 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
         <p className="text-xs text-slate-500 mt-1">
           You can request comparison tables, mention specific brands, or add any other details you'd like included in the article.
         </p>
+      </div>
+
+      {/* File Upload Section */}
+      <div className="mt-6">
+        <label className="text-sm font-medium text-slate-300 flex items-center mb-2">
+          <FileText className="w-4 h-4 mr-2 text-sky-400" />
+          Brieft Documents (Optional)
+        </label>
+        <p className="text-xs text-slate-500 mb-4">
+          Upload your research & brief files (PDF, DOCX, CSV, XLSX) to help AI understand your brief efficiently and enrich your brief with data and context.
+        </p>
+
+        {/* Upload Area */}
+        <div
+          className={`border-2 border-dashed rounded-lg p-4 transition-all duration-200 ${
+            isDragActive ? 'border-sky-400 bg-slate-800/40' : 'border-slate-600 hover:border-sky-400 hover:bg-slate-800/30'
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragActive(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setIsDragActive(false);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragActive(false);
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+              handleFileUpload(files);
+            }
+          }}
+        >
+          {!uploadedFile ? (
+            <div className="text-center">
+              <Upload className="w-10 h-10 text-slate-500 mx-auto mb-3" />
+              <p className="text-slate-400 text-sm mb-1">Drag and drop your research files here</p>
+              <p className="text-slate-500 text-xs mb-3">or</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.csv,.xlsx"
+                onChange={(e) => handleFileUpload(e.target.files)}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="text-xs inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-md cursor-pointer transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Choose File
+              </label>
+              <p className="text-xs text-slate-500 mt-2">
+                Supports: PDF, DOCX, CSV, XLSX (up to 10MB)
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="text-2xl">{getFileIcon(uploadedFile.type)}</div>
+                <div>
+                  <p className="text-slate-100 font-medium">{uploadedFile.name}</p>
+                  <p className="text-slate-400 text-sm">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              </div>
+              <button
+                onClick={handleFileRemove}
+                className="p-1 hover:bg-slate-600 rounded transition-colors"
+                title="Remove file"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Parsing Status & Error */}
+        {isParsing && (
+          <div className="mt-4 flex items-center space-x-2 text-sky-400">
+            <div className="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm">Parsing file content...</span>
+          </div>
+        )}
+
+        {parsingError && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/20 rounded-lg">
+            <p className="text-red-400 text-sm">{parsingError}</p>
+          </div>
+        )}
+
+        {/* Parsed Content Preview */}
+        {fileContent && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-slate-300 mb-2">Extracted Content Preview:</h4>
+            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto">
+              <pre className="text-slate-400 text-xs whitespace-pre-wrap">{fileContent.slice(0, 1000)}{fileContent.length > 1000 ? '\n\n[...content truncated for preview...]' : ''}</pre>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              This content will be automatically included in your brief when generating the article.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Internal Links Section */}

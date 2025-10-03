@@ -46,6 +46,10 @@ export const Generator: React.FC<GeneratorProps> = ({
   const [enableInternalLinks, setEnableInternalLinks] = useState<boolean>(false);
   const [websiteUrl, setWebsiteUrl] = useState<string>('');
 
+  // File upload states
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>('');
+
   // Keyword Suggestion states
   const [isCrawling, setIsCrawling] = useState<boolean>(false);
   const [suggestedKeywords, setSuggestedKeywords] = useState<SuggestedKeyword[]>([]);
@@ -227,11 +231,35 @@ export const Generator: React.FC<GeneratorProps> = ({
         }
       }
 
+      // Combine file content with brief if file was uploaded
+      const combinedBrief = fileContent
+        ? `DOCUMENT CONTENT:\n${fileContent}\n\n---\nUSER INSTRUCTIONS:\n${brief}`
+        : brief;
+
+      if (fileContent) {
+        console.log('🔗 FILE CONTENT INTEGRATION');
+        console.log('📄 File content length:', fileContent.length, 'characters');
+        console.log('📝 User brief:', brief);
+        console.log('📋 Combined brief length:', combinedBrief.length, 'characters');
+        console.log('✨ Final brief preview:', combinedBrief.slice(0, 200) + '...');
+      }
+
+      console.log('🚀 SENDING TO AI');
+      console.log('📊 Final parameters:', {
+        topic,
+        location,
+        tone,
+        hasFileContent: !!fileContent,
+        briefLength: combinedBrief.length,
+        selectedKeywordsCount: selectedKeywords.length,
+        enableInternalLinks
+      });
+
       const result = await generateSeoGeoArticle(
         topic,
         location,
         tone,
-        brief,
+        combinedBrief,
         enableInternalLinks,
         websiteUrl,
         internalLinksContext,
@@ -249,6 +277,8 @@ export const Generator: React.FC<GeneratorProps> = ({
       setBrief('');
       setEnableInternalLinks(false);
       setWebsiteUrl('');
+      setUploadedFile(null);
+      setFileContent('');
 
       // Clear generation state on success
       setGenerationState({
@@ -286,7 +316,7 @@ export const Generator: React.FC<GeneratorProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [topic, location, tone, brief, enableInternalLinks, websiteUrl, onArticleGenerated, selectedKeywords]);
+  }, [topic, location, tone, brief, fileContent, enableInternalLinks, websiteUrl, onArticleGenerated, selectedKeywords]);
 
   const handleCrawlWebsite = useCallback(async () => {
     if (!websiteUrl.trim() || !topic.trim()) {
