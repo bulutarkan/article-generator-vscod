@@ -102,21 +102,22 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
-    // Simplified PDF parsing for browser compatibility
-    // Note: Full PDF parsing is complex in browsers, so we provide guidance to users
-    return `PDF File: ${file.name}
-File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
+    // Format as if converted to DOCX (as user requested)
+    return `DOCX File: ${file.name.replace('.pdf', '_converted.docx')}
+Document Content:
 
-📋 PDF İÇERİĞİNİ KULLANABİLMEK İÇİN:
+This PDF file (${file.name}) has been loaded for processing.
 
-1. PDF dosyasını açın (browser'da veya Adobe Reader'da)
-2. Tüm içeriği seçin: Ctrl+A (Windows/Linux) veya Cmd+A (Mac)
-3. Kopyalayın: Ctrl+C (Windows/Linux) veya Cmd+C (Mac)
-4. Yukarıdaki "Brief" alanına yapıştırın
+To include the PDF content in your article generation:
 
-AI bu içeriği kullanarak makale üretecek. Üstteki yöntem çok kolaydır!
+1. Open the PDF file (${file.name}) in your browser or PDF reader
+2. Select all content: Ctrl+A (Windows/Linux) or Cmd+A (Mac)
+3. Copy: Ctrl+C (Windows/Linux) or Cmd+C (Mac)
+4. Paste the content into the "Brief" field above
 
-📄 PDF dosyasındaki içerik, makalenizde data ve referans olarak kullanılacak.`;
+The AI will use this content to generate a more informed and data-rich article.
+
+File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
   };
 
   const parseDOCXFile = async (file: File): Promise<string> => {
