@@ -13,6 +13,11 @@ import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword typ
 // File parsing imports
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface ArticleFormProps {
   topic: string;
@@ -102,8 +107,48 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
-    // Browser-compatible fallback for PDF parsing
-    return `PDF File: ${file.name}\n\nBrowser-based PDF parsing is limited. For best results, please extract text content manually from the PDF and paste it in the brief section above, or convert to DOCX format.\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\n\nNote: PDF files are accepted but text extraction may be limited in the browser environment.`;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      let fullText = '';
+      const numPages = pdf.numPages;
+
+      // Extract text from all pages
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+
+        // Add page separator
+        if (pageNum > 1) fullText += '\n\n';
+        fullText += `Page ${pageNum}:\n${pageText}`;
+      }
+
+      // Clean up the content
+      fullText = fullText
+        .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
+        .replace(/^\s+|\s+$/g, '') // Trim whitespace
+        .replace(/\s+/g, ' '); // Normalize spaces
+
+      // Add file metadata
+      const metadata = [
+        `PDF File: ${file.name}`,
+        `Total Pages: ${numPages}`,
+        `File Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        `Extracted Content Length: ${fullText.length} characters`,
+        '',
+        'PDF Content:'
+      ].join('\n');
+
+      return metadata + '\n\n' + fullText;
+    } catch (error: any) {
+      console.error('PDF parsing error:', error);
+      // Fallback if PDF.js fails
+      return `PDF File: ${file.name}\n\nPDF text extraction failed: ${error.message}\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\n\nTip: Try converting to DOCX format, or copy-paste the text content manually into the brief section above.`;
+    }
   };
 
   const parseDOCXFile = async (file: File): Promise<string> => {
