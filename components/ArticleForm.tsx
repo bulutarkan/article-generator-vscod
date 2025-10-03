@@ -38,6 +38,7 @@ interface ArticleFormProps {
   handleCrawlWebsite: () => Promise<void>;
   handleKeywordToggle: (keyword: string) => void;
   crawlingError: string | null;
+
 }
 
 export const ArticleForm: React.FC<ArticleFormProps> = ({
@@ -487,13 +488,28 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           </svg>
           Brief (Optional)
         </label>
+
+        {/* Warning message when file is uploaded but brief is empty */}
+        {fileContent && (!brief || brief.trim().length === 0) && (
+          <div className="mb-2 p-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-orange-400 text-xs">⚠️</span>
+              <span className="text-orange-300 text-xs">You must tell AI what to do with brief documents.</span>
+            </div>
+          </div>
+        )}
+
         <textarea
           id="brief"
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
           placeholder="Add any specific requirements, focus areas, or additional context for your article..."
           rows={3}
-          className="text-sm w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 resize-none"
+          className={`text-sm w-full bg-slate-900/80 rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 resize-none ${
+            fileContent && (!brief || brief.trim().length === 0)
+              ? 'border-2 border-orange-500/50'
+              : 'border border-slate-700'
+          }`}
         />
         <p className="text-xs text-slate-500 mt-1">
           You can request comparison tables, mention specific brands, or add any other details you'd like included in the article.
@@ -709,7 +725,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
       <div className="mt-8 flex justify-center">
         <button
           onClick={onSubmit}
-          disabled={isLoading || !topic || !location || !tone}
+          disabled={isLoading || !topic || !location || !tone || (fileContent && (!brief || brief.trim().length === 0))}
           className="flex items-center justify-center bg-sky-600 hover:bg-sky-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-sky-500/50"
         >
           {isLoading ? 'Generating...' : 'Generate Article'}

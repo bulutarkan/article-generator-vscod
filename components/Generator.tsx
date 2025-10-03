@@ -195,6 +195,12 @@ export const Generator: React.FC<GeneratorProps> = ({
       return;
     }
 
+    // Brief requirement validation for file uploads
+    if (fileContent && (!brief || brief.trim().length === 0)) {
+      setError('You must provide instructions in the brief field when uploading brief documents.');
+      return;
+    }
+
     // Internal links için validasyon
     if (enableInternalLinks && !websiteUrl.trim()) {
       setError('Please provide a website URL for internal linking.');
