@@ -56,10 +56,20 @@ exports.handler = async (event) => {
       relevantCount = relevantInternalLinks.length;
 
       if (relevantInternalLinks.length > 0) {
-        const topLinks = relevantInternalLinks.slice(0, 8);
-        const additionalLinks = scoredLinks
-          .filter(link => !topLinks.some(tl => tl.url === link.url) && link.score > 0)
-          .slice(0, 7);
+        // Minimum 6 link garantisi
+        const minTotalLinks = 6;
+        let selectedLinks = relevantInternalLinks;
+
+        if (selectedLinks.length < minTotalLinks) {
+          // Threshold'u düşür, daha fazla link geçsin
+          selectedLinks = scoredLinks.filter(link => link.score >= 0.1);
+        }
+
+        // İlk 4 garantili, kalan minimum 2
+        const topLinks = selectedLinks.slice(0, 4);
+        const additionalLinks = selectedLinks
+          .filter(link => !topLinks.some(tl => tl.url === link.url))
+          .slice(0, Math.max(2, minTotalLinks - topLinks.length));
 
         const allSelectedLinks = [...topLinks, ...additionalLinks];
         internalLinksContext = `Internal links related to "${topic}": ${allSelectedLinks.map(link => `<a href="${link.url}">${link.title}</a>`).join(', ')}`;
@@ -526,8 +536,9 @@ function calculateTopicRelevanceScore(link, topicKeywords, originalTopic) {
     score += 0.3;
   }
 
+  // Uzun URL'ler bonus puan alsın (blog sayfaları için)
   if (link.url.length > 100) {
-    score -= 0.2;
+    score += 0.2; // Uzun URL bonus = +0.2 puan
   }
 
   return Math.max(0, score);

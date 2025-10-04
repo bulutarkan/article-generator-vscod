@@ -420,9 +420,9 @@ export class WebCrawlerService {
       score += 0.3; // Good title bonus = 0.3 puan
     }
 
-    // 6. URL LENGTH PENALTY
+    // Uzun URL'ler bonus puan alsın (blog sayfaları için)
     if (link.url.length > 100) {
-      score -= 0.2; // Uzun URL penalty = -0.2 puan
+      score += 0.2; // Uzun URL bonus = +0.2 puan
     }
 
     return Math.max(0, score); // Minimum 0
