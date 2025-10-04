@@ -4,6 +4,34 @@ import { calculateSEOMetrics } from './seoAnalysisService';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY as string });
 
+// Clean up dictated text into well-formed sentences while preserving meaning and language
+export async function refineDictationText(text: string, langCode?: string): Promise<string> {
+    try {
+        const systemInstruction = `You are a writing assistant that cleans up raw speech-to-text transcripts.
+Format the input into well-formed sentences with correct casing and punctuation.
+- Preserve the original language (${langCode || 'auto-detect'}).
+- Do not translate.
+- Do not add new information.
+- Fix obvious recognition errors and filler words (like "eee", "umm").
+Return only the improved text as plain text.`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-lite",
+            contents: text,
+            config: {
+                systemInstruction,
+                responseMimeType: "text/plain"
+            }
+        });
+
+        const out = (response.text || '').trim();
+        return out.length > 0 ? out : text;
+    } catch (err) {
+        console.warn('refineDictationText failed, returning original text:', err);
+        return text;
+    }
+}
+
 export async function generateKeywordSuggestions(baseKeyword: string, location: string): Promise<KeywordSuggestion[]> {
     if (!baseKeyword.trim() || !location) {
         return [];

@@ -6,8 +6,9 @@ import { TopicIcon } from './icons/TopicIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ToggleSwitch } from './ToggleSwitch';
 
-import { Globe, FileText, X, Upload } from 'lucide-react'; // Import additional icons
+import { Globe, FileText, X, Upload, Mic, MicOff, Square, ChevronDown, Paperclip } from 'lucide-react'; // Import additional icons
 import { Loader } from './Loader'; // Import Loader component
+import { refineDictationText } from '../services/geminiService';
 import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword type
 
 // File parsing imports
@@ -80,6 +81,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   const [locationSearch, setLocationSearch] = useState('');
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const toneDropdownRef = useRef<HTMLDivElement>(null);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
 
   // File upload states
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -92,12 +94,169 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   const [expandedPreview, setExpandedPreview] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const headerFileInputRef = useRef<HTMLInputElement>(null);
 
   // Brief contenteditable state
   const briefRef = useRef<HTMLDivElement>(null);
+  const [isBriefDragOver, setIsBriefDragOver] = useState<boolean>(false);
+
+  // Voice input (Web Speech API)
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [supportsSpeech, setSupportsSpeech] = useState<boolean>(false);
+  const [interimTranscript, setInterimTranscript] = useState<string>('');
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const languageOptions = [
+    { code: 'tr-TR', label: 'Türkçe' },
+    { code: 'en-US', label: 'English (US)' },
+    { code: 'en-GB', label: 'English (UK)' },
+    { code: 'de-DE', label: 'Deutsch' },
+    { code: 'fr-FR', label: 'Français' },
+    { code: 'es-ES', label: 'Español' },
+    { code: 'it-IT', label: 'Italiano' },
+    { code: 'ru-RU', label: 'Русский' },
+    { code: 'ar-SA', label: 'العربية' },
+  ];
+  const [speechLang, setSpeechLang] = useState<string>('tr-TR');
+  const [isLangOpen, setIsLangOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const w = window as any;
+    const supported = !!(w.SpeechRecognition || w.webkitSpeechRecognition);
+    setSupportsSpeech(supported);
+  }, []);
+
+  const insertTextAtCursor = (text: string) => {
+    if (!briefRef.current) return;
+    const editor = briefRef.current;
+
+    const placeCaretAtEnd = () => {
+      const selection = window.getSelection();
+      if (!selection) return;
+      const range = document.createRange();
+      if (editor.childNodes.length > 0) {
+        const lastNode = editor.childNodes[editor.childNodes.length - 1];
+        range.selectNodeContents(editor);
+        range.collapse(false);
+      } else {
+        const emptyText = document.createTextNode('');
+        editor.appendChild(emptyText);
+        range.setStartAfter(emptyText);
+        range.setEndAfter(emptyText);
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+
+    const selection = window.getSelection();
+    const selectionInsideEditor = (() => {
+      if (!selection || selection.rangeCount === 0) return false;
+      const range = selection.getRangeAt(0);
+      return editor.contains(range.commonAncestorContainer);
+    })();
+
+    if (!selectionInsideEditor) {
+      // Ensure caret is in the editor (end) before inserting
+      editor.focus();
+      placeCaretAtEnd();
+    }
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(text);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(document.createTextNode(text));
+    }
+
+    const newContent = editor.textContent || '';
+    setBrief(newContent);
+  };
+
+  const startVoice = () => {
+    setSpeechError(null);
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) {
+      setSpeechError('Browser does not support speech recognition.');
+      return;
+    }
+    // Focus editor and place caret at end to ensure text goes to brief
+    if (briefRef.current) {
+      briefRef.current.focus();
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(briefRef.current);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+    const recognition = new SR();
+    recognition.lang = speechLang;
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = async (event: any) => {
+      let finalText = '';
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalText += transcript + ' ';
+        } else {
+          interim += transcript + ' ';
+        }
+      }
+      if (interim) setInterimTranscript(interim.trim());
+      if (finalText) {
+        // Add a space before final text if needed
+        const prefix = briefRef.current && (briefRef.current.textContent || '').endsWith(' ') ? '' : ' ';
+        let cleaned = finalText.trim();
+        try {
+          cleaned = await refineDictationText(cleaned, speechLang);
+        } catch (e) {
+          // fall back silently
+        }
+        insertTextAtCursor(prefix + cleaned + ' ');
+        setInterimTranscript('');
+      }
+    };
+
+    recognition.onerror = (e: any) => {
+      setSpeechError(e?.error === 'not-allowed' ? 'Microphone permission denied.' : 'Speech recognition error.');
+      setIsListening(false);
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsListening(true);
+    } catch (err) {
+      setSpeechError('Unable to start speech recognition.');
+      setIsListening(false);
+    }
+  };
+
+  const stopVoice = () => {
+    try {
+      recognitionRef.current?.stop?.();
+    } finally {
+      setIsListening(false);
+      setInterimTranscript('');
+    }
+  };
 
   // Heading extraction state
   const [extractedHeadings, setExtractedHeadings] = useState<{level: number, text: string, slug: string}[]>([]);
+  const [showUploadSection, setShowUploadSection] = useState<boolean>(false);
 
   // Slug generation function - creates readable slugs from headings
   const generateSlug = (text: string): string => {
@@ -140,6 +299,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
       }
       if (toneDropdownRef.current && !toneDropdownRef.current.contains(event.target as Node)) {
         setIsToneOpen(false);
+      }
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setIsLangOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -488,6 +650,9 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (headerFileInputRef.current) {
+      headerFileInputRef.current.value = '';
+    }
   }, []);
 
   // Brief with @ reference support
@@ -763,6 +928,16 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   };
 
+  const openPreview = () => {
+    setShowUploadSection(true);
+    setShowContentPreview(true);
+    // Try to scroll the preview into view smoothly
+    requestAnimationFrame(() => {
+      const el = document.getElementById('upload-preview');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   // Calculate content stats
   const getContentStats = (content: string) => {
     const words = content.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -886,12 +1061,103 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
       {/* Brief Textarea */}
       <div className="mt-6">
-        <label htmlFor="brief" className="text-sm font-medium text-slate-300 flex items-center mb-2">
-          <svg className="w-4 h-4 mr-2 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Brief Text (Optional)
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label htmlFor="brief" className="text-sm font-medium text-slate-300 flex items-center">
+            <svg className="w-4 h-4 mr-2 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Brief Text (Optional)
+          </label>
+        <div className="flex items-center gap-2">
+            {supportsSpeech ? (
+              <button
+                type="button"
+                onClick={isListening ? stopVoice : startVoice}
+                className={`inline-flex items-center px-3 py-1.5 rounded-md border transition-colors text-xs ${
+                  isListening
+                    ? 'bg-red-500/20 border-red-500/40 text-red-300 hover:bg-red-500/30'
+                    : 'bg-slate-700/60 border-slate-600 text-slate-200 hover:bg-slate-600'
+                }`}
+                title={'Voice-to-text'}
+                aria-label="Voice-to-text"
+              >
+                {isListening ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center px-3 py-1.5 rounded-md border bg-slate-800/60 border-slate-700 text-slate-500 cursor-not-allowed text-xs"
+                title="Speech recognition not supported in this browser"
+              >
+                <MicOff className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <div className="relative" ref={langDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsLangOpen(v => !v)}
+                className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-md border text-[11px] transition-colors ${
+                  isLangOpen
+                    ? 'bg-slate-700/60 border-slate-600 text-slate-100'
+                    : 'bg-slate-900/80 border-slate-700 text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Recognition language"
+                aria-haspopup="listbox"
+                aria-expanded={isLangOpen}
+              >
+                <span>{languageOptions.find(l => l.code === speechLang)?.label || 'Language'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isLangOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isLangOpen && (
+                <ul
+                  role="listbox"
+                  className="absolute right-0 mt-2 w-40 max-h-56 overflow-auto bg-slate-800 border border-slate-700 rounded-md shadow-lg z-50 text-[12px] py-1"
+                >
+                  {languageOptions.map((opt) => (
+                    <li
+                      key={opt.code}
+                      role="option"
+                      aria-selected={opt.code === speechLang}
+                      onClick={() => { setSpeechLang(opt.code); setIsLangOpen(false); }}
+                      className={`px-3 py-1.5 cursor-pointer flex items-center justify-between hover:bg-sky-500/20 text-slate-200 ${opt.code === speechLang ? 'bg-slate-700/40' : ''}`}
+                    >
+                      <span>{opt.label}</span>
+                      {opt.code === speechLang && (
+                        <span className="text-sky-400"><CheckIcon className="w-4 h-4" /></span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {isListening && (
+              <span className="inline-flex items-center text-[11px] text-red-300">
+                <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
+                Listening...
+              </span>
+            )}
+            {/* Compact Attachment Button */}
+            <div className="relative">
+              <input
+                ref={headerFileInputRef}
+                type="file"
+                accept=".pdf,.docx,.csv,.xlsx"
+                className="hidden"
+                onChange={(e) => handleFileUpload(e.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => headerFileInputRef.current?.click()}
+                className="inline-flex items-center px-3 py-1.5 rounded-md border bg-slate-900/80 border-slate-700 text-slate-200 hover:bg-slate-800 text-xs"
+                title="Attach document"
+                aria-label="Attach document"
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Warning message when file is uploaded but brief is empty */}
         {fileContent && (!brief || brief.trim().length === 0) && (
@@ -907,6 +1173,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           <div
             ref={briefRef}
             contentEditable
+            title="Tip: Drag & drop files here to attach"
             onInput={(e) => {
               const newValue = e.currentTarget.textContent || '';
               setBrief(newValue);
@@ -948,15 +1215,49 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
                 }
               }
             }}
+            onDragOver={(e) => {
+              if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+                e.preventDefault();
+                setIsBriefDragOver(true);
+              }
+            }}
+            onDragLeave={() => setIsBriefDragOver(false)}
+            onDrop={(e) => {
+              if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                e.preventDefault();
+                setIsBriefDragOver(false);
+                handleFileUpload(e.dataTransfer.files);
+              }
+            }}
             className={`w-full text-sm bg-slate-900/80 border rounded-md px-4 py-3 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 min-h-[80px] outline-none ${
               fileContent && (!brief || brief.trim().length === 0)
                 ? 'border-2 border-orange-500/50'
-                : 'border border-slate-700'
+                : isBriefDragOver
+                  ? 'border-2 border-dashed border-sky-400 bg-sky-500/10 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]'
+                  : 'border border-slate-700'
             }`}
             suppressContentEditableWarning={true}
             data-placeholder={brief.trim() === '' ? "Add any specific requirements, focus areas, or additional context for your article..." : undefined}
             style={{ minHeight: '80px' }}
           />
+
+          {isBriefDragOver && (
+            <div className="pointer-events-none absolute inset-0 rounded-md border-2 border-dashed border-sky-400/70 bg-sky-500/10 flex items-center justify-center">
+              <div className="flex items-center gap-2 text-sky-300 text-xs font-medium bg-slate-900/70 border border-slate-700 px-3 py-1.5 rounded-md shadow">
+                <Upload className="w-4 h-4" />
+                <span>Drop files to attach</span>
+              </div>
+            </div>
+          )}
+
+          {interimTranscript && (
+            <div
+              className="mt-2 text-[11px] text-slate-400 italic truncate"
+              aria-live="polite"
+            >
+              {interimTranscript}
+            </div>
+          )}
 
           {/* Reference suggestions dropdown */}
           {showReferenceSuggestions && extractedHeadings.length > 0 && (
@@ -971,6 +1272,10 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           )}
         </div>
 
+        {speechError && (
+          <p className="text-xs text-red-400 mt-1">{speechError}</p>
+        )}
+
         {/* Hint message for DOCX @ reference feature */}
         {uploadedFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && extractedHeadings.length > 0 && (
           <p className="text-xs text-blue-400 mt-1">
@@ -981,9 +1286,51 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
         <p className="text-xs text-slate-500 mt-1">
           You can request comparison tables, mention specific brands, or add any other details you'd like included in the article.
         </p>
+
+        {/* Attachment chip row below brief */}
+        {uploadedFile && (
+          <div className="mt-2 flex items-center justify-between bg-slate-800/50 border border-slate-700 rounded-md px-3 py-2">
+            <div className="flex items-center gap-2 text-slate-200 text-xs">
+              <Paperclip className="w-4 h-4 text-sky-400" />
+              <span className="truncate max-w-[240px] sm:max-w-[360px] md:max-w-[480px]">{uploadedFile.name}</span>
+              <span className="text-slate-400">· {(uploadedFile.size/1024/1024).toFixed(2)} MB</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="text-[11px] px-2 py-1 rounded border border-slate-600 text-slate-200 hover:bg-slate-700"
+                onClick={copyToClipboard}
+                title="Copy parsed content"
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button
+                className="text-[11px] px-2 py-1 rounded border border-slate-600 text-slate-200 hover:bg-slate-700"
+                onClick={openPreview}
+                title="Open preview"
+              >
+                Preview
+              </button>
+              <button
+                className="text-[11px] px-2 py-1 rounded border border-slate-600 text-slate-200 hover:bg-slate-700"
+                onClick={() => setShowUploadSection(v => !v)}
+                title={showUploadSection ? 'Hide details' : 'Show details'}
+              >
+                {showUploadSection ? 'Hide' : 'Details'}
+              </button>
+              <button
+                className="text-[11px] px-2 py-1 rounded border border-red-600/60 text-red-300 hover:bg-red-600/20"
+                onClick={handleFileRemove}
+                title="Remove attachment"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* File Upload Section */}
+      {/* File Upload Section (collapsible to save space) */}
+      {showUploadSection && (
       <div className="mt-6">
         <label className="text-sm font-medium text-slate-300 flex items-center mb-2">
           <FileText className="w-4 h-4 mr-2 text-sky-400" />
@@ -1095,7 +1442,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
         {/* Enhanced Content Preview */}
         {fileContent && showContentPreview && uploadedFile && (
-          <div className={`mt-6 transition-all duration-700 ease-out ${
+          <div id="upload-preview" className={`mt-6 transition-all duration-700 ease-out ${
             showContentPreview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             {/* Header with icon, title and stats */}
@@ -1203,6 +1550,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           </div>
         )}
       </div>
+      )}
 
       {/* Internal Links Section */}
       <div className="mt-6">
