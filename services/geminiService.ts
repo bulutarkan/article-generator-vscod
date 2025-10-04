@@ -6,14 +6,36 @@ const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY as stri
 
 // Clean up dictated text into well-formed sentences while preserving meaning and language
 export async function refineDictationText(text: string, langCode?: string): Promise<string> {
+    // Helper to ensure the model output closely matches the input content (no hallucinations)
+    const isSafeRefinement = (original: string, refined: string): boolean => {
+        if (!refined) return false;
+        // Length guard: refined shouldn't be much longer than original
+        const lenA = original.trim().length;
+        const lenB = refined.trim().length;
+        if (lenA > 20 && lenB > lenA * 1.5) return false;
+        // Token overlap guard
+        const tokenize = (s: string) => (s.toLowerCase().match(/[a-z0-9ğüşöçıİğüşöçı]+/gi) || []).filter(Boolean);
+        const a = tokenize(original);
+        const b = tokenize(refined);
+        if (a.length === 0) return true;
+        const map = new Map<string, number>();
+        for (const t of a) map.set(t, (map.get(t) || 0) + 1);
+        let overlap = 0;
+        for (const t of b) {
+            const c = map.get(t) || 0;
+            if (c > 0) { overlap++; map.set(t, c - 1); }
+        }
+        const ratio = overlap / a.length; // how many input tokens preserved
+        return ratio >= 0.6; // require decent overlap
+    };
+
     try {
-        const systemInstruction = `You are a writing assistant that cleans up raw speech-to-text transcripts.
-Format the input into well-formed sentences with correct casing and punctuation.
-- Preserve the original language (${langCode || 'auto-detect'}).
-- Do not translate.
-- Do not add new information.
-- Fix obvious recognition errors and filler words (like "eee", "umm").
-Return only the improved text as plain text.`;
+        const systemInstruction = `You strictly clean raw speech-to-text without inventing content.
+Rules:
+- Preserve original language (${langCode || 'auto-detect'}), casing and wording as much as possible.
+- Only add punctuation, spacing and capitalization; optionally remove filler tokens (e.g., "eee", "umm").
+- Do NOT add new sentences or change meaning. Do NOT translate. Do NOT expand.
+Output only the minimally edited text.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-lite",
@@ -25,11 +47,113 @@ Return only the improved text as plain text.`;
         });
 
         const out = (response.text || '').trim();
-        return out.length > 0 ? out : text;
+        if (!out) return text;
+        return isSafeRefinement(text, out) ? out : text;
     } catch (err) {
         console.warn('refineDictationText failed, returning original text:', err);
         return text;
     }
+}
+
+// Suggest a tone of voice based on topic and brief
+export async function suggestTone(topic: string, brief: string): Promise<'Authoritative'|'Formal'|'Professional'|'Casual'|'Funny'> {
+    const allowed = ['Authoritative','Formal','Professional','Casual','Funny'] as const;
+    const systemInstruction = `You are a helpful copywriting assistant.
+Given a topic and a short brief (may include language hints), choose the most suitable tone of voice from this exact list only:
+- Authoritative
+- Formal
+- Professional
+- Casual
+- Funny
+Return a JSON object with a single key "+tone+" using one of the options exactly as written. Do not add explanations.`;
+
+    const input = `Topic: ${topic || '(empty)'}\nBrief: ${brief || '(empty)'}\nPick one tone from the list above.`;
+    const modelsToTry = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+    for (const model of modelsToTry) {
+        try {
+            const res = await ai.models.generateContent({
+                model,
+                contents: input,
+                config: {
+                    systemInstruction,
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: { tone: { type: Type.STRING } },
+                        required: ["tone"],
+                    }
+                }
+            });
+            const data = JSON.parse(res.text || '{}');
+            const val = (data.tone || '').toString();
+            const normalized = val.trim().toLowerCase();
+            const mapped: Record<string, typeof allowed[number]> = {
+                authoritative: 'Authoritative',
+                formal: 'Formal',
+                professional: 'Professional',
+                casual: 'Casual',
+                funny: 'Funny',
+            };
+            if (mapped[normalized]) return mapped[normalized];
+        } catch (e: any) {
+            if (e?.status === 503 || e?.code === 503 || e?.message?.includes('overloaded')) continue;
+        }
+    }
+    return 'Professional';
+}
+
+// Analyze a voice brief and target location to suggest a topic and a focused prompt
+export async function analyzeVoiceForTopic(
+    transcript: string,
+    targetLocation: string,
+    preferredLang?: string
+): Promise<{ topic: string; prompt: string; language?: string; }> {
+    const systemInstruction = `You are an SEO content strategist.
+You will receive a user's spoken brief (already transcribed) and a target location.
+Your job:
+1) Extract a concise SEO-friendly article topic (either a strong title or a primary keyword phrase).
+2) Produce a short, actionable prompt (2-4 sentences, imperative voice) that our article generator should follow, emphasizing the user's specific goals and constraints from the brief.
+3) Detect the brief language and return a BCP-47 language code.
+- DO NOT translate; keep the topic/prompt in the brief's language whenever possible.
+- Keep the topic short and clear; no quotes, no extra commentary.
+Return a single JSON object with keys: topic, prompt, language.`;
+
+    const input = `Brief (transcript):\n${transcript}\n\nTarget Location: ${targetLocation || '(not provided)'}\nPreferred Language (hint): ${preferredLang || 'auto'}`;
+
+    const modelsToTry = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+    for (const modelName of modelsToTry) {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: input,
+                config: {
+                    systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            topic: { type: Type.STRING },
+                            prompt: { type: Type.STRING },
+                            language: { type: Type.STRING },
+                        },
+                        required: ["topic", "prompt"]
+                    }
+                }
+            });
+            const data = JSON.parse(response.text || '{}');
+            return {
+                topic: data.topic || '',
+                prompt: data.prompt || '',
+                language: data.language,
+            };
+        } catch (error: any) {
+            if (error?.status === 503 || error?.code === 503 || error?.message?.includes('overloaded')) {
+                continue;
+            }
+            throw error;
+        }
+    }
+    return { topic: '', prompt: '', language: undefined };
 }
 
 export async function generateKeywordSuggestions(baseKeyword: string, location: string): Promise<KeywordSuggestion[]> {

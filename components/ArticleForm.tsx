@@ -6,9 +6,10 @@ import { TopicIcon } from './icons/TopicIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ToggleSwitch } from './ToggleSwitch';
 
-import { Globe, FileText, X, Upload, Mic, MicOff, Square, ChevronDown, Paperclip } from 'lucide-react'; // Import additional icons
+import { Globe, FileText, X, Upload, Mic, MicOff, Square, ChevronDown, Paperclip, Wand2 } from 'lucide-react'; // Import additional icons
 import { Loader } from './Loader'; // Import Loader component
-import { refineDictationText } from '../services/geminiService';
+import { refineDictationText, suggestTone } from '../services/geminiService';
+import VoiceIdeaModal from './VoiceIdeaModal';
 import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword type
 
 // File parsing imports
@@ -78,10 +79,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
 
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isToneOpen, setIsToneOpen] = useState(false);
+  const [isToneSuggesting, setIsToneSuggesting] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const toneDropdownRef = useRef<HTMLDivElement>(null);
   const langDropdownRef = useRef<HTMLDivElement>(null);
+  const aiMenuRef = useRef<HTMLDivElement>(null);
 
   // File upload states
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -95,6 +98,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
+  const [isAiMenuOpen, setIsAiMenuOpen] = useState<boolean>(false);
 
   // Brief contenteditable state
   const briefRef = useRef<HTMLDivElement>(null);
@@ -257,6 +261,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   // Heading extraction state
   const [extractedHeadings, setExtractedHeadings] = useState<{level: number, text: string, slug: string}[]>([]);
   const [showUploadSection, setShowUploadSection] = useState<boolean>(false);
+  const [showVoiceModal, setShowVoiceModal] = useState<boolean>(false);
+  const [voiceModalKey, setVoiceModalKey] = useState<number>(0);
 
   // Slug generation function - creates readable slugs from headings
   const generateSlug = (text: string): string => {
@@ -302,6 +308,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
       }
       if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
         setIsLangOpen(false);
+      }
+      if (aiMenuRef.current && !aiMenuRef.current.contains(event.target as Node)) {
+        setIsAiMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -938,6 +947,13 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     });
   };
 
+  const openVoiceModalFromMenu = () => {
+    // Close menu first, then force a fresh mount of the modal with a new key
+    setIsAiMenuOpen(false);
+    setVoiceModalKey((k) => k + 1);
+    setShowVoiceModal(true);
+  };
+
   // Calculate content stats
   const getContentStats = (content: string) => {
     const words = content.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -963,6 +979,7 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
             placeholder="e.g., 'Best coffee shops'"
             className="text-sm bg-slate-900/80 border border-slate-700 rounded-md px-4 py-2 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200"
           />
+          
         </div>
 
         {/* Location Searchable Dropdown with AI Analysis Icon */}
@@ -1046,18 +1063,44 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
             </button>
             {isToneOpen && (
               <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-slate-800 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm border border-slate-700">
-                <ul role="listbox">
-                  {tones.map(t => (
-                    <li key={t} className="text-white relative cursor-pointer select-none py-2 pl-3 pr-9 hover:bg-sky-500/30" onClick={() => { setTone(t); setIsToneOpen(false); }}>
-                      <span className="font-normal block truncate">{t}</span>
-                    </li>
-                  ))}
-                </ul>
+              <ul role="listbox">
+                {tones.map(t => (
+                  <li key={t} className="text-white relative cursor-pointer select-none py-2 pl-3 pr-9 hover:bg-sky-500/30" onClick={() => { setTone(t); setIsToneOpen(false); }}>
+                    <span className="font-normal block truncate">{t}</span>
+                  </li>
+                ))}
+              </ul>
               </div>
             )}
           </div>
+          
         </div>
       </div>
+
+      {/* Voice Idea Modal */}
+      <VoiceIdeaModal
+        key={voiceModalKey}
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        defaultLocation={location}
+        onApply={(suggestedTopic, suggestedPrompt, chosenLocation) => {
+          const sanitizeKeyword = (s: string) => {
+            // Keep Turkish letters and basic punctuation, remove other special chars
+            const allowedPunct = '.,!?;:\\-()';
+            // First, remove characters not in allowed sets (Turkish + ASCII letters/digits/space + allowed punctuation)
+            const cleaned = s.replace(new RegExp(`[^A-Za-z0-9ğüşöçıİĞÜŞÖÇ\\s${allowedPunct.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}]`, 'g'), ' ');
+            // Lowercase and fix dotted i issue
+            const lower = cleaned.toLowerCase().replace(/\u0307/g, '');
+            return lower.replace(/\s+/g, ' ').trim();
+          };
+          if (suggestedTopic) setTopic(sanitizeKeyword(suggestedTopic));
+          if (chosenLocation && chosenLocation.trim()) setLocation(chosenLocation);
+          if (suggestedPrompt) {
+            const prefix = 'AI Focus: ';
+            setBrief(prev => prev && prev.trim().length > 0 ? `${prev}\n\n${prefix}${suggestedPrompt}` : `${prefix}${suggestedPrompt}`);
+          }
+        }}
+      />
 
       {/* Brief Textarea */}
       <div className="mt-6">
@@ -1155,6 +1198,46 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </button>
+            </div>
+            {/* AI Suggestions dropdown */}
+            <div className="relative" ref={aiMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsAiMenuOpen(v => !v)}
+                className="inline-flex items-center px-3 py-1.5 rounded-md border bg-slate-900/80 border-slate-700 text-slate-200 hover:bg-slate-800 text-xs"
+                title="AI Suggestions"
+              >
+                <Wand2 className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
+                <span className="hidden sm:inline">AI Suggestions</span>
+                <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform ${isAiMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isAiMenuOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-md shadow-lg z-50 py-1">
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-sky-500/20 flex items-center gap-2"
+                    onClick={openVoiceModalFromMenu}
+                  >
+                    <Wand2 className="w-3.5 h-3.5" /> Suggest Topic
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-sky-500/20 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={isToneSuggesting || (!topic.trim() && !brief.trim())}
+                    onClick={async () => {
+                      setIsAiMenuOpen(false);
+                      if (isToneSuggesting || (!topic.trim() && !brief.trim())) return;
+                      setIsToneSuggesting(true);
+                      try {
+                        const t = await suggestTone(topic, brief);
+                        setTone(t);
+                      } finally {
+                        setIsToneSuggesting(false);
+                      }
+                    }}
+                  >
+                    <Wand2 className="w-3.5 h-3.5" /> {isToneSuggesting ? 'Suggesting…' : 'Suggest Tone'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

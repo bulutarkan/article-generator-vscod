@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
-import { useAuth } from './AuthContext';
+import { SiteHeader } from './SiteHeader';
 
 interface PrivacyPageProps {
   onNavigateToAuth: () => void;
@@ -10,10 +10,7 @@ interface PrivacyPageProps {
 }
 
 export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNavigateToApp, onNavigateToTerms }) => {
-  const { user } = useAuth();
-  const actualLoggedIn = !!user;
   const [activeSection, setActiveSection] = useState<string | null>('overview');
-  const handleHeaderClick = actualLoggedIn && onNavigateToApp ? onNavigateToApp : onNavigateToAuth;
 
   const sections = [
     {
@@ -46,16 +43,10 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNa
   return (
     <>
       <StaticPageTitle pageName="Privacy" />
-      <header className="py-8 px-4">
-        <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
-          <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">
-            <span className="inline-block px-2 py-1 bg-purple-600 text-black rounded">AI</span>rticle
-          </button>
-          <button onClick={handleHeaderClick} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-            {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
-          </button>
-        </div>
-      </header>
+      <SiteHeader
+        onNavigateToAuth={onNavigateToAuth}
+        onNavigateToApp={onNavigateToApp}
+      />
 
       <main className="container mx-auto px-4 py-16 flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto text-center">

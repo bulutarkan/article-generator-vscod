@@ -3,6 +3,7 @@ import { Footer } from './Footer';
 import type { User } from '../types';
 import { StaticPageTitle } from './PageTitle';
 import { useAuth } from './AuthContext';
+import { SiteHeader } from './SiteHeader';
 
 interface ContactPageProps {
   onNavigateToAuth: () => void;
@@ -22,20 +23,13 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNa
   return (
     <>
       <StaticPageTitle pageName="Contact" />
-      <header className="py-8 px-4">
-        <div className="flex justify-between items-center w-full max-w-7xl mx-auto">
-          <button onClick={() => window.location.href = '/'} className="text-3xl sm:text-4xl font-bold tracking-tight text-white inline-block font-montserrat">
-            <span className="inline-block px-2 py-1 bg-purple-600 text-black rounded">AI</span>rticle
-          </button>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button onClick={onNavigateToFeatures} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Features</button>
-            <button onClick={onNavigateToPricing} className="hidden sm:block px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors">Pricing</button>
-            <button onClick={handleHeaderClick} className="px-4 py-2 rounded-md text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 transition-colors">
-              {actualLoggedIn ? 'Back to App' : 'Sign In'} &rarr;
-            </button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        onNavigateToAuth={onNavigateToAuth}
+        onNavigateToApp={onNavigateToApp}
+        onNavigateToFeatures={onNavigateToFeatures}
+        onNavigateToPricing={onNavigateToPricing}
+        onNavigateToContact={() => {}}
+      />
 
       <main className="container mx-auto px-4 py-16 flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto text-center">
