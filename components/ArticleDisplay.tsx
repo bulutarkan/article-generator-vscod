@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Article, PriceComparisonItem } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { CodeIcon } from './icons/CodeIcon';
 import { SEOMetricsBox } from './SEOMetricsBox';
 import { searchImages, type ImageResult } from '../services/imageService';
+import { calculateSEOMetrics } from '../services/seoAnalysisService';
 
 
 
@@ -465,6 +466,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
 interface ArticleDisplayProps {
   article: Article;
   hideTitleAndMeta?: boolean;
+  onMutateContent?: (nextContent: string, nextTitle?: string) => void;
 }
 
 type Tab = 'article' | 'metadata' | 'images';
@@ -689,6 +691,7 @@ const ImageModal: React.FC<{
 
 export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
   article,
+  onMutateContent,
 }) => {
   const [activeTab, setActiveTab] = React.useState<Tab>('article');
   const [showFaqHtml, setShowFaqHtml] = React.useState(false);
@@ -800,6 +803,18 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
     article.priceComparison ? generatePriceTableHtml(article.priceComparison) : ''
   );
 
+  const computedMetrics = useMemo(() => {
+    try {
+      return calculateSEOMetrics(
+        article.articleContent || '',
+        article.keywords || [],
+        article.primaryKeyword || ''
+      );
+    } catch {
+      return article.seoMetrics;
+    }
+  }, [article.articleContent, article.keywords, article.primaryKeyword, article.seoMetrics]);
+
   const TabButton: React.FC<{ tabName: Tab, label: string }> = ({ tabName, label }) => (
     <button
       onClick={() => setActiveTab(tabName)}
@@ -837,9 +852,12 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
           </div>
 
           <SEOMetricsBox
-            seoMetrics={article.seoMetrics}
+            seoMetrics={computedMetrics || article.seoMetrics}
             articleTitle={article.title}
             articleContent={article.articleContent}
+            keywords={article.keywords}
+            primaryKeyword={article.primaryKeyword}
+            onMutateContent={onMutateContent ? (next) => onMutateContent(next.content, next.title) : undefined}
           />
         </div>
 

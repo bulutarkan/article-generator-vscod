@@ -21,12 +21,18 @@ interface SEOMetrics {
 export function calculateReadabilityScore(text: string): number {
   if (!text || text.trim() === '') return 0;
 
+  // Detect Turkish and use Ateşman formula (better for TR text)
+  const isTurkish = detectTurkish(text);
+  if (isTurkish) {
+    return calculateReadabilityScoreTR(text);
+  }
+
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const words = text.split(/\s+/).filter(w => w.trim().length > 0);
 
   if (sentences.length === 0 || words.length === 0) return 0;
 
-  const syllables = words.reduce((count, word) => count + countSyllables(word), 0);
+  const syllables = words.reduce((count, word) => count + countSyllablesEN(word), 0);
   const avgWordsPerSentence = words.length / sentences.length;
   const avgSyllablesPerWord = syllables / words.length;
 
@@ -39,7 +45,7 @@ export function calculateReadabilityScore(text: string): number {
 /**
  * Count syllables in a word (simple approximation)
  */
-function countSyllables(word: string): number {
+function countSyllablesEN(word: string): number {
   if (!word || word.length <= 3) return 1;
 
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '');
@@ -63,6 +69,39 @@ function countSyllables(word: string): number {
 
   // Minimum of 1 syllable
   return Math.max(1, syllables);
+}
+
+// Turkish language detection (simple heuristic)
+function detectTurkish(text: string): boolean {
+  const trChars = /[çğıöşüÇĞİÖŞÜ]/;
+  if (trChars.test(text)) return true;
+  // Check common Turkish stopwords ratio
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return false;
+  const trStops = new Set(['ve', 'ile', 'için', 'ama', 'fakat', 'ancak', 'gibi', 'çok', 'bir', 'de', 'da', 'ki']);
+  const hits = words.reduce((n, w) => n + (trStops.has(w) ? 1 : 0), 0);
+  return (hits / words.length) > 0.03; // >3% stopwords suggests Turkish
+}
+
+// Turkish readability (Ateşman): 198.825 - 40.175*(syllables/words) - 2.610*(words/sentences)
+function calculateReadabilityScoreTR(text: string): number {
+  const sentences = text.split(/[.!?]+|\n+/).filter(s => s.trim().length > 0);
+  const words = text.split(/\s+/).filter(w => w.trim().length > 0);
+  if (sentences.length === 0 || words.length === 0) return 0;
+
+  const syllables = words.reduce((count, word) => count + countSyllablesTR(word), 0);
+  const avgWordsPerSentence = words.length / sentences.length;
+  const avgSyllablesPerWord = syllables / words.length;
+
+  const score = 198.825 - (40.175 * avgSyllablesPerWord) - (2.610 * avgWordsPerSentence);
+  return Math.max(0, Math.min(100, score));
+}
+
+function countSyllablesTR(word: string): number {
+  if (!word) return 1;
+  const clean = word.toLowerCase().replace(/[^a-zçğıöşü]/g, '');
+  const vowels = clean.match(/[aeıioöuü]/g);
+  return Math.max(1, vowels ? vowels.length : 1);
 }
 
 /**
@@ -652,7 +691,7 @@ export function getContextualReadabilityMessage(
   score: number,
   contentLength: number = 0
 ): string {
-  const lengthContext = contentLength > 2000 ? 'uzun' : (contentLength > 500 ? 'ortalama' : 'kısa');
+  const lengthContext = contentLength > 2000 ? 'long' : (contentLength > 500 ? 'medium' : 'short');
 
   switch (category) {
     case 'medical':
@@ -680,13 +719,13 @@ export function getContextualReadabilityMessage(
  */
 function getMedicalReadabilityMessage(score: number, length: string): string {
   if (score <= 25) {
-    return `⚕️ Tıbbi içerik için normal - uzman kitleye uygun. ${score} skoruyla profesyonel standartlara uyuyor ✅`;
+    return `Medical tone OK for specialists. Score ${score}; precise and clinical.`;
   } else if (score <= 35) {
-    return `⚕️ Tıbbi içerik için yeterli - hem uzman hem de hasta tarafından anlaşılır düzey 👍`;
+    return `Balanced for medical content — understandable for clinicians and patients.`;
   } else if (score <= 50) {
-    return `⚕️ Tıbbi içerik için çok iyi - geniş kitleye hitap ediyor 🏆`;
+    return `Very accessible medical writing — suitable for a broad audience.`;
   } else {
-    return `⚕️ Viral tıbbi içerik kalitesi! Geniş kitleye ulaşan mükemmel seviye 💪`;
+    return `Excellent accessibility — great for patient education and outreach.`;
   }
 }
 
@@ -695,13 +734,13 @@ function getMedicalReadabilityMessage(score: number, length: string): string {
  */
 function getTechnicalReadabilityMessage(score: number, length: string): string {
   if (score <= 30) {
-    return `🔧 Teknik dokümantasyon için ideal - uzman seviyesinde detay veriyor 🎯`;
+    return `Ideal for technical docs — concise and expert-oriented.`;
   } else if (score <= 45) {
-    return `🔧 Teknik içerik için dengeli - hem uzman hem de orta seviye kullanıcılara uygun ✨`;
+    return `Good balance — works for intermediate to advanced readers.`;
   } else if (score <= 60) {
-    return `🔧 Teknik içerik için çok erişilebilir - geniş geliştirici kitlesine hitap ediyor 👍`;
+    return `Highly accessible technical content — suitable for most developers.`;
   } else {
-    return `🔧 Teknik içerik için mükemmel! Giriş seviyesi kullanıcılara da uygun 🚀`;
+    return `Very easy to read — friendly for newcomers.`;
   }
 }
 
@@ -710,13 +749,13 @@ function getTechnicalReadabilityMessage(score: number, length: string): string {
  */
 function getAcademicReadabilityMessage(score: number, length: string): string {
   if (score <= 20) {
-    return `🎓 Akademik içerik için moderatör seviyede - lisansüstü araştırma seviyesi 📜`;
+    return `Academic register — suitable for graduate-level readers.`;
   } else if (score <= 35) {
-    return `🎓 Akademik içerik için optimal - üniversite lisans seviyesinde 🎯`;
+    return `Appropriate for undergraduate-level comprehension.`;
   } else if (score <= 50) {
-    return `🎓 Akademik içerik için çok erişilebilir - yüksek lisans seviyesinde 📈`;
+    return `Accessible academic style — clear and concise.`;
   } else {
-    return `🎓 Akademik içerik için popülerleştirilmiş - geniş eğitim kitlesine uygun 💫`;
+    return `Popularized academic tone — broad audience friendly.`;
   }
 }
 
@@ -725,13 +764,13 @@ function getAcademicReadabilityMessage(score: number, length: string): string {
  */
 function getBlogReadabilityMessage(score: number, length: string): string {
   if (score >= 65) {
-    return `📝 Blog için mükemmel! ${length} blog için geniş kitleye hitap ediyor 🏆`;
+    return `Excellent for blogs — ${length} content is easy to scan and share.`;
   } else if (score >= 50) {
-    return `📝 Blog için çok iyi - etkileşim seviyesinde 👍`;
+    return `Strong readability — engaging and clear.`;
   } else if (score >= 35) {
-    return `📝 Blog için yeterli - geliştirilebilir 💪`;
+    return `Acceptable — consider shorter sentences and simpler phrasing.`;
   } else {
-    return `📝 Blog için düşük - içerik karmaşıklaştırılabilir 📈`;
+    return `Low readability — simplify structure and vocabulary.`;
   }
 }
 
@@ -740,13 +779,13 @@ function getBlogReadabilityMessage(score: number, length: string): string {
  */
 function getBusinessReadabilityMessage(score: number, length: string): string {
   if (score >= 60) {
-    return `💼 İş dünyası için mükemmel - CEO'lara ve çalışanlara hitap ediyor 🏆`;
+    return `Excellent for business audiences — executive-friendly tone.`;
   } else if (score >= 45) {
-    return `💼 İş dünyası için optimal - profesyonel standartlarda ✅`;
+    return `Professional and clear — suitable for stakeholders.`;
   } else if (score >= 30) {
-    return `💼 İş dünyası için yeterli - geliştirme fırsatı var 📈`;
+    return `Usable — consider tighter, more direct phrasing.`;
   } else {
-    return `💼 İş dünyası için yüksek standartlarda kalıyor 📊`;
+    return `Too dense — simplify and focus on outcomes.`;
   }
 }
 
@@ -755,13 +794,13 @@ function getBusinessReadabilityMessage(score: number, length: string): string {
  */
 function getGeneralReadabilityMessage(score: number, length: string): string {
   if (score >= 60) {
-    return `📚 Genel атмос için çok yüksek! Her seviye okuyucuya uygun 🚀`;
+    return `Very high readability — suitable for all audiences.`;
   } else if (score >= 45) {
-    return `📚 Genel içerik için ideal - dengeli ve erişilebilir ✅`;
+    return `Ideal balance — clear and accessible.`;
   } else if (score >= 30) {
-    return `📚 Genel içerik için yeterli - geniş okur kitlesine wrap ediyor 👍`;
+    return `Adequate — consider shorter sentences and clearer structure.`;
   } else {
-    return `📚 Genel içerik için eğitim seviyesi yüksektir 🎓`;
+    return `Challenging — simplify language and split complex sentences.`;
   }
 }
 
@@ -794,3 +833,233 @@ export function getMetricColorClass(metricName: string, value: number): string {
       return 'text-gray-600 bg-gray-100';
   }
 }
+
+// =========== Actionable Suggestions ===========
+export type SuggestionSeverity = 'low' | 'medium' | 'high';
+
+export interface SEOSuggestion {
+  id: string;
+  type:
+    | 'title_length'
+    | 'heading_balance'
+    | 'faq_presence'
+    | 'keyword_density'
+    | 'readability'
+    | 'h1_presence';
+  label: string;
+  message: string;
+  severity: SuggestionSeverity;
+  canFix: boolean;
+  fixId?: string;
+}
+
+function trimToLastWholeWord(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const sliced = text.slice(0, maxLen);
+  const lastSpace = sliced.lastIndexOf(' ');
+  return (lastSpace > 20 ? sliced.slice(0, lastSpace) : sliced).trim();
+}
+
+export function generateActionableSuggestions(
+  title: string,
+  content: string,
+  keywords: string[] = [],
+  primaryKeyword: string = ''
+): SEOSuggestion[] {
+  const suggestions: SEOSuggestion[] = [];
+  const text = content || '';
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+
+  // Title length
+  if (title) {
+    const len = title.trim().length;
+    if (len < 45) {
+      suggestions.push({
+        id: 'title_too_short',
+        type: 'title_length',
+        label: 'Title is too short',
+        message: 'Aim for 50–60 characters. Include the primary keyword.',
+        severity: 'medium',
+        canFix: !!primaryKeyword,
+        fixId: 'extend_title'
+      });
+    } else if (len > 65) {
+      suggestions.push({
+        id: 'title_too_long',
+        type: 'title_length',
+        label: 'Title is too long',
+        message: 'Trim towards ~60 characters without cutting words.',
+        severity: 'medium',
+        canFix: true,
+        fixId: 'shorten_title'
+      });
+    }
+  }
+
+  // H1 presence (markdown)
+  const hasH1 = /^#\s+/m.test(text);
+  if (!hasH1 && title) {
+    suggestions.push({
+      id: 'missing_h1',
+      type: 'h1_presence',
+      label: 'Missing H1',
+      message: 'Add an H1 at the top (can match the title).',
+      severity: 'low',
+      canFix: true,
+      fixId: 'add_h1_from_title'
+    });
+  }
+
+  // Heading balance
+  const h2s = text.match(/^##\s+/gm)?.length || 0;
+  const h3s = text.match(/^###\s+/gm)?.length || 0;
+  if (h2s > 0 && h3s < h2s) {
+    suggestions.push({
+      id: 'heading_balance',
+      type: 'heading_balance',
+      label: 'Unbalanced H2/H3',
+      message: 'Add at least one H3 under each H2 to improve structure.',
+      severity: 'low',
+      canFix: true,
+      fixId: 'add_h3_placeholders'
+    });
+  }
+
+  // FAQ presence (TR + EN)
+  const hasFaq = /^(##\s*(FAQ|FAQs|SSS|Sıkça Sorulan Sorular))\b/mi.test(text);
+  if (!hasFaq) {
+    suggestions.push({
+      id: 'missing_faq',
+      type: 'faq_presence',
+      label: 'Add an FAQ section',
+      message: 'Include an FAQ block with at least 3 concise Q&As.',
+      severity: 'medium',
+      canFix: true,
+      fixId: 'add_faq_section'
+    });
+  }
+
+  // Keyword density (primary)
+  if (primaryKeyword && wordCount >= 150) {
+    const density = calculateKeywordDensity(text, primaryKeyword);
+    if (density < 0.5) {
+      suggestions.push({
+        id: 'kw_density_low',
+        type: 'keyword_density',
+        label: 'Keyword density is low',
+        message: `Primary keyword density is low (<0.5%). Add one natural sentence near the intro: ${primaryKeyword}.`,
+        severity: 'medium',
+        canFix: true,
+        fixId: 'add_keyword_sentence'
+      });
+    }
+  }
+
+  // Readability
+  const read = calculateReadabilityScore(text);
+  const category = detectContentCategory(title || '', text);
+  const minOk = (category === 'blog' || category === 'general') ? 45 : 30;
+  if (read < minOk) {
+    suggestions.push({
+      id: 'readability_low',
+      type: 'readability',
+      label: 'Readability is low',
+      message: 'Shorten long sentences and simplify paragraphs.',
+      severity: 'high',
+      canFix: true,
+      fixId: 'split_long_sentences'
+    });
+  }
+
+  return suggestions;
+}
+
+export function applySuggestionFix(
+  content: string,
+  title: string,
+  suggestion: SEOSuggestion,
+  primaryKeyword: string = ''
+): { content: string; title?: string } {
+  const text = content || '';
+
+  switch (suggestion.fixId) {
+    case 'shorten_title': {
+      const next = trimToLastWholeWord(title, 60);
+      return { content: text, title: next };
+    }
+    case 'extend_title': {
+      if (!primaryKeyword) return { content: text, title };
+      const exists = title.toLowerCase().includes(primaryKeyword.toLowerCase());
+      const next = exists ? `${title}` : `${title} | ${primaryKeyword}`;
+      return { content: text, title: next };
+    }
+    case 'add_h1_from_title': {
+      if (!title) return { content: text };
+      const hasH1 = /^#\s+/m.test(text);
+      return { content: hasH1 ? text : `# ${title}\n\n${text}` };
+    }
+    case 'add_h3_placeholders': {
+      // For each H2 without a following H3 before next H2, insert a placeholder H3
+      const lines = text.split(/\n/);
+      const result: string[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        result.push(lines[i]);
+        if (/^##\s+/.test(lines[i])) {
+          // Look ahead until next H2 or end
+          let j = i + 1;
+          let hasH3 = false;
+          while (j < lines.length && !/^##\s+/.test(lines[j])) {
+            if (/^###\s+/.test(lines[j])) { hasH3 = true; break; }
+            j++;
+          }
+          if (!hasH3) {
+            result.push('');
+            result.push('### Subheading');
+            result.push('Briefly explain this subsection with 2–3 sentences.');
+          }
+        }
+      }
+      return { content: result.join('\n') };
+    }
+    case 'add_faq_section': {
+      const faq = `\n\n## FAQs\n\n**Q1:** ${primaryKeyword ? `What is ${primaryKeyword}?` : 'What is this topic?'}\n\nAnswer: Provide a short and clear explanation.\n\n**Q2:** How does it work?\n\nAnswer: Outline the steps in a concise way.\n\n**Q3:** What should I watch out for?\n\nAnswer: Share the key tips or cautions.`;
+      // Append at end
+      return { content: text.trimEnd() + faq };
+    }
+    case 'add_keyword_sentence': {
+      if (!primaryKeyword) return { content: text };
+      // Insert one sentence after intro (before first heading)
+      const idx = text.search(/^##\s+/m);
+      const insertAt = idx > -1 ? idx : text.length;
+      const before = text.slice(0, insertAt).trimEnd();
+      const after = text.slice(insertAt);
+      const sentence = `\n\nWe naturally include the phrase "${capitalize(primaryKeyword)}" to clarify the search intent.`;
+      return { content: `${before}${sentence}\n\n${after}` };
+    }
+    case 'split_long_sentences': {
+      // Split sentences longer than ~25 words by commas or conjunctions
+      const sentences = text.split(/(\.|!|\?)\s+/);
+      const rebuilt: string[] = [];
+      for (let i = 0; i < sentences.length; i += 2) {
+        const s = (sentences[i] || '').trim();
+        const end = sentences[i + 1] || '';
+        if (!s) continue;
+        const words = s.split(/\s+/);
+        if (words.length > 25) {
+          const mid = Math.floor(words.length / 2);
+          const left = words.slice(0, mid).join(' ');
+          const right = words.slice(mid).join(' ');
+          rebuilt.push(left + '.');
+          rebuilt.push(right + (end || '.'));
+        } else {
+          rebuilt.push(s + (end || '.'));
+        }
+      }
+      return { content: rebuilt.join(' ') };
+    }
+    default:
+      return { content: text };
+  }
+}
+
+function capitalize(s: string): string { return s ? s[0].toUpperCase() + s.slice(1) : s; }

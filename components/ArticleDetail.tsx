@@ -546,6 +546,10 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
                 <div className="max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900/40">
                   <ArticleDisplay 
                     article={previewArticle}
+                    onMutateContent={(nextContent, nextTitle) => {
+                      if (typeof nextContent === 'string') setEditedContent(nextContent);
+                      if (typeof nextTitle === 'string') setEditedTitle(nextTitle);
+                    }}
                   />
                 </div>
               </div>
