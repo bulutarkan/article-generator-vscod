@@ -47,6 +47,22 @@ const renderMarkdownTable = (headers: string[], rows: string[][]): string => {
     return `<table style="width: 100%; border-collapse: collapse; margin-top: 1.5rem; margin-bottom: 1.5rem;">${headerHtml}${bodyHtml}</table>`;
 };
 
+// Normalize inline numbered lists like:
+// "1. First item. 2. Second item." =>
+// "1. First item.\n2. Second item."
+function enforceNumberedListLineBreaks(text: string): string {
+    if (!text) return text;
+    return text
+        .split('\n')
+        .map(line => {
+            const hasFirst = /(\b|^)1[\.)]\s+/.test(line);
+            const hasNext = /\s+(?:2|3|4|5|6|7|8|9|10)[\.)]\s+/.test(line);
+            if (!hasFirst || !hasNext) return line;
+            return line.replace(/\s+((?:[2-9]|[1-9]\d)[\.)])\s+/g, '\n$1 ');
+        })
+        .join('\n');
+}
+
 export function convertMarkdownToHtml(
     content: string,
     priceComparison?: PriceComparisonItem[],
@@ -54,10 +70,15 @@ export function convertMarkdownToHtml(
 ): string {
     if (!content || typeof content !== 'string') return '';
 
+    // Ensure inline enumerations are on separate lines for proper list rendering
+    content = enforceNumberedListLineBreaks(content);
+
     const lines = content.split('\n');
     let html = '';
     let inList = false;
     let listItems = '';
+    let inOrderedList = false;
+    let orderedListItems = '';
     let paragraphBuffer: string[] = [];
     let inTable = false;
     let tableRows: string[][] = [];
@@ -77,6 +98,14 @@ export function convertMarkdownToHtml(
             html += `<ul>\n${listItems}</ul>\n`;
             listItems = '';
             inList = false;
+        }
+    };
+
+    const flushOrderedList = () => {
+        if (inOrderedList) {
+            html += `<ol>\n${orderedListItems}</ol>\n`;
+            orderedListItems = '';
+            inOrderedList = false;
         }
     };
 
@@ -103,6 +132,7 @@ export function convertMarkdownToHtml(
         if (trimmedLine.startsWith('##') && trimmedLine.toLowerCase().includes('faq')) {
             flushParagraph();
             flushList();
+            flushOrderedList();
             flushTable();
             flushFaq();
             inFaqSection = true;
@@ -113,6 +143,7 @@ export function convertMarkdownToHtml(
         if (trimmedLine === '[PRICE_COMPARISON_TABLE]') {
             flushParagraph();
             flushList();
+            flushOrderedList();
             flushTable();
             flushFaq();
             if (priceComparison && location && priceComparison.length > 0) {
@@ -124,6 +155,7 @@ export function convertMarkdownToHtml(
         if (trimmedLine === '') {
             flushParagraph();
             flushList();
+            flushOrderedList();
             flushTable();
             flushFaq();
             return;
@@ -136,6 +168,7 @@ export function convertMarkdownToHtml(
         if (isTableRow(trimmedLine)) {
             flushParagraph();
             flushList();
+            flushOrderedList();
             flushFaq();
             if (!inTable) {
                 tableHeaders = parseTableRow(trimmedLine);
@@ -158,30 +191,45 @@ export function convertMarkdownToHtml(
                 currentFaq.answer.push(trimmedLine);
             }
         } else {
-            if (trimmedLine.startsWith('##### ')) {
+            // Ordered list (e.g., "1. Step" or "1) Step")
+            const olMatch = trimmedLine.match(/^(\d+)[\.)]\s+(.*)$/);
+            if (olMatch) {
                 flushParagraph();
                 flushList();
+                if (!inOrderedList) {
+                    inOrderedList = true;
+                }
+                orderedListItems += `<li>${renderWithBoldAndLinks(olMatch[2])}</li>\n`;
+            } else if (trimmedLine.startsWith('##### ')) {
+                flushParagraph();
+                flushList();
+                flushOrderedList();
                 html += `<h5>${renderWithBoldAndLinks(trimmedLine.substring(6))}</h5>\n`;
             } else if (trimmedLine.startsWith('#### ')) {
                 flushParagraph();
                 flushList();
+                flushOrderedList();
                 html += `<h4>${renderWithBoldAndLinks(trimmedLine.substring(5))}</h4>\n`;
             } else if (trimmedLine.startsWith('### ')) {
                 flushParagraph();
                 flushList();
+                flushOrderedList();
                 html += `<h3>${renderWithBoldAndLinks(trimmedLine.substring(4))}</h3>\n`;
             } else if (trimmedLine.startsWith('## ')) {
                 flushParagraph();
                 flushList();
+                flushOrderedList();
                 html += `<h2>${renderWithBoldAndLinks(trimmedLine.substring(3))}</h2>\n`;
             } else if (trimmedLine.startsWith('* ')) {
                 flushParagraph();
+                flushOrderedList();
                 if (!inList) {
                     inList = true;
                 }
                 listItems += `<li>${renderWithBoldAndLinks(trimmedLine.substring(2))}</li>\n`;
             } else {
                 flushList();
+                flushOrderedList();
                 paragraphBuffer.push(trimmedLine);
             }
         }
@@ -189,8 +237,10 @@ export function convertMarkdownToHtml(
 
     flushParagraph();
     flushList();
+    flushOrderedList();
     flushTable();
     flushFaq();
 
     return html;
 }
+
