@@ -30,7 +30,8 @@ export const publishToWordPress = async (article: Article): Promise<any> => {
   const { data } = await axios.post(url, {
     title: article.title,
     content: htmlContent,
-    excerpt: article.excerpt || '',
+    // Use generated meta description as the WordPress Excerpt
+    excerpt: (article.metaDescription || article.excerpt || '').trim(),
     status: 'draft' // Or 'publish'
   }, {
     headers: {
