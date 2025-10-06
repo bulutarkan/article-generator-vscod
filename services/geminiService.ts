@@ -429,10 +429,14 @@ function validateArticleResponse(response: any): boolean {
             return false;
         }
 
-        // Check word count (minimum 1800 words to account for some flexibility)
+        // Check word count range (strict): 2000 - 3000 words
         const wordCount = response.articleContent.trim().split(/\s+/).length;
-        if (wordCount < 1800) {
-            console.warn(`Article too short: ${wordCount} words (minimum 1800 required)`);
+        if (wordCount < 2000) {
+            console.warn(`Article too short: ${wordCount} words (minimum 2000 required)`);
+            return false;
+        }
+        if (wordCount > 3000) {
+            console.warn(`Article too long: ${wordCount} words (maximum 3000 allowed)`);
             return false;
         }
 
@@ -505,7 +509,7 @@ You must return the output as a single, valid JSON object that adheres to the us
 ${keywordInstruction}
 
 **Content & SEO Rules:**
-- **Word Count:** The article content must be 2,000-2,500 words.
+  - **Word Count:** The article content must be 2,000-3,000 words.
 - **Structure & Hierarchy:** The article must have an engaging introduction, informative body, and a clear conclusion. Use Markdown for headings. Main topics should be '## H2' headings. For sub-topics that belong under a main H2 heading, use '### H3' headings. This creates a well-structured article with a clear hierarchy.
   - **Example 1 (Medical):** A 'Recovery Timeline' section (H2) should contain sub-sections like 'Week 1' (H3), 'Month 1' (H3), etc.
   - **Example 2 (Business):** A 'Digital Marketing Strategy' section (H2) should contain sub-sections like 'Content Marketing' (H3), 'SEO Tactics' (H3), and 'Social Media Engagement' (H3).
@@ -514,9 +518,9 @@ Introduction paragraph MUST NOT have headings above.
 - **Emphasis:** Use '**text**' for bold emphasis.
   - Bold Usage Policy:
     - Bold the first exact-match occurrence of the primary keyword (${topic}) in the introduction.
-    - Under each H2 section, bold the first natural occurrence of the primary keyword (if present).
+    - Under every second H2 section, bold the first natural occurrence of the primary keyword (if present).
     - Avoid overuse: do not bold the primary keyword more than once per paragraph.
-    - Also bold genuinely important phrases (data points, concrete benefits, warnings, deadlines, key outcomes, medical researches) to improve scannability — at most 2–3 bold phrases per paragraph.
+    - Also bold genuinely important phrases (data points, concrete benefits, warnings, deadlines, key outcomes, medical researches, call to actions) to improve scannability — at most 2-3 bold phrases per paragraph (${topic} included).
     - Prefer concise bold spans (3–6 words). Do not bold full sentences.
 - **Readability:** Aim for clarity and avoid jargon. Keep sentences concise.
 - **Numbered List Formatting (CRITICAL):** If the content includes step-by-step instructions or a process (e.g., 'How to prepare for surgery'), you MUST format it as a numbered list. For any numbered list, each item MUST start on a new line. A line break is absolutely required after each item.
@@ -649,7 +653,7 @@ Return the full JSON object.`;
                                 selectedTitle: { type: Type.STRING, description: "The best title selected from variations based on SEO potential." },
                                 metaDescription: { type: Type.STRING, description: "Compelling SEO meta description (155-160 characters)." },
                                 keywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 5-10 relevant keywords." },
-                                articleContent: { type: Type.STRING, description: "Full article text (2000-2500 words), with markdown for headings. Include price comparison table in the content if: 1) Topic involves medical procedures, OR 2) Brief requests price comparison. Include general comparison table if topic involves comparing 2+ related factors, methods, options, or approaches." },
+                                articleContent: { type: Type.STRING, description: "Full article text (2000-3000 words), with markdown for headings. Include price comparison table in the content if: 1) Topic involves medical procedures, OR 2) Brief requests price comparison. Include general comparison table if topic involves comparing 2+ related factors, methods, options, or approaches." },
                                 priceComparison: {
                                     type: Type.ARRAY,
                                     items: {
