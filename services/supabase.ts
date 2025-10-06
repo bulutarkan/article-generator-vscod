@@ -295,9 +295,41 @@ export const addArticle = async (article: Omit<Article, 'id' | 'createdAt'>): Pr
 };
 
 export const updateArticle = async (id: string, updates: Partial<Article>): Promise<Article> => {
+  // Map camelCase updates to snake_case columns
+  const dbUpdates: any = {};
+
+  if (updates.title !== undefined) dbUpdates.title = updates.title?.trim();
+  if (updates.topic !== undefined) dbUpdates.topic = updates.topic?.trim();
+  if (updates.articleContent !== undefined) dbUpdates.articlecontent = updates.articleContent?.trim();
+  if (updates.metaDescription !== undefined) dbUpdates.metadescription = updates.metaDescription?.trim();
+  if (updates.keywords !== undefined) dbUpdates.keywords = updates.keywords;
+  if (updates.monthlySearches !== undefined) dbUpdates.monthly_searches = updates.monthlySearches;
+  if (updates.primaryKeyword !== undefined) dbUpdates.primary_keyword = updates.primaryKeyword;
+  if (updates.keywordDifficulty !== undefined) dbUpdates.keyword_difficulty = updates.keywordDifficulty;
+  if (updates.content_quality !== undefined) dbUpdates.content_quality = updates.content_quality;
+  if (updates.tone !== undefined) dbUpdates.tone = updates.tone;
+  if (updates.location !== undefined) dbUpdates.location = updates.location;
+
+  // SEO metrics mapping (only include provided fields)
+  if (updates.seoMetrics) {
+    const m = updates.seoMetrics;
+    if (m.readabilityScore !== undefined) dbUpdates.seo_readability_score = Math.round(m.readabilityScore);
+    if (m.keywordDensity !== undefined) dbUpdates.seo_keyword_density = Math.round(m.keywordDensity);
+    if (m.seoScore !== undefined) dbUpdates.seo_overall_score = Math.round(m.seoScore);
+    if (m.subMetrics) {
+      const s = m.subMetrics;
+      if (s.contentQuality !== undefined) dbUpdates.seo_content_quality = Math.round(s.contentQuality);
+      if (s.targetKeywords !== undefined) dbUpdates.seo_target_keywords = Math.round(s.targetKeywords);
+      if (s.technicalSeo !== undefined) dbUpdates.seo_technical_seo = Math.round(s.technicalSeo);
+      if (s.engagement !== undefined) dbUpdates.seo_engagement = Math.round(s.engagement);
+      if (s.structure !== undefined) dbUpdates.seo_structure = Math.round(s.structure);
+      if (s.originality !== undefined) dbUpdates.seo_originality = Math.round(s.originality);
+    }
+  }
+
   const { data, error } = await supabase
     .from('articles')
-    .update(updates)
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single();

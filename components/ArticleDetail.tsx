@@ -72,6 +72,8 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [copySuccess, setCopySuccess] = useState('');
+  const [saveToast, setSaveToast] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!isEditing) {
@@ -80,9 +82,26 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
     }
   }, [article, isEditing]);
 
-  const handleSave = () => {
-    onUpdateArticle(article.id, { title: editedTitle, articleContent: editedContent });
-    setIsEditing(false);
+  const hasChanges = () =>
+    editedTitle.trim() !== article.title.trim() ||
+    editedContent.trim() !== article.articleContent.trim();
+
+  const handleSave = async () => {
+    if (!hasChanges()) return;
+    try {
+      setIsSaving(true);
+      await Promise.resolve(
+        onUpdateArticle(article.id, {
+          title: editedTitle.trim(),
+          articleContent: editedContent.trim(),
+        }) as any
+      );
+      setIsEditing(false);
+      setSaveToast('Changes saved');
+      setTimeout(() => setSaveToast(''), 2000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -270,18 +289,29 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
               <>
                 <button
                   onClick={handleCancel}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-slate-300 bg-white/10 hover:bg-white/20 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-slate-300 bg-white/10 hover:bg-white/20 transition-colors border border-white/10"
                   aria-label="Cancel editing"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-500 transition-colors"
+                  disabled={!hasChanges() || isSaving}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white transition-colors shadow ${
+                    !hasChanges() || isSaving
+                      ? 'bg-green-600/50 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-500'
+                  }`}
                   aria-label="Save changes"
                 >
-                  <CheckIcon className="h-4 w-4" />
-                  Save Changes
+                  {isSaving ? (
+                    <span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>Saving…</span>
+                  ) : (
+                    <>
+                      <CheckIcon className="h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
                 </button>
               </>
             ) : (
@@ -340,9 +370,9 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
         </div>
       </div>
       
-      {copySuccess && (
-        <div className="fixed bottom-5 right-5 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-up z-50">
-          {`Copied ${copySuccess} to clipboard!`}
+      {(copySuccess || saveToast) && (
+        <div className="fixed bottom-5 right-5 bg-slate-900/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-up z-50 border border-white/10">
+          {copySuccess ? `Copied ${copySuccess} to clipboard!` : saveToast}
         </div>
       )}
 
@@ -356,7 +386,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
         {isEditing ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Editor Column */}
-            <div className="bg-white/5 p-6 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10 space-y-6">
+            <div className="bg-gradient-to-b from-slate-800/60 to-slate-900/40 p-6 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10 space-y-6">
               <div>
                 <label htmlFor="title-editor" className="block text-sm font-medium text-slate-300 mb-2">
                   Article Title
@@ -366,7 +396,8 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
                   type="text"
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
-                  className="block w-full rounded-md border-0 bg-white/5 py-3 px-4 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-lg sm:leading-6 transition-all"
+                  placeholder="Enter a compelling title…"
+                  className="block w-full rounded-lg border-0 bg-white/5 py-3 px-4 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-lg sm:leading-6 transition-all shadow-inner"
                   aria-label="Article title editor"
                 />
               </div>
@@ -378,17 +409,21 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
                   id="content-editor"
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
-                  className="block w-full rounded-md border-0 bg-white/5 py-3 px-4 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6 transition-all min-h-[70vh] font-mono"
+                  className="block w-full rounded-lg border-0 bg-slate-950/60 py-4 px-4 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6 transition-all min-h-[70vh] font-mono shadow-inner resize-y"
                   aria-label="Article content editor"
                   spellCheck="false"
                 />
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                  <span>{editedContent.trim().split(/\s+/).filter(Boolean).length} words</span>
+                  <span className={`${hasChanges() ? 'text-amber-300' : 'text-slate-500'}`}>{hasChanges() ? 'Unsaved changes' : 'All changes saved'}</span>
+                </div>
               </div>
             </div>
             {/* Preview Column */}
             <div className="relative h-full">
               <div className="sticky top-0">
-                <div className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 text-center">Live Preview</div>
-                <div className="max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-700">
+                <div className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4 text-center">Live Preview</div>
+                <div className="max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900/40">
                   <ArticleDisplay 
                     article={previewArticle}
                   />
