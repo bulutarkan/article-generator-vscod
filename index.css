@@ -133,6 +133,25 @@ body {
   100% { background-position: -200% 0; }
 }
 
+/* Glass morph and gradient helpers */
+.glass {
+  @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-lg;
+}
+
+.gradient-blob {
+  filter: blur(40px);
+  opacity: 0.25;
+}
+
+/* Prefer-reduced-motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Blob animation for decorative elements */
 .blob {
   animation: blob 7s infinite;

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { Article } from '../types';
 import { ArticleCard } from './ArticleCard';
 import { FilesIcon } from './icons/FilesIcon';
@@ -13,8 +13,8 @@ import { MegaphoneIcon } from './icons/MegaphoneIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { AppPageTitle } from './PageTitle';
 import { ArticleCardSkeleton } from './ArticleCardSkeleton';
-import { Tooltip } from './Tooltip';
-import { ChevronDownIcon } from './icons/ChevronDownIcon';
+ 
+// import { ChevronDownIcon } from './icons/ChevronDownIcon';
 
 interface DashboardProps {
   articles: Article[];
@@ -24,27 +24,7 @@ interface DashboardProps {
   onNavigate: (page: 'generator' | 'calendar' | 'statistics') => void;
 }
 
-const StatCard: React.FC<{ icon: React.FC<React.SVGProps<SVGSVGElement>>; label: string; value: string | number; }> = ({ icon: Icon, label, value }) => (
-  <motion.div
-    className="flex flex-row items-center card h-full min-h-[80px]"
-    whileHover={{ y: -2 }}
-    transition={{ duration: 0.2 }}
-  >
-    <div className="flex items-start gap-2 p-2 sm:p-3">
-      <motion.div
-        className="p-1 sm:p-2 bg-gradient-to-br from-primary-500/20 to-accent-500/20 rounded-lg border border-primary-500/30 flex-shrink-0"
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary-400" />
-      </motion.div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs sm:text-sm text-neutral-400 font-body line-clamp-1">{label}</p>
-        <p className="text-sm font-semibold text-white mt-1 font-heading">{value}</p>
-      </div>
-    </div>
-  </motion.div>
-);
+
 
 const PaginationButtons: React.FC<{
   currentPage: number;
@@ -143,17 +123,20 @@ const PaginationButtons: React.FC<{
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDeleteArticle, onViewArticle, onNavigate }) => {
+  const prefersReducedMotion = useReducedMotion();
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [filterKeyword, setFilterKeyword] = useState('');
   const [filterTone, setFilterTone] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [filterDateRange, setFilterDateRange] = useState<'all' | '7d' | '30d'>('all');
+  const [difficultyRange, setDifficultyRange] = useState<'all' | 'low' | 'high'>('all');
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 9;
+  const USE_INFINITE_SCROLL = false;
 
   // Filtered articles based on search and filters
   const filteredArticles = useMemo(() => {
@@ -188,13 +171,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
       );
     }
 
+    // Date range filter
+    if (filterDateRange !== 'all') {
+      const now = new Date();
+      const threshold = new Date(now);
+      threshold.setDate(now.getDate() - (filterDateRange === '7d' ? 7 : 30));
+      filtered = filtered.filter(article => new Date(article.createdAt) >= threshold);
+    }
+
+    // Difficulty range filter
+    if (difficultyRange !== 'all') {
+      filtered = filtered.filter(article => {
+        const kd = article.keywordDifficulty || 0;
+        return difficultyRange === 'high' ? kd >= 60 : kd <= 30;
+      });
+    }
+
     return filtered;
-  }, [articles, searchTerm, filterKeyword, filterTone, filterLocation]);
+  }, [articles, searchTerm, filterKeyword, filterTone, filterLocation, filterDateRange, difficultyRange]);
 
   // Reset to first page when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterKeyword, filterTone, filterLocation]);
+  }, [searchTerm, filterKeyword, filterTone, filterLocation, filterDateRange, difficultyRange]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredArticles.length / itemsPerPage);
@@ -286,203 +285,383 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
   return (
     <div>
       <AppPageTitle pageName="Dashboard" />
-      <div className="flex flex-row items-center gap-2 mb-10">
-        <Tooltip
-          content={
-            <div className="flex flex-row flex-wrap gap-4 sm:gap-6">
-              {stats && (
-                <>
-                  <StatCard icon={FilesIcon} label="Total Articles" value={stats.totalArticles} />
-                  <StatCard icon={FileTextIcon} label="Total Words" value={stats.totalWords} />
-                  <StatCard icon={BarChartIcon} label="Avg. KW Difficulty" value={stats.avgDifficulty} />
-                  <div
-                    className="cursor-pointer"
-                    onClick={() => onNavigate('calendar')}
-                  >
-                    <StatCard icon={CalendarIcon} label="Content Calendar" value="Plan" />
-                  </div>
-                   <div
-                    className="cursor-pointer"
-                    onClick={() => onNavigate('statistics')}
-                  >
-                    <StatCard icon={BarChartIcon} label="More statistics" value="View" />
-                  </div>
-                </>
-              )}
-            </div>
-          }
-        >
-          <button className="text-sm flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+      {/* Decorative gradient backdrop */}
+      <div className="relative mb-4">
+        <div className="pointer-events-none absolute -top-10 left-0 h-40 w-40 rounded-full bg-primary-500/30 gradient-blob" />
+        <div className="pointer-events-none absolute -top-6 right-0 h-40 w-40 rounded-full bg-accent-500/30 gradient-blob" />
+
+        {/* Primary controls */}
+        <div className="flex flex-wrap items-center gap-2 relative z-10">
+          <button
+            onClick={() => setIsFilterPanelOpen(true)}
+            className="text-sm flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors focus-visible:ring-2 focus-visible:ring-accent-500/30"
+            aria-haspopup="dialog"
+            aria-expanded={isFilterPanelOpen}
+            aria-controls="filter-panel"
+          >
+            <SlidersIcon className="h-5 w-5" />
+            <span>Filters</span>
+          </button>
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search articles..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+              aria-label="Search articles"
+            />
+          </div>
+          <button
+            onClick={() => onNavigate('statistics')}
+            className="text-sm flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+          >
             <BarChartIcon className="h-5 w-5" />
             <span>Statistics</span>
-            <ChevronDownIcon className="h-4 w-4" />
           </button>
-        </Tooltip>
-        {/* Search Toggle Button - Placed next to Statistics button */}
-        <button
-          onClick={() => setShowSearchBar(!showSearchBar)}
-          className={`p-2.5 rounded-lg transition-all duration-200 ${showSearchBar
-            ? 'bg-indigo-500 text-white'
-            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          title="Toggle search and filters"
-        >
-          <SearchIcon className="h-4 w-4" />
-        </button>
+          <button
+            onClick={() => onNavigate('calendar')}
+            className="text-sm flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+          >
+            <CalendarIcon className="h-5 w-5" />
+            <span>Calendar</span>
+          </button>
+        </div>
       </div>
 
-      {/* Compact Search and Filter Section */}
-      <div className="mb-6">
-        {/* The search input and filters UI will be shown/hidden based on showSearchBar state */}
-
-        {/* Compact Search and Filter Section - Show all when toggled */}
-        {showSearchBar && (
-          <div className="bg-slate-800/50 p-3 sm:p-4 rounded-lg border border-slate-600 animate-fade-in-up max-h-96 overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3">
-              {/* Search Input */}
-              <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search articles..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                  autoFocus
-                />
+      {/* Top Stats - prominent */}
+      {stats && (
+        <motion.div
+          initial={prefersReducedMotion ? undefined : { opacity: 0, y: 12 }}
+          animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-3 mb-2"
+        >
+          <div className="glass p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-success-500/15 border border-success-500/30">
+                <FilesIcon className="h-5 w-5 text-success-400" />
               </div>
-
-              {/* Keyword Filter */}
-              <div className="relative">
-                <HashIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Keyword"
-                  value={filterKeyword}
-                  onChange={(e) => setFilterKeyword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                />
-              </div>
-
-              {/* Tone Filter */}
-              <div className="relative">
-                <MegaphoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
-                <select
-                  value={filterTone}
-                  onChange={(e) => setFilterTone(e.target.value)}
-                  className="w-full pl-10 pr-8 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.75rem center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1.25em 1.25em',
-                    paddingRight: '2.5rem'
-                  }}
-                >
-                  <option value="">All Tones</option>
-                  {uniqueTones.map(tone => (
-                    <option key={tone} value={tone} className="bg-slate-700 text-white">{tone}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Location Filter */}
-              <div className="relative">
-                <GeoIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-3 sm:w-3 text-slate-400" />
-                <select
-                  value={filterLocation}
-                  onChange={(e) => setFilterLocation(e.target.value)}
-                  className="w-full pl-10 pr-8 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.75rem center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1.25em 1.25em',
-                    paddingRight: '2.5rem'
-                  }}
-                >
-                  <option value="">All Locations</option>
-                  {uniqueLocations.map(location => (
-                    <option key={location} value={location} className="bg-slate-700 text-white">{location}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Active Filters and Results Summary */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2">
-              <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                {(searchTerm || filterKeyword || filterTone || filterLocation) && (
-                  <>
-                    <span className="text-xs text-slate-400">Active:</span>
-                    {searchTerm && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded-md text-xs">
-                        "{searchTerm}"
-                        <button
-                          onClick={() => setSearchTerm('')}
-                          className="hover:text-indigo-200 ml-1 text-xs"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )}
-                    {filterKeyword && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-300 rounded-md text-xs">
-                        "{filterKeyword}"
-                        <button
-                          onClick={() => setFilterKeyword('')}
-                          className="hover:text-green-200 ml-1 text-xs"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )}
-                    {filterTone && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 rounded-md text-xs">
-                        {filterTone}
-                        <button
-                          onClick={() => setFilterTone('')}
-                          className="hover:text-purple-200 ml-1 text-xs"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )}
-                    {filterLocation && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-300 rounded-md text-xs">
-                        {filterLocation}
-                        <button
-                          onClick={() => setFilterLocation('')}
-                          className="hover:text-orange-200 ml-1 text-xs"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )}
-                    <button
-                      onClick={() => {
-                        setSearchTerm('');
-                        setFilterKeyword('');
-                        setFilterTone('');
-                        setFilterLocation('');
-                      }}
-                      className="px-3 py-1 bg-red-500/20 text-red-400 rounded-md text-xs hover:bg-red-500/30 transition-colors"
-                    >
-                      Clear All
-                    </button>
-                  </>
-                )}
-              </div>
-              <div className="text-xs text-slate-400 text-center sm:text-right">
-                {filteredArticles.length} of {articles.length}
+              <div>
+                <div className="text-xs text-slate-400">Total Articles</div>
+                <div className="text-sm font-semibold text-white">{stats.totalArticles}</div>
               </div>
             </div>
           </div>
-        )}
+          <div className="glass p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-indigo-500/15 border border-indigo-500/30">
+                <FileTextIcon className="h-5 w-5 text-indigo-300" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400">Total Words</div>
+                <div className="text-sm font-semibold text-white">{stats.totalWords}</div>
+              </div>
+            </div>
+          </div>
+          <div className="glass p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-warning-500/15 border border-warning-500/30">
+                <BarChartIcon className="h-5 w-5 text-warning-300" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400">Avg. KW Difficulty</div>
+                <div className="text-sm font-semibold text-white">{stats.avgDifficulty}</div>
+              </div>
+            </div>
+          </div>
+          <div className="glass p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-accent-500/15 border border-accent-500/30">
+                <HashIcon className="h-5 w-5 text-accent-300" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400">Unique Keywords</div>
+                <div className="text-sm font-semibold text-white">{stats.uniqueKeywords}</div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Quick filter chips */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <button
+          className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${filterDateRange === '7d' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/30' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+          onClick={() => setFilterDateRange(filterDateRange === '7d' ? 'all' : '7d')}
+        >
+          Last 7 days
+        </button>
+        <button
+          className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${filterDateRange === '30d' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/30' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+          onClick={() => setFilterDateRange(filterDateRange === '30d' ? 'all' : '30d')}
+        >
+          Last 30 days
+        </button>
+        <button
+          className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${difficultyRange === 'low' ? 'bg-success-500/20 text-success-200 border-success-400/30' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+          onClick={() => setDifficultyRange(difficultyRange === 'low' ? 'all' : 'low')}
+        >
+          Low difficulty
+        </button>
+        <button
+          className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${difficultyRange === 'high' ? 'bg-warning-500/20 text-warning-200 border-warning-400/30' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+          onClick={() => setDifficultyRange(difficultyRange === 'high' ? 'all' : 'high')}
+        >
+          High difficulty
+        </button>
+        {uniqueTones.slice(0, 4).map((tone) => (
+          <button
+            key={tone}
+            className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${filterTone === tone ? 'bg-purple-500/20 text-purple-200 border-purple-400/30' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+            onClick={() => setFilterTone(filterTone === tone ? '' : tone)}
+          >
+            Tone: {tone}
+          </button>
+        ))}
       </div>
 
+      {/* Active Filters and Results Summary */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-1 mb-2">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+          {(searchTerm || filterKeyword || filterTone || filterLocation || filterDateRange !== 'all' || difficultyRange !== 'all') && (
+            <>
+              <span className="text-xs text-slate-400">Active:</span>
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded-md text-xs">
+                  "{searchTerm}"
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="hover:text-indigo-200 ml-1 text-xs"
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {filterKeyword && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-success-500/20 text-success-300 rounded-md text-xs">
+                  "{filterKeyword}"
+                  <button
+                    onClick={() => setFilterKeyword('')}
+                    className="hover:text-success-200 ml-1 text-xs"
+                    aria-label="Clear keyword filter"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {filterTone && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 rounded-md text-xs">
+                  {filterTone}
+                  <button
+                    onClick={() => setFilterTone('')}
+                    className="hover:text-purple-200 ml-1 text-xs"
+                    aria-label="Clear tone filter"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {filterLocation && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-300 rounded-md text-xs">
+                  {filterLocation}
+                  <button
+                    onClick={() => setFilterLocation('')}
+                    className="hover:text-orange-200 ml-1 text-xs"
+                    aria-label="Clear location filter"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {filterDateRange !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded-md text-xs">
+                  {filterDateRange === '7d' ? 'Last 7 days' : 'Last 30 days'}
+                  <button
+                    onClick={() => setFilterDateRange('all')}
+                    className="hover:text-indigo-200 ml-1 text-xs"
+                    aria-label="Clear date filter"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {difficultyRange !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/10 text-slate-200 rounded-md text-xs border border-white/10">
+                  {difficultyRange === 'high' ? 'High difficulty' : 'Low difficulty'}
+                  <button
+                    onClick={() => setDifficultyRange('all')}
+                    className="hover:text-white ml-1 text-xs"
+                    aria-label="Clear difficulty filter"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterKeyword('');
+                  setFilterTone('');
+                  setFilterLocation('');
+                  setFilterDateRange('all');
+                  setDifficultyRange('all');
+                }}
+                className="px-3 py-1 bg-red-500/20 text-red-300 rounded-md text-xs hover:bg-red-500/30 transition-colors"
+              >
+                Clear All
+              </button>
+            </>
+          )}
+        </div>
+        <div className="text-xs text-slate-400 text-center sm:text-right">
+          {filteredArticles.length} of {articles.length}
+        </div>
+      </div>
+
+      {/* Slide-over Filter Panel */}
+      <AnimatePresence>
+        {isFilterPanelOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/40 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFilterPanelOpen(false)}
+            />
+            <motion.aside
+              id="filter-panel"
+              role="dialog"
+              aria-modal="true"
+              className="fixed right-0 top-0 h-full w-full sm:w-[420px] bg-slate-900/95 backdrop-blur-md border-l border-white/10 z-50 p-5 overflow-y-auto"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-semibold text-white">Filters</div>
+                <button className="text-slate-300 hover:text-white" onClick={() => setIsFilterPanelOpen(false)} aria-label="Close filters">×</button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-slate-400">Search</label>
+                  <div className="relative mt-1">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">Keyword</label>
+                  <input
+                    type="text"
+                    value={filterKeyword}
+                    onChange={(e) => setFilterKeyword(e.target.value)}
+                    className="mt-1 w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="relative">
+                    <label className="text-xs text-slate-400">Tone</label>
+                    <div className="relative mt-1">
+                      <MegaphoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <select
+                        value={filterTone}
+                        onChange={(e) => setFilterTone(e.target.value)}
+                        className="w-full pl-10 pr-8 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none cursor-pointer"
+                        style={{
+                          backgroundImage: `url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")`,
+                          backgroundPosition: 'right 0.75rem center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '1.25em 1.25em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        <option value="">All Tones</option>
+                        {uniqueTones.map(tone => (
+                          <option key={tone} value={tone} className="bg-slate-800 text-white">{tone}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <label className="text-xs text-slate-400">Location</label>
+                    <div className="relative mt-1">
+                      <GeoIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <select
+                        value={filterLocation}
+                        onChange={(e) => setFilterLocation(e.target.value)}
+                        className="w-full pl-10 pr-8 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none cursor-pointer"
+                        style={{
+                          backgroundImage: `url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")`,
+                          backgroundPosition: 'right 0.75rem center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '1.25em 1.25em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        <option value="">All Locations</option>
+                        {uniqueLocations.map(location => (
+                          <option key={location} value={location} className="bg-slate-800 text-white">{location}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">Date range</div>
+                  <div className="flex flex-wrap gap-2">
+                    {(['all','7d','30d'] as const).map((opt) => (
+                      <button key={opt} onClick={() => setFilterDateRange(opt)} className={`px-3 py-1.5 rounded-full text-xs border ${filterDateRange === opt ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/30' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}>{opt === 'all' ? 'All time' : opt === '7d' ? 'Last 7 days' : 'Last 30 days'}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">Keyword difficulty</div>
+                  <div className="flex flex-wrap gap-2">
+                    {(['all','low','high'] as const).map((opt) => (
+                      <button key={opt} onClick={() => setDifficultyRange(opt)} className={`px-3 py-1.5 rounded-full text-xs border ${difficultyRange === opt ? (opt === 'low' ? 'bg-success-500/20 text-success-200 border-success-400/30' : opt === 'high' ? 'bg-warning-500/20 text-warning-200 border-warning-400/30' : 'bg-white/10 text-slate-200 border-white/20') : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}>{opt === 'all' ? 'All' : opt === 'low' ? 'Low' : 'High'}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="pt-2 flex items-center justify-between">
+                  <button
+                    className="px-3 py-2 rounded-lg text-sm bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterKeyword('');
+                      setFilterTone('');
+                      setFilterLocation('');
+                      setFilterDateRange('all');
+                      setDifficultyRange('all');
+                    }}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-lg text-sm bg-indigo-500 hover:bg-indigo-400 text-white"
+                    onClick={() => setIsFilterPanelOpen(false)}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Articles Grid */}
-      <div className="animate-fade-in-up mt-[-1rem]" style={{ animationDelay: '0.1s' }}>
+      <div className="mt-1">
         {filteredArticles.length === 0 ? (
           <div className="text-center py-12 sm:py-16 text-slate-500">
             <SearchIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-slate-600" />
@@ -504,13 +683,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-              {currentPageArticles.map((article) => (
-                <ArticleCard key={article.id} article={article} onDelete={onDeleteArticle} onView={onViewArticle} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 items-stretch gap-5">
+              {currentPageArticles.map((article, idx) => (
+                <motion.div
+                  key={article.id}
+                  initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeOut', delay: prefersReducedMotion ? 0 : idx * 0.03 }}
+                  className="col-span-1 h-full"
+                >
+                  <ArticleCard article={article} onDelete={onDeleteArticle} onView={onViewArticle} />
+                </motion.div>
               ))}
             </div>
 
-            {/* Pagination Buttons - Below Articles */}
             {totalPages > 1 && (
               <PaginationButtons
                 currentPage={currentPage}
