@@ -1257,6 +1257,39 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
             ref={briefRef}
             contentEditable
             title="Tip: Drag & drop files here to attach"
+            onPaste={(e) => {
+              e.preventDefault();
+              const cd = e.clipboardData || (window as any).clipboardData;
+              let text = (cd && cd.getData && cd.getData('text/plain')) || '';
+
+              // Fallback: strip HTML to text if plain text is missing
+              if (!text && cd && cd.getData) {
+                const html = cd.getData('text/html');
+                if (html) {
+                  const tmp = document.createElement('div');
+                  tmp.innerHTML = html;
+                  text = tmp.textContent || tmp.innerText || '';
+                }
+              }
+
+              // Normalize newlines
+              text = text.replace(/\r\n/g, '\n');
+
+              try {
+                // Prefer execCommand to let browser handle caret, fall back otherwise
+                if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+                  document.execCommand('insertText', false, text);
+                } else {
+                  insertTextAtCursor(text);
+                }
+              } catch {
+                insertTextAtCursor(text);
+              }
+
+              // Ensure state reflects the new plain text
+              const newContent = briefRef.current?.textContent || '';
+              setBrief(newContent);
+            }}
             onInput={(e) => {
               const newValue = e.currentTarget.textContent || '';
               setBrief(newValue);
