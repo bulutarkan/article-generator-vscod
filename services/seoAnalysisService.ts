@@ -110,7 +110,18 @@ function countSyllablesTR(word: string): number {
 export function calculateKeywordDensity(content: string, keyword: string): number {
   if (!content || !keyword) return 0;
 
-  const cleanContent = content.replace(/[.,!?;:]/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  // Remove non-textual/formatting noise to measure density on real text
+  // 1) Remove fenced code blocks ```...```
+  let textOnly = content.replace(/```[\s\S]*?```/g, ' ');
+  // 2) Remove inline code `...`
+  textOnly = textOnly.replace(/`[^`]*`/g, ' ');
+  // 3) Strip HTML tags
+  textOnly = textOnly.replace(/<[^>]+>/g, ' ');
+  // 4) Replace markdown table pipes with spaces and drop border-only lines
+  textOnly = textOnly.replace(/[|]/g, ' ');
+  textOnly = textOnly.replace(/^\s*[-:|]+\s*$/gm, ' ');
+  // 5) Collapse punctuation and whitespace
+  const cleanContent = textOnly.replace(/[.,!?;:]/g, ' ').replace(/\s+/g, ' ').toLowerCase();
   const cleanKeyword = keyword.trim().toLowerCase();
 
   if (cleanKeyword.length === 0) return 0;
@@ -942,12 +953,12 @@ export function generateActionableSuggestions(
   // Keyword density (primary)
   if (primaryKeyword && wordCount >= 150) {
     const density = calculateKeywordDensity(text, primaryKeyword);
-    if (density < 0.5) {
+    if (density < 0.8) {
       suggestions.push({
         id: 'kw_density_low',
         type: 'keyword_density',
         label: 'Keyword density is low',
-        message: `Primary keyword density is low (<0.5%). Add one natural sentence near the intro: ${primaryKeyword}.`,
+        message: `Primary keyword density is low (<0.8%). Add one natural sentence near the intro: ${primaryKeyword}.`,
         severity: 'medium',
         canFix: true,
         fixId: 'add_keyword_sentence'

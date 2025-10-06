@@ -244,15 +244,15 @@ export const SEOMetricsLegend: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-red-100"></div>
-              <span className="text-slate-500">Less than 0.5% or more than 4%: Poor density</span>
+              <span className="text-slate-500">Less than 0.8% or more than 2.5%: Poor density</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-yellow-100"></div>
-              <span className="text-slate-500">0.5-3%: Good density</span>
+              <span className="text-slate-500">1.2-2.5%: Acceptable range</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-100"></div>
-              <span className="text-slate-500">3-4%: Ideal density</span>
+              <span className="text-slate-500">0.8-1.2%: Ideal (~1%)</span>
             </div>
           </div>
         </div>

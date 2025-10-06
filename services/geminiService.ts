@@ -56,8 +56,8 @@ Output only the minimally edited text.`;
 }
 
 // Suggest a tone of voice based on topic and brief
-export async function suggestTone(topic: string, brief: string): Promise<'Authoritative'|'Formal'|'Professional'|'Casual'|'Funny'> {
-    const allowed = ['Authoritative','Formal','Professional','Casual','Funny'] as const;
+export async function suggestTone(topic: string, brief: string): Promise<'Authoritative' | 'Formal' | 'Professional' | 'Casual' | 'Funny'> {
+    const allowed = ['Authoritative', 'Formal', 'Professional', 'Casual', 'Funny'] as const;
     const systemInstruction = `You are a helpful copywriting assistant.
 Given a topic and a short brief (may include language hints), choose the most suitable tone of voice from this exact list only:
 - Authoritative
@@ -512,14 +512,28 @@ ${keywordInstruction}
 Introduction paragraph MUST NOT have headings above.
 - **Tone:** The tone of voice for the article must be **${tone}**.
 - **Emphasis:** Use '**text**' for bold emphasis.
+  - Bold Usage Policy:
+    - Bold the first exact-match occurrence of the primary keyword (${topic}) in the introduction.
+    - Under each H2 section, bold the first natural occurrence of the primary keyword (if present).
+    - Avoid overuse: do not bold the primary keyword more than once per paragraph.
+    - Also bold genuinely important phrases (data points, concrete benefits, warnings, deadlines, key outcomes, medical researches) to improve scannability — at most 2–3 bold phrases per paragraph.
+    - Prefer concise bold spans (3–6 words). Do not bold full sentences.
 - **Readability:** Aim for clarity and avoid jargon. Keep sentences concise.
 - **Numbered List Formatting (CRITICAL):** If the content includes step-by-step instructions or a process (e.g., 'How to prepare for surgery'), you MUST format it as a numbered list. For any numbered list, each item MUST start on a new line. A line break is absolutely required after each item.
   - **Correct Example:**
     1. First item.
     2. Second item.
   - **Incorrect Example (Do not use):** '1. First item. 2. Second item.'
-- **SEO Optimization:** Use the provided topic as the main keyword and include related secondary keywords.
-- **Article Title Rule:** Generate 3-5 title variations that are SEO-optimized. Each title must not exceed 60 characters and must follow the format "xxxx: xxxx". Titles must never include the target location or its abbreviations. Focus on the primary keyword and its synonyms for better SEO performance.
+  - **SEO Optimization:** Use the provided topic as the main keyword and include related secondary keywords.
+  - **Primary Keyword Usage (CRITICAL):** Target a natural keyword density of approximately 0.8–1.2% of total words for the primary keyword. Include the exact-match primary keyword:
+    1) Within the first 100 words,
+    2) In at least one H2 heading title, and
+    3) In the final paragraph.
+    Distribute occurrences evenly across the article. Avoid consecutive repetitions and keyword stuffing; prioritize readability and natural flow.
+  - **Minimum Exact-Match Frequency:** The exact-match primary keyword (equal to the ${topic}) MUST account for at least 0.5% of total words (strict minimum). Do not fall below this threshold.
+  - **Secondary Keywords:** For each secondary keyword, target roughly 0.3–0.8% density. Place them naturally across H2/H3 sections and body paragraphs. Prefer variations and synonyms, but include at least one exact-match occurrence per keyword where it fits naturally.
+  - **Naturalness:** Readability and clarity take precedence. Vary phrasing, avoid unnecessary repetition, and ensure all keyword usage feels organic.
+  - **Article Title Rule:** Generate 3-5 title variations that are SEO-optimized. Each title must not exceed 60 characters and must follow the format "xxxx: xxxx". Titles must never include the target location or its abbreviations. Focus on the primary keyword and its synonyms for better SEO performance.
 - **Meta Description:** Write a compelling meta description (155-160 characters).
 - **Keywords:** Provide a list of 5-10 relevant primary and secondary keywords.
 - **Keyword Difficulty:** Estimate the keyword difficulty for the primary keyword on a scale of 0-100.
@@ -771,104 +785,104 @@ Return the full JSON object.`;
 }
 
 interface ArticleStats {
-  totalArticles: number;
-  totalWords: number;
-  dailyCounts: { date: string; count: number }[];
+    totalArticles: number;
+    totalWords: number;
+    dailyCounts: { date: string; count: number }[];
 }
 
 export async function generateArticleStatsRecommendations(stats: ArticleStats): Promise<AiRecommendation[]> {
-  const systemInstruction = "You are an AI content strategist. Your task is to analyze the provided article statistics and offer actionable recommendations and insights to improve the user's content generation flow and strategy.\n\n" +
-  "Consider the following:\n" +
-  "- Total number of articles generated.\n" +
-  "- Total words generated.\n" +
-  "- Daily article creation trends (e.g., consistency, peaks, troughs).\n" +
-  "- The goal is to provide **concise, data-driven, and actionable advice** with specific examples, numbers, or percentages from the provided stats. Avoid excessive detail.\n\n" +
-  "Provide 3-6 concise, actionable recommendations. Each recommendation MUST be a valid JSON object structured according to the AiRecommendation interface.\n\n" +
-  "**CRITICAL JSON FORMATTING RULES:**\n" +
-  "- The entire response MUST be a single, valid JSON array `[...]`.\n" +
-  "- Each item in the array MUST be a JSON object `{...}`.\n" +
-  "- All string values MUST be properly quoted with double quotes.\n" +
-  "- DO NOT include any comments or additional text outside the JSON array.\n" +
-  "- Ensure all required properties (`id`, `title`, `description`) are present.\n" +
-  "- Use a variety of icon names (e.g., \"trend-up\", \"calendar\", \"file-text\", \"bar-chart\", \"info\", \"sparkle\", \"trend-down\").\n" +
-  "- Use a variety of color hints (e.g., \"green\", \"blue\", \"orange\", \"red\", \"purple\", \"gray\").\n\n" +
-  "**AiRecommendation Interface Properties:**\n" +
-  "- `id`: A unique identifier (string).\n" +
-  "- `title`: A short, descriptive title for the recommendation (string).\n" +
-  "- `description`: A brief (1-3 sentences), detailed explanation of the recommendation, including specific, real information, examples, numbers, or percentages from the provided stats. Focus on impact and action.\n" +
-  "- `value`: (Optional) A key metric or number associated with the recommendation (string, e.g., \"75%\", \"1500 words\").\n" +
-  "- `icon`: (Optional) A suggestive icon name (string).\n" +
-  "- `color`: (Optional) A color hint for visual emphasis (string).\n\n" +
-  "Return the recommendations as a JSON array of objects, adhering strictly to the AiRecommendation interface.";
+    const systemInstruction = "You are an AI content strategist. Your task is to analyze the provided article statistics and offer actionable recommendations and insights to improve the user's content generation flow and strategy.\n\n" +
+        "Consider the following:\n" +
+        "- Total number of articles generated.\n" +
+        "- Total words generated.\n" +
+        "- Daily article creation trends (e.g., consistency, peaks, troughs).\n" +
+        "- The goal is to provide **concise, data-driven, and actionable advice** with specific examples, numbers, or percentages from the provided stats. Avoid excessive detail.\n\n" +
+        "Provide 3-6 concise, actionable recommendations. Each recommendation MUST be a valid JSON object structured according to the AiRecommendation interface.\n\n" +
+        "**CRITICAL JSON FORMATTING RULES:**\n" +
+        "- The entire response MUST be a single, valid JSON array `[...]`.\n" +
+        "- Each item in the array MUST be a JSON object `{...}`.\n" +
+        "- All string values MUST be properly quoted with double quotes.\n" +
+        "- DO NOT include any comments or additional text outside the JSON array.\n" +
+        "- Ensure all required properties (`id`, `title`, `description`) are present.\n" +
+        "- Use a variety of icon names (e.g., \"trend-up\", \"calendar\", \"file-text\", \"bar-chart\", \"info\", \"sparkle\", \"trend-down\").\n" +
+        "- Use a variety of color hints (e.g., \"green\", \"blue\", \"orange\", \"red\", \"purple\", \"gray\").\n\n" +
+        "**AiRecommendation Interface Properties:**\n" +
+        "- `id`: A unique identifier (string).\n" +
+        "- `title`: A short, descriptive title for the recommendation (string).\n" +
+        "- `description`: A brief (1-3 sentences), detailed explanation of the recommendation, including specific, real information, examples, numbers, or percentages from the provided stats. Focus on impact and action.\n" +
+        "- `value`: (Optional) A key metric or number associated with the recommendation (string, e.g., \"75%\", \"1500 words\").\n" +
+        "- `icon`: (Optional) A suggestive icon name (string).\n" +
+        "- `color`: (Optional) A color hint for visual emphasis (string).\n\n" +
+        "Return the recommendations as a JSON array of objects, adhering strictly to the AiRecommendation interface.";
 
-  const prompt = "Based on the user's article statistics, provide 3-6 actionable recommendations to improve their content strategy. Use the provided statistics within the descriptions.\n\n" +
-  "Here are the user's article statistics:\n" +
-  "- Total Articles: ${stats.totalArticles}\n" +
-  "- Total Words: ${stats.totalWords}\n" +
-  "- Daily Article Creation (last 30 days): ${JSON.stringify(stats.dailyCounts)}\n\n" +
-  "Generate 3-6 actionable recommendations based on these statistics, formatted as an array of AiRecommendation objects.";
+    const prompt = "Based on the user's article statistics, provide 3-6 actionable recommendations to improve their content strategy. Use the provided statistics within the descriptions.\n\n" +
+        "Here are the user's article statistics:\n" +
+        "- Total Articles: ${stats.totalArticles}\n" +
+        "- Total Words: ${stats.totalWords}\n" +
+        "- Daily Article Creation (last 30 days): ${JSON.stringify(stats.dailyCounts)}\n\n" +
+        "Generate 3-6 actionable recommendations based on these statistics, formatted as an array of AiRecommendation objects.";
 
-  const modelsToTry = ["gemini-2.0-flash-exp", "gemini-1.5-flash"];
-  const maxRetriesPerModel = 2; // Max retries for each model
-  const delayBetweenRetriesMs = 5000; // 5 seconds delay
+    const modelsToTry = ["gemini-2.0-flash-exp", "gemini-1.5-flash"];
+    const maxRetriesPerModel = 2; // Max retries for each model
+    const delayBetweenRetriesMs = 5000; // 5 seconds delay
 
-  let lastError: any = null;
+    let lastError: any = null;
 
-  for (let attempt = 0; attempt < modelsToTry.length * maxRetriesPerModel; attempt++) {
-    const modelIndex = Math.floor(attempt / maxRetriesPerModel) % modelsToTry.length;
-    const modelName = modelsToTry[modelIndex];
-    const retryCountForModel = attempt % maxRetriesPerModel;
+    for (let attempt = 0; attempt < modelsToTry.length * maxRetriesPerModel; attempt++) {
+        const modelIndex = Math.floor(attempt / maxRetriesPerModel) % modelsToTry.length;
+        const modelName = modelsToTry[modelIndex];
+        const retryCountForModel = attempt % maxRetriesPerModel;
 
-    try {
-      console.log(`Trying model: ${modelName} (overall attempt ${attempt + 1}, model retry ${retryCountForModel + 1})`);
+        try {
+            console.log(`Trying model: ${modelName} (overall attempt ${attempt + 1}, model retry ${retryCountForModel + 1})`);
 
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                title: { type: Type.STRING },
-                description: { type: Type.STRING },
-                value: { type: Type.STRING, nullable: true },
-                icon: { type: Type.STRING, nullable: true },
-                color: { type: Type.STRING, nullable: true }
-              },
-              required: ["id", "title", "description"]
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: prompt,
+                config: {
+                    systemInstruction: systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                id: { type: Type.STRING },
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING },
+                                value: { type: Type.STRING, nullable: true },
+                                icon: { type: Type.STRING, nullable: true },
+                                color: { type: Type.STRING, nullable: true }
+                            },
+                            required: ["id", "title", "description"]
+                        }
+                    }
+                }
+            });
+            return JSON.parse(response.text) as AiRecommendation[];
+        } catch (error: any) {
+            console.error(`AI stats recommendation model ${modelName} failed:`, error);
+            console.error(`Error details:`, JSON.stringify(error, null, 2));
+            lastError = error;
+
+            // If it's a 503 (overloaded) or other transient error, retry with delay
+            if (error?.status === 503 || error?.code === 503 || error?.message?.includes('overloaded') || retryCountForModel < maxRetriesPerModel - 1) {
+                console.log(`Retrying ${modelName} in ${delayBetweenRetriesMs / 1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, delayBetweenRetriesMs));
+                continue; // Continue to the next attempt (which might be the same model or the next in line)
+            } else {
+                // If max retries for this model are exhausted and it's not a transient error, break and let the outer loop try another model or fallback
+                break;
             }
-          }
         }
-      });
-      return JSON.parse(response.text) as AiRecommendation[];
-    } catch (error: any) {
-      console.error(`AI stats recommendation model ${modelName} failed:`, error);
-      console.error(`Error details:`, JSON.stringify(error, null, 2));
-      lastError = error;
-
-      // If it's a 503 (overloaded) or other transient error, retry with delay
-      if (error?.status === 503 || error?.code === 503 || error?.message?.includes('overloaded') || retryCountForModel < maxRetriesPerModel - 1) {
-        console.log(`Retrying ${modelName} in ${delayBetweenRetriesMs / 1000} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, delayBetweenRetriesMs));
-        continue; // Continue to the next attempt (which might be the same model or the next in line)
-      } else {
-        // If max retries for this model are exhausted and it's not a transient error, break and let the outer loop try another model or fallback
-        break;
-      }
     }
-  }
 
-  console.warn("All models failed for AI stats recommendations after retries, returning default.");
-  return [{
-    id: "default-rec",
-    title: "AI Recommendations Unavailable",
-    description: "AI recommendations are currently unavailable. The AI service may be overloaded or unreachable. Please try again later.",
-    icon: "info",
-    color: "gray"
-  }];
+    console.warn("All models failed for AI stats recommendations after retries, returning default.");
+    return [{
+        id: "default-rec",
+        title: "AI Recommendations Unavailable",
+        description: "AI recommendations are currently unavailable. The AI service may be overloaded or unreachable. Please try again later.",
+        icon: "info",
+        color: "gray"
+    }];
 }
