@@ -520,7 +520,7 @@ Introduction paragraph MUST NOT have headings above.
     - Bold the first exact-match occurrence of the primary keyword (${topic}) in the introduction.
     - Under every second H2 section, bold the first natural occurrence of the primary keyword (if present).
     - Avoid overuse: do not bold the primary keyword more than once per paragraph.
-    - Also bold genuinely important phrases (data points, concrete benefits, warnings, deadlines, key outcomes, medical researches, call to actions) to improve scannability — at most 2-3 bold phrases per paragraph (${topic} included).
+    - Also bold genuinely important phrases (data points, concrete benefits, warnings, deadlines, key outcomes, medical researches, call to actions) to improve scannability — at most 3 bold phrases per paragraph (${topic} included).
     - Prefer concise bold spans (3–6 words). Do not bold full sentences.
 - **Readability:** Aim for clarity and avoid jargon. Keep sentences concise.
 - **Numbered List Formatting (CRITICAL):** If the content includes step-by-step instructions or a process (e.g., 'How to prepare for surgery'), you MUST format it as a numbered list. For any numbered list, each item MUST start on a new line. A line break is absolutely required after each item.
