@@ -25,6 +25,13 @@ export class WebCrawlerService {
     });
   }
 
+  // Get structured internal link suggestions for quick inline insertion
+  async getInternalLinkSuggestions(websiteUrl: string, topic: string): Promise<Array<{ url: string; title: string }>> {
+    const { internalLinksContext } = await this.getSuggestedKeywords(websiteUrl, topic);
+    if (!internalLinksContext) return [];
+    return this.parseAnchorsFromContext(internalLinksContext);
+  }
+
   async getSitemapPages(websiteUrl: string): Promise<PageInfo[]> {
     // Bu fonksiyon artık kullanılmayacak, sadece interface uyumluluğu için var
     console.warn('getSitemapPages is deprecated, use getWebsiteContext instead');
@@ -302,6 +309,26 @@ export class WebCrawlerService {
       console.error('XML parsing error:', error);
       return [];
     }
+  }
+
+  // Parse <a href="...">Title</a> anchors from a context string
+  private parseAnchorsFromContext(context: string): Array<{ url: string; title: string }> {
+    const results: Array<{ url: string; title: string }> = [];
+    if (!context) return results;
+    try {
+      const anchorRegex = /<a\s+href=\"([^\"]+)\">([^<]+)<\/a>/g;
+      let match: RegExpExecArray | null;
+      while ((match = anchorRegex.exec(context)) !== null) {
+        const url = match[1];
+        const title = (match[2] || '').trim();
+        if (url && title) {
+          results.push({ url, title });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse anchors from context:', e);
+    }
+    return results;
   }
 
   private extractTitleFromUrl(url: string): string {

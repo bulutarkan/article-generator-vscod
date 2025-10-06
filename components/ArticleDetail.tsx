@@ -14,6 +14,7 @@ import { SendIcon } from './icons/SendIcon';
 import { PublishModal } from './PublishModal';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { ArticlePageTitle } from './PageTitle';
+import { webCrawlerService } from '../services/webCrawlerService';
 
 interface ArticleDetailProps {
   article: Article;
@@ -74,6 +75,14 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
   const [copySuccess, setCopySuccess] = useState('');
   const [saveToast, setSaveToast] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const contentEditorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Internal links UI state
+  const [websiteUrlForLinks, setWebsiteUrlForLinks] = useState<string>(() => localStorage.getItem('internalLinksWebsiteUrl') || '');
+  const [isFetchingLinks, setIsFetchingLinks] = useState<boolean>(false);
+  const [linkSuggestions, setLinkSuggestions] = useState<Array<{ url: string; title: string }>>([]);
+  const [showLinkPanel, setShowLinkPanel] = useState<boolean>(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isEditing) {
@@ -108,6 +117,59 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
     setEditedTitle(article.title);
     setEditedContent(article.articleContent);
     setIsEditing(false);
+  };
+
+  const handleFetchInternalLinks = async () => {
+    if (!websiteUrlForLinks.trim()) {
+      setLinkError('Please enter your website URL.');
+      setShowLinkPanel(true);
+      return;
+    }
+    setLinkError(null);
+    setIsFetchingLinks(true);
+    try {
+      localStorage.setItem('internalLinksWebsiteUrl', websiteUrlForLinks.trim());
+      const suggestions = await webCrawlerService.getInternalLinkSuggestions(websiteUrlForLinks.trim(), article.topic || editedTitle || '');
+      setLinkSuggestions(suggestions);
+      setShowLinkPanel(true);
+    } catch (e: any) {
+      console.error('Failed to fetch internal links:', e);
+      setLinkError(e?.message || 'Failed to fetch internal links.');
+      setShowLinkPanel(true);
+    } finally {
+      setIsFetchingLinks(false);
+    }
+  };
+
+  const insertLinkAtCursor = (link: { url: string; title: string }) => {
+    const textarea = contentEditorRef.current;
+    const content = editedContent || '';
+    if (!textarea) {
+      const anchor = `<a href="${link.url}">${link.title}</a>`;
+      setEditedContent(content + (content.endsWith('\n') ? '' : '\n') + anchor);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? content.length;
+    const end = textarea.selectionEnd ?? content.length;
+    const selectedText = start !== end ? content.slice(start, end) : '';
+    const anchorText = (selectedText && selectedText.trim().length > 0) ? selectedText : link.title;
+    const anchor = `<a href="${link.url}">${anchorText}</a>`;
+
+    const before = content.slice(0, start);
+    const after = content.slice(end);
+    const next = `${before}${anchor}${after}`;
+    setEditedContent(next);
+
+    // Restore caret after inserted anchor
+    requestAnimationFrame(() => {
+      if (contentEditorRef.current) {
+        const pos = start + anchor.length;
+        contentEditorRef.current.focus();
+        contentEditorRef.current.selectionStart = pos;
+        contentEditorRef.current.selectionEnd = pos;
+      }
+    });
   };
 
   const notifyCopy = (type: string) => {
@@ -405,10 +467,68 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
                 <label htmlFor="content-editor" className="block text-sm font-medium text-slate-300 mb-2">
                   Article Content (Markdown)
                 </label>
+                {/* Internal Links helper */}
+                <div className="mb-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://your-site.com"
+                      value={websiteUrlForLinks}
+                      onChange={(e) => setWebsiteUrlForLinks(e.target.value)}
+                      className="flex-1 rounded-md border-0 bg-white/5 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 text-sm shadow-inner"
+                      aria-label="Website URL for internal links"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFetchInternalLinks}
+                      disabled={isFetchingLinks}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm text-indigo-300 transition-colors border border-white/10 ${isFetchingLinks ? 'bg-indigo-500/20 cursor-not-allowed' : 'bg-indigo-500/10 hover:bg-indigo-500/20'}`}
+                    >
+                      {isFetchingLinks ? (
+                        <span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300/30 border-t-indigo-300"></span>Fetching…</span>
+                      ) : (
+                        'Insert Internal Links'
+                      )}
+                    </button>
+                  </div>
+                  {(showLinkPanel || linkError) && (
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+                      {linkError && (
+                        <div className="mb-2 text-xs text-red-300">{linkError}</div>
+                      )}
+                      {!linkError && linkSuggestions.length === 0 && (
+                        <div className="text-xs text-slate-400">No relevant internal links found yet. Try another topic or ensure the URL is correct.</div>
+                      )}
+                      {linkSuggestions.length > 0 && (
+                        <div className="max-h-56 overflow-y-auto divide-y divide-slate-800">
+                          {linkSuggestions.map((l, idx) => (
+                            <div key={`${l.url}-${idx}`} className="py-2 flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm text-slate-200 truncate">{l.title}</div>
+                                <div className="text-xs text-slate-400 truncate">{l.url}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => insertLinkAtCursor(l)}
+                                className="shrink-0 px-3 py-1.5 rounded-md text-xs text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-white/10"
+                              >
+                                Insert
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 text-right">
+                        <button type="button" onClick={() => setShowLinkPanel(false)} className="text-xs text-slate-400 hover:text-slate-200">Close</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <textarea
                   id="content-editor"
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
+                  ref={contentEditorRef}
                   className="block w-full rounded-lg border-0 bg-slate-950/60 py-4 px-4 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6 transition-all min-h-[70vh] font-mono shadow-inner resize-y"
                   aria-label="Article content editor"
                   spellCheck="false"
