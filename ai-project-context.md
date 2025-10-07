@@ -58,37 +58,99 @@ This section details the key features and their underlying technical mechanisms.
     *   **Service**: `services/googleTrendsService.ts` handles API calls to Google Trends.
     *   **Data Analysis**: Trend data is processed and presented to the user, often influencing content generation suggestions or SEO recommendations.
 
+### 2.8 Bulk Article Generation
+*   **Description**: Enables users to generate multiple articles simultaneously in batch mode, with real-time progress tracking, pause/resume functionality, and error handling for failed generations.
+*   **Technical Details**:
+    *   **Service**: `services/bulkGenerationService.ts` manages the bulk generation process, including queue management and rate limiting.
+    *   **Context Provider**: `BulkGenerationContext.tsx` and `BulkGenerationProvider` handle state management across components.
+    *   **Modal Interface**: `BulkGenerationModal.tsx` provides the UI for configuring and monitoring bulk generation jobs.
+    *   **Progress Tracking**: Real-time progress updates with estimated time remaining and failure recovery.
+    *   **AI Integration**: Uses the Google Gemini API with sequential processing to avoid rate limits.
+
+### 2.9 Content Analysis and SEO Insights
+*   **Description**: Performs comprehensive content analysis including competitor research, keyword opportunities, SEO scoring, and actionable recommendations for content optimization.
+*   **Technical Details**:
+    *   **Service**: `services/contentAnalyticsService.ts` handles deep content analysis using AI-powered insights combined with Google Trends data.
+    *   **Quick Insights**: Provides rapid keyword metrics (volume, competition, trends) for instant decision making.
+    *   **Competitor Analysis**: Identifies top competing pages, their domain authority, backlink counts, and content patterns.
+    *   **Modal Interface**: `components/ContentAnalysisModal.tsx` displays detailed analytics and recommendations.
+    *   **Data Caching**: Implements intelligent caching (24-hour duration) to optimize performance and API usage.
+
+### 2.10 Image Search Integration
+*   **Description**: Searches for royalty-free images from multiple sources to visually enhance articles and improve content engagement.
+*   **Technical Details**:
+    *   **Service**: `services/imageService.ts` integrates with Pexels and Google Images APIs for comprehensive image search.
+    *   **Fallback Handling**: Implements smart fallback mechanisms when primary APIs are unavailable.
+    *   **Query Modification**: Uses AI-powered query enhancements to improve search result quality.
+    *   **Image Selection**: Returns multiple image options with attribution information for proper licensing.
+
+### 2.11 Publishing Integrations
+*   **Description**: Allows direct publishing of generated articles to external platforms like WordPress and Medium, streamlining the content workflow.
+*   **Technical Details**:
+    *   **Service**: `services/publishingService.ts` handles secure API connections and content formatting for different platforms.
+    *   **WordPress Integration**: Supports application password authentication for seamless publishing.
+    *   **Medium Integration**: Uses Medium's API with token-based authentication.
+    *   **Content Formatting**: Automatically converts markdown content to HTML format for platform compatibility.
+    *   **Security**: Credentials are encrypted and stored securely in Supabase database.
+
+### 2.12 Markdown to HTML Conversion
+*   **Description**: Converts markdown-formatted content to HTML with support for advanced features like tables, pricing comparisons, and custom formatting.
+*   **Technical Details**:
+    *   **Service**: `services/markdownToHtml.ts` handles the conversion process with specialized handling for pricing tables and comparisons.
+    *   **Rich Content Support**: Processes price comparison tables, general comparison charts, and numbered lists.
+    *   **Typography Enhancement**: Uses `@tailwindcss/typography` for styled HTML output.
+    *   **Integration**: Used throughout the platform for previewing and publishing content.
+
 ## 3. Technical Architecture
 
-The application follows a modern JAMstack (JavaScript, APIs, Markup) architecture with a focus on client-side rendering and serverless functions.
+The application follows a modern JAMstack (JavaScript, APIs, Markup) architecture with a focus on client-side rendering, serverless functions, and comprehensive content management capabilities.
 
-*   **Frontend**: Built with React and TypeScript, styled with Tailwind CSS, and bundled with Vite for a fast development experience. The UI is component-based, with a clear separation of concerns (e.g., `components/Generator.tsx`, `components/Editor.tsx`, `components/Dashboard.tsx`).
+*   **Frontend**: Built with React 18 and TypeScript, styled with Tailwind CSS (v4), and bundled with Vite for fast development and optimized production builds. Key libraries include:
+    *   **Routing**: React Router DOM for client-side navigation
+    *   **Animations**: Framer Motion for smooth UI transitions
+    *   **Charts**: Chart.js and React-ChartJS-2 for data visualization
+    *   **Forms & Components**: React Big Calendar for scheduling, Swiper for carousels, React DnD for drag-and-drop
+    *   **Typography**: @tailwindcss/typography plugin for rich text rendering
+    *   **Document Processing**: PDF.js for PDF handling, Docx and Mammoth for Word document support, XLSX for spreadsheet processing
+    *   **HTTP Client**: Axios for API calls
+    *   **Icons**: Lucide React for consistent iconography
+    *   **SEO**: React Helmet Async for dynamic meta tag management
 *   **Backend as a Service (BaaS)**: Supabase serves as the primary backend, providing:
     *   **PostgreSQL Database**: For structured data storage (users, articles, content calendar events, SEO reports, etc.).
-    *   **Authentication**: User management, roles, and access control.
+    *   **Authentication**: User management, roles, and access control with encrypted credential storage.
     *   **Realtime**: Potential for live updates in the dashboard or editor.
 *   **External APIs**:
-    *   **Google Gemini API**: Core AI capabilities for content generation.
-    *   **Google Trends API**: For market research and trend analysis.
-*   **Serverless Functions**: Netlify Functions (`netlify/functions/`) are used for specific backend tasks that require server-side execution, such as web crawling (`crawl.js`), to enhance performance and security, and manage external API calls.
-*   **Static Assets**: Images (`assets/`) and other static resources are served efficiently.
+    *   **Google Gemini API**: Core AI capabilities for content generation, analysis, and recommendations.
+    *   **Google Trends API**: For market research, trend analysis, and keyword insights.
+    *   **Image APIs**: Pexels and Google Images APIs for royalty-free image search.
+    *   **Publishing APIs**: WordPress REST API and Medium API for content publishing.
+*   **Serverless Functions**: Netlify Functions (`netlify/functions/`) are used for CORS-restricted operations and heavy processing:
+    *   **Web Crawling**: `crawl.js` for website content extraction to avoid client-side CORS limitations.
+    *   **Future Extensibility**: Framework ready for additional serverless operations.
+*   **Static Assets**: Images (`assets/`), background videos, and other resources are served efficiently through Vite's asset optimization.
 
 ## 4. Data Models/Entities (Conceptual)
 
 Key data entities managed by the application, primarily within Supabase:
 
-*   **User**: `id`, `email`, `profile_data` (name, preferences), `subscription_status`.
-*   **Article**: `id`, `user_id`, `title`, `content` (raw/markdown), `html_content`, `status` (draft, published, scheduled), `seo_score`, `keywords`, `generated_date`, `publish_date`.
-*   **SEOReport**: `id`, `article_id`, `analysis_data` (recommendations, scores), `generated_date`.
-*   **ContentCalendarEvent**: `id`, `user_id`, `article_id` (optional), `event_type` (publish, draft, idea), `date`, `notes`.
-*   **GeneratedContent**: `id`, `user_id`, `request_prompt`, `response_content`, `model_used`, `timestamp`.
+*   **User**: `id`, `username`, `email`, `passwordHash`, `role`, `secretQuestion`, `secretAnswerHash`, `firstName`, `lastName`.
+*   **Article**: `id`, `user_id`, `title`, `topic`, `location`, `articleContent`, `metaDescription`, `keywords`, `priceComparison`, `generalComparison`, `monthlySearches`, `primaryKeyword`, `keywordDifficulty`, `content_quality`, `tone`, `seoMetrics`, `created_at`.
+*   **ContentCalendarEvent**: `id`, `user_id`, `title`, `start_date`, `end_date`, `status`, `notes`.
+*   **BulkGenerationItem**: `id`, `topic`, `status`, `progress`, `article`, `error`, `retryCount`.
+*   **BulkGenerationState**: `items`, `progress`, `isGenerating`, `lastSaved`.
+*   **AiRecommendation**: `id`, `title`, `description`, `value`, `icon`, `color`.
+*   **UserIntegration**: `id`, `user_id`, `provider`, `credentials`, `created_at`, `updated_at`.
+*   **ContentAnalysis**: `keywordMetrics`, `competitorAnalysis`, `contentSuggestions`, `seoScore`, `marketInsights`.
 
 ## 5. Key Integrations
 
-*   **Google Gemini API**: Integrated via `services/geminiService.ts`. This service handles API key management, request formatting, and response parsing. It's used across features requiring AI text generation or analysis.
-*   **Supabase**: Integrated via `services/supabase.ts`. This service provides the client-side interface to interact with Supabase's database, authentication, and storage features.
-*   **Netlify Functions**: Defined in `netlify/functions/`. These are deployed as serverless functions and are typically invoked via API calls from the frontend or other services (e.g., `webCrawlerService.ts`).
-*   **Google Trends**: Integrated via `services/googleTrendsService.ts`. This service likely queries Google Trends data to provide insights into trending topics.
+*   **Google Gemini API**: Core AI service integrated via `services/geminiService.ts` for content generation, analysis, keyword suggestions, and recommendations. Handles API key management, request formatting, response parsing, and fallback model selection.
+*   **Supabase**: Primary backend integration via `services/supabase.ts`. Provides database operations, authentication, user management, and secure credential storage for integrations.
+*   **Netlify Functions**: Serverless functions in `netlify/functions/` for CORS-restricted operations including web crawling (`crawl.js`) and potential future backend services.
+*   **Google Trends API**: Market research integration via `services/googleTrendsService.ts` and `contentAnalyticsService.ts`. Provides real-time trend data, keyword competition, search volume estimates, and related keyword suggestions.
+*   **External Image APIs**: Pexels and Google Images integration via `services/imageService.ts` for royalty-free image search and retrieval with fallback mechanisms.
+*   **Publishing Platforms**: WordPress and Medium integration via `services/publishingService.ts`. Supports encrypted credential storage and automatic content formatting for direct publishing.
+*   **Document Processing Libraries**: Fast XML Parser, Cheerio, and Cheerio for web content parsing and HTML manipulation in web crawling operations.
 
 ## 6. Development Environment & Build Process
 

@@ -4,6 +4,175 @@ import { calculateSEOMetrics } from './seoAnalysisService';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY as string });
 
+// --- Lightweight rewrite helpers (Paragraph editing) ---
+// These helpers use gemini-2.5-flash-lite as requested, and are careful
+// to preserve formatting markers used in our renderer: **bold** and <a href> links.
+
+export async function rewriteParagraphQuick(input: {
+  paragraph: string;
+  topic?: string;
+  tone?: string;
+  location?: string;
+}): Promise<string> {
+  const { paragraph, topic = '', tone = '', location = '' } = input;
+  if (!paragraph?.trim()) return paragraph;
+
+  const systemInstruction = `You are a precise editing assistant.
+Rewrite the user-provided paragraph to improve clarity, flow and readability while preserving meaning and language.
+STRICTLY preserve inline formatting used by the app: keep **bold** markers and <a href="...">...</a> links intact (do not remove or reformat them).
+Do not add new facts, headings or lists. Do not add extra paragraphs. Return exactly one paragraph. Keep length within ±20% of the original.`;
+
+  const prompt = [
+    topic ? `Topic: ${topic}` : '',
+    tone ? `Tone: ${tone}` : '',
+    location ? `Location Context: ${location}` : '',
+    '---',
+    'Paragraph to improve:',
+    paragraph,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'text/plain',
+      },
+    });
+    const out = (res.text || '').trim();
+    return out || paragraph;
+  } catch (e) {
+    console.warn('rewriteParagraphQuick failed:', e);
+    return paragraph;
+  }
+}
+
+export async function rewriteParagraphWithPrompt(input: {
+  paragraph: string;
+  userPrompt: string;
+  topic?: string;
+  tone?: string;
+  location?: string;
+}): Promise<string> {
+  const { paragraph, userPrompt, topic = '', tone = '', location = '' } = input;
+  if (!paragraph?.trim()) return paragraph;
+
+  const systemInstruction = `You are a precise editing assistant.
+Apply the user's instruction to rewrite the given paragraph while preserving meaning.
+STRICTLY preserve inline formatting markers used by the app: **bold** and <a href="...">...</a> links must be kept intact if present.
+Do not introduce headings, lists, or extra paragraphs. Keep output to exactly one paragraph.`;
+
+  const prompt = [
+    topic ? `Topic: ${topic}` : '',
+    tone ? `Tone: ${tone}` : '',
+    location ? `Location Context: ${location}` : '',
+    userPrompt ? `Instruction: ${userPrompt}` : '',
+    '---',
+    'Paragraph to edit:',
+    paragraph,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'text/plain',
+      },
+    });
+    const out = (res.text || '').trim();
+    return out || paragraph;
+  } catch (e) {
+    console.warn('rewriteParagraphWithPrompt failed:', e);
+    return paragraph;
+  }
+}
+
+// --- List block rewriting helpers ---
+export async function rewriteListQuick(input: {
+  items: string[];
+  style: 'unordered' | 'ordered';
+  topic?: string;
+  tone?: string;
+  location?: string;
+}): Promise<string[]> {
+  const { items, style, topic = '', tone = '', location = '' } = input;
+  if (!Array.isArray(items) || items.length === 0) return items || [];
+
+  const systemInstruction = `You are a precise editing assistant.
+Rewrite the list of items to improve clarity, parallel structure and concision while preserving meaning and language.
+Maintain the same number of items (${items.length}) and the same list style (${style}).
+Do NOT add headings or extra commentary. Return ONLY the rewritten items, one per line, without markers.`;
+
+  const prompt = [
+    topic ? `Topic: ${topic}` : '',
+    tone ? `Tone: ${tone}` : '',
+    location ? `Location Context: ${location}` : '',
+    '---',
+    'List items (one per line):',
+    ...items,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: { systemInstruction, responseMimeType: 'text/plain' }
+    });
+    const text = (res.text || '').trim();
+    if (!text) return items;
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    return lines.slice(0, items.length);
+  } catch (e) {
+    console.warn('rewriteListQuick failed:', e);
+    return items;
+  }
+}
+
+export async function rewriteListWithPrompt(input: {
+  items: string[];
+  style: 'unordered' | 'ordered';
+  userPrompt: string;
+  topic?: string;
+  tone?: string;
+  location?: string;
+}): Promise<string[]> {
+  const { items, style, userPrompt, topic = '', tone = '', location = '' } = input;
+  if (!Array.isArray(items) || items.length === 0) return items || [];
+
+  const systemInstruction = `You are a precise editing assistant.
+Apply the user's instruction to rewrite the list. Preserve meaning and language.
+Maintain the same number of items (${items.length}) and the same list style (${style}).
+Do not add commentary. Return ONLY the rewritten items, one per line, without markers.`;
+
+  const prompt = [
+    topic ? `Topic: ${topic}` : '',
+    tone ? `Tone: ${tone}` : '',
+    location ? `Location Context: ${location}` : '',
+    userPrompt ? `Instruction: ${userPrompt}` : '',
+    '---',
+    'List items (one per line):',
+    ...items,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: { systemInstruction, responseMimeType: 'text/plain' }
+    });
+    const text = (res.text || '').trim();
+    if (!text) return items;
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    return lines.slice(0, items.length);
+  } catch (e) {
+    console.warn('rewriteListWithPrompt failed:', e);
+    return items;
+  }
+}
+
 // Clean up dictated text into well-formed sentences while preserving meaning and language
 export async function refineDictationText(text: string, langCode?: string): Promise<string> {
     // Helper to ensure the model output closely matches the input content (no hallucinations)

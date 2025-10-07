@@ -45,7 +45,7 @@ export const SEOMetricsBox: React.FC<SEOMetricsBoxProps> = ({
 
   if (!seoMetrics) {
     return (
-      <div className="inline-flex items-center gap-4 ml-6 p-4 bg-gray-100/80 backdrop-blur-xl border border-gray-200 rounded-lg shadow-lg animate-fade-in-up">
+      <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4 p-4 md:ml-6 bg-gray-100/80 backdrop-blur-xl border border-gray-200 rounded-lg shadow-lg animate-fade-in-up w-full md:w-max">
         <div className="text-center">
           <div className="text-xs text-gray-600 font-medium mb-1">SEO Analysis</div>
           <div className="text-sm text-gray-500">Not Available</div>
@@ -58,9 +58,9 @@ export const SEOMetricsBox: React.FC<SEOMetricsBoxProps> = ({
   const { readabilityScore, keywordDensity, seoScore, subMetrics } = seoMetrics;
 
   return (
-    <div className="shadow-lg backdrop-blur-xl border border-white/10 rounded-lg w-max inline-flex items-center gap-2 p-2 shadow-lg animate-fade-in-up">
+    <div className="shadow-lg backdrop-blur-xl border border-white/10 rounded-lg w-full md:w-max max-w-full flex flex-row flex-wrap md:flex-nowrap items-stretch md:items-center gap-3 md:gap-2 p-3 md:p-2 animate-fade-in-up">
       {/* Readability Score */}
-      <div className="text-center relative">
+      <div className="text-center relative basis-1/2 md:basis-auto">
         <div className="text-xs text-slate-400 font-medium mb-1">Readability</div>
         <div
           className={`px-2 py-1 rounded-md text-sm font-semibold cursor-pointer ${getMetricColorClass('readabilityScore', readabilityScore)}`}
@@ -87,22 +87,22 @@ export const SEOMetricsBox: React.FC<SEOMetricsBoxProps> = ({
         )}
       </div>
 
-      {/* Separator */}
-      <div className="w-px h-8 bg-slate-500/30"></div>
+      {/* Separator (only on sm and up) */}
+      <div className="hidden md:block w-px h-8 bg-slate-500/30"></div>
 
       {/* Keyword Density */}
-      <div className="text-center">
+      <div className="text-center basis-1/2 md:basis-auto">
         <div className="text-xs text-slate-400 font-medium mb-1">Keyword D.</div>
         <div className={`px-2 py-1 rounded-md text-sm font-semibold ${getMetricColorClass('keywordDensity', keywordDensity)}`}>
           {keywordDensity}%
         </div>
       </div>
 
-      {/* Separator */}
-      <div className="w-px h-8 bg-slate-500/30"></div>
+      {/* Separator (only on sm and up) */}
+      <div className="hidden md:block w-px h-8 bg-slate-500/30"></div>
 
       {/* SEO Score with Tooltip */}
-      <div className="text-center relative">
+      <div className="text-center relative basis-1/2 md:basis-auto">
         <div className="text-xs text-slate-400 font-medium mb-1">SEO Score</div>
         <div
           className={`px-2 py-1 rounded-md text-sm font-semibold cursor-pointer ${getMetricColorClass('seoScore', seoScore)}`}
@@ -154,11 +154,11 @@ export const SEOMetricsBox: React.FC<SEOMetricsBoxProps> = ({
         )}
       </div>
 
-      {/* Separator */}
-      <div className="w-px h-8 bg-slate-500/30"></div>
+      {/* Separator (only on sm and up) */}
+      <div className="hidden md:block w-px h-8 bg-slate-500/30"></div>
 
       {/* Suggestions trigger */}
-      <div className="text-center relative">
+      <div className="text-center relative basis-1/2 md:basis-auto">
         <div className="text-xs text-slate-400 font-medium mb-1">Checklist</div>
         <button
           className={`px-2 py-1 rounded-md text-sm font-semibold ${suggestions.length > 0 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'}`}

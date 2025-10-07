@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { Article, PriceComparisonItem } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckIcon } from './icons/CheckIcon';
@@ -6,6 +7,8 @@ import { CodeIcon } from './icons/CodeIcon';
 import { SEOMetricsBox } from './SEOMetricsBox';
 import { searchImages, type ImageResult } from '../services/imageService';
 import { calculateSEOMetrics } from '../services/seoAnalysisService';
+import { rewriteParagraphQuick, rewriteParagraphWithPrompt, rewriteListQuick, rewriteListWithPrompt } from '../services/geminiService';
+import { updateArticle } from '../services/supabase';
 
 
 
@@ -135,6 +138,8 @@ interface ArticleContentProps {
   onShowFaqHtml: () => void;
   showFaqHtml: boolean;
   faqHtml: string;
+  article?: Article;
+  onMutateContent?: (nextContent: string) => void;
 }
 
 const ArticleContent: React.FC<ArticleContentProps> = ({
@@ -144,6 +149,8 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   onShowFaqHtml,
   showFaqHtml,
   faqHtml,
+  article,
+  onMutateContent,
 }) => {
   if (!content || typeof content !== 'string' || content.trim() === '') {
     return <p className="text-slate-300">No content available.</p>;
@@ -171,12 +178,36 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   };
 
   const lines = content.split('\n');
+  const [busyIdx, setBusyIdx] = React.useState<number | null>(null);
+  const [menuOpenIdx, setMenuOpenIdx] = React.useState<number | null>(null);
+  const [promptIdx, setPromptIdx] = React.useState<number | null>(null);
+  const [promptText, setPromptText] = React.useState<string>('');
+  type RangeEntry = {
+    index: number;
+    start: number;
+    end: number;
+    text: string;
+    prefix: string;
+    block?: 'p' | 'li' | 'list';
+    listStyle?: 'ordered' | 'unordered';
+    itemCount?: number;
+  };
+  const paragraphRangesRef = React.useRef<Array<RangeEntry>>([]);
+  paragraphRangesRef.current = [];
   const elements: JSX.Element[] = [];
   let inFaqSection = false;
   let inList = false;
   let currentListItems: JSX.Element[] = [];
   let currentFaq: { question: string; answer: string[] } | null = null;
   let paragraphBuffer: string[] = [];
+  let paragraphBufferRaw: string[] = [];
+  let paragraphStartLine = -1;
+  let lastNonEmptyLineInBuffer = -1;
+  let paragraphIndexCounter = 0;
+  let listStartIndex = -1;
+  let currentListStyle: 'ordered' | 'unordered' | null = null;
+  let currentListCount = 0;
+  let lastListLineIndex = -1;
   let inTable = false;
   let tableRows: string[][] = [];
   let tableHeaders: string[] = [];
@@ -243,27 +274,250 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     }
   };
 
+  // --- Paragraph AI edit helpers ---
+  const isControlsActive = (idx: number) => busyIdx === idx || menuOpenIdx === idx || promptIdx === idx;
+  async function persistContent(nextContent: string) {
+    try {
+      if (onMutateContent) onMutateContent(nextContent);
+      if (article?.id) {
+        await updateArticle(article.id, { articleContent: nextContent });
+      }
+    } catch (e) {
+      console.error('Auto-save to Supabase failed:', e);
+    }
+  }
+
+  async function replaceParagraphAt(index: number, nextParagraph: string) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry) return;
+    const arr = content.split('\n');
+    const before = arr.slice(0, entry.start);
+    const after = arr.slice(entry.end + 1);
+    const nextLine = `${entry.prefix || ''}${nextParagraph}`;
+    const nextContent = [...before, nextLine, ...after].join('\n');
+    await persistContent(nextContent);
+  }
+
+  async function replaceListBlockAt(index: number, nextItems: string[]) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry) return;
+    const arr = content.split('\n');
+    const before = arr.slice(0, entry.start);
+    const after = arr.slice(entry.end + 1);
+    const styled = (entry.listStyle === 'ordered')
+      ? nextItems.map((t, i) => `${i + 1}. ${t}`)
+      : nextItems.map((t) => `* ${t}`);
+    const nextContent = [...before, ...styled, ...after].join('\n');
+    await persistContent(nextContent);
+  }
+
+  async function handleQuickChange(index: number) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry) return;
+    setBusyIdx(index);
+    try {
+      if (entry.block === 'list') {
+        // Build items from current content slice
+        const slice = content.split('\n').slice(entry.start, entry.end + 1);
+        const items = slice.map((ln) => ln.replace(/^\*\s+/, '').replace(/^\d+[\.)]\s+/, '').trim());
+        const rewrittenItems = await rewriteListQuick({
+          items,
+          style: entry.listStyle || 'unordered',
+          topic: article?.topic,
+          tone: article?.tone,
+          location: article?.location,
+        });
+        await replaceListBlockAt(index, rewrittenItems);
+      } else {
+        const candidate = entry.text.replace(/\s+/g, ' ').trim();
+        const rewritten = await rewriteParagraphQuick({
+          paragraph: candidate,
+          topic: article?.topic,
+          tone: article?.tone,
+          location: article?.location,
+        });
+        await replaceParagraphAt(index, rewritten);
+      }
+    } catch (e) {
+      console.error('Quick change failed:', e);
+    } finally {
+      setBusyIdx(null);
+    }
+  }
+
+  async function handlePromptChange(index: number) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry || !promptText.trim()) return;
+    setBusyIdx(index);
+    try {
+      if (entry.block === 'list') {
+        const slice = content.split('\n').slice(entry.start, entry.end + 1);
+        const items = slice.map((ln) => ln.replace(/^\*\s+/, '').replace(/^\d+[\.)]\s+/, '').trim());
+        const rewritten = await rewriteListWithPrompt({
+          items,
+          style: entry.listStyle || 'unordered',
+          userPrompt: promptText.trim(),
+          topic: article?.topic,
+          tone: article?.tone,
+          location: article?.location,
+        });
+        await replaceListBlockAt(index, rewritten);
+      } else {
+        const candidate = entry.text.replace(/\s+/g, ' ').trim();
+        const rewritten = await rewriteParagraphWithPrompt({
+          paragraph: candidate,
+          userPrompt: promptText.trim(),
+          topic: article?.topic,
+          tone: article?.tone,
+          location: article?.location,
+        });
+        await replaceParagraphAt(index, rewritten);
+      }
+    } catch (e) {
+      console.error('Prompted change failed:', e);
+    } finally {
+      setPromptIdx(null);
+      setPromptText('');
+      setBusyIdx(null);
+    }
+  }
+
+  // Apply one of the preset prompt actions without echoing into the textarea
+  async function handlePresetPromptChange(index: number, instruction: string) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry || !instruction.trim()) return;
+    setBusyIdx(index);
+    try {
+      if (entry.block === 'list') {
+        const slice = content.split('\n').slice(entry.start, entry.end + 1);
+        const items = slice.map((ln) => ln.replace(/^\*\s+/, '').replace(/^\d+[\.)]\s+/, '').trim());
+        const rewritten = await rewriteListWithPrompt({
+          items,
+          style: entry.listStyle || 'unordered',
+          userPrompt: instruction.trim(),
+          topic: article?.topic,
+          tone: article?.tone,
+          location: article?.location,
+        });
+        await replaceListBlockAt(index, rewritten);
+      } else {
+        const candidate = entry.text.replace(/\s+/g, ' ').trim();
+        const rewritten = await rewriteParagraphWithPrompt({
+          paragraph: candidate,
+          userPrompt: instruction.trim(),
+          topic: article?.topic,
+          tone: article?.tone,
+          location: article?.location,
+        });
+        await replaceParagraphAt(index, rewritten);
+      }
+    } catch (e) {
+      console.error('Preset prompted change failed:', e);
+    } finally {
+      setPromptIdx(null);
+      setPromptText('');
+      setBusyIdx(null);
+    }
+  }
+
   const flushParagraph = () => {
     if (paragraphBuffer.length > 0) {
       const paragraphText = paragraphBuffer.join(' ');
+      const myIndex = paragraphIndexCounter++;
+      const start = paragraphStartLine < 0 ? 0 : paragraphStartLine;
+      const end = lastNonEmptyLineInBuffer < 0 ? start : lastNonEmptyLineInBuffer;
+      paragraphRangesRef.current.push({ index: myIndex, start, end, text: paragraphBufferRaw.join('\n'), prefix: '' });
+
       elements.push(
-        <p key={`p-${elements.length}`} className="text-slate-300 leading-relaxed mb-4 font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 animate-fade-in-stagger hover:bg-slate-900/30 transition-colors terminal-cursor">
-          {renderWithBoldAndLinks(paragraphText)}
-        </p>
+        <div key={`pwrap-${elements.length}`} className="group relative mb-4">
+          <p className="text-slate-300 leading-relaxed font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 animate-fade-in-stagger hover:bg-slate-900/30 transition-colors terminal-cursor ring-0 group-hover:ring-2 group-hover:ring-indigo-500/40">
+            {renderWithBoldAndLinks(paragraphText)}
+          </p>
+          <div className={`absolute -top-3 right-2 z-[1000] ${isControlsActive(myIndex) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+            <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-md shadow px-2 py-1">
+              <button
+                className={`text-xs px-2 py-0.5 rounded-md transition-colors ${busyIdx === myIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
+                onClick={(e) => { e.preventDefault(); handleQuickChange(myIndex); }}
+                disabled={busyIdx === myIndex}
+              >
+                {busyIdx === myIndex ? 'Working…' : 'Quick Change'}
+              </button>
+              <button
+                className="text-xs px-1 py-0.5 rounded-md hover:bg-white/10 text-slate-300"
+                onClick={(e) => { e.preventDefault(); setMenuOpenIdx(menuOpenIdx === myIndex ? null : myIndex); }}
+                aria-label="More paragraph actions"
+              >
+                ▾
+              </button>
+            </div>
+            {menuOpenIdx === myIndex && (
+              <div className="mt-1 w-56 bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
+                <button
+                  className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                  onClick={(e) => { e.preventDefault(); setPromptIdx(myIndex); setMenuOpenIdx(null); }}
+                >
+                  Change with prompt…
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       );
       paragraphBuffer = [];
+      paragraphBufferRaw = [];
+      paragraphStartLine = -1;
+      lastNonEmptyLineInBuffer = -1;
     }
   };
 
   const flushList = () => {
     if (inList) {
+      const blockIndex = paragraphIndexCounter++;
+      // Register the whole list block range
+      paragraphRangesRef.current.push({
+        index: blockIndex,
+        start: listStartIndex < 0 ? 0 : listStartIndex,
+        end: lastListLineIndex < 0 ? (listStartIndex < 0 ? 0 : listStartIndex) : lastListLineIndex,
+        text: '',
+        prefix: '',
+        block: 'list',
+        listStyle: currentListStyle || 'unordered',
+        itemCount: currentListCount,
+      });
+
       elements.push(
-        <ul key={`ul-${elements.length}`} className="pl-0 space-y-1 mb-6 text-slate-300">
-          {currentListItems}
-        </ul>
+        <div key={`ulwrap-${elements.length}`} className="group relative mb-6">
+          <ul className="pl-0 space-y-1 text-slate-300">
+            {currentListItems}
+          </ul>
+          <div className="absolute -top-4 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000]">
+            <div className="flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30">
+              <button
+                className={`text-xs px-2.5 py-1 rounded-full transition-colors ${busyIdx === blockIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
+                onClick={(e) => { e.preventDefault(); handleQuickChange(blockIndex); }}
+                disabled={busyIdx === blockIndex}
+              >
+                {busyIdx === blockIndex ? 'Working…' : 'Quick Change All'}
+              </button>
+              <button
+                className="text-xs px-2 py-1 rounded-full hover:bg-white/10 text-slate-300"
+                onClick={(e) => { e.preventDefault(); setPromptIdx(blockIndex); setMenuOpenIdx(null); }}
+                aria-label="Change list with prompt"
+              >
+                ▾
+              </button>
+            </div>
+          </div>
+        </div>
       );
+
+      // Reset list state
       currentListItems = [];
       inList = false;
+      listStartIndex = -1;
+      currentListStyle = null;
+      currentListCount = 0;
+      lastListLineIndex = -1;
     }
   };
 
@@ -435,18 +689,68 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
         elements.push(<CalloutBox key={index} type="keypoint">
           <span className="font-medium">{renderWithBoldAndLinks(trimmedLine)}</span>
         </CalloutBox>);
-      } else if (trimmedLine.startsWith('* ')) {
+      } else if (trimmedLine.startsWith('* ') || /^\d+[\.)]\s/.test(trimmedLine)) {
         flushParagraph();
         flushTable();
-        inList = true;
-        currentListItems.push(<li key={index} className="text-slate-300 font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 mb-2 hover:bg-slate-900/30 animate-fade-in-stagger flex items-start gap-2 transition-colors">
-          <span className="text-indigo-400 mt-1 text-sm font-bold">▸</span>
-          <span className="flex-1">{renderWithBoldAndLinks(trimmedLine.substring(2))}</span>
-        </li>);
+        if (!inList) {
+          inList = true;
+          listStartIndex = index;
+          currentListStyle = /^\d+[\.)]\s/.test(trimmedLine) ? 'ordered' : 'unordered';
+        }
+        const isOrdered = currentListStyle === 'ordered';
+        const matchPrefix = trimmedLine.match(/^(\d+[\.)]\s)/);
+        const prefix = isOrdered ? (matchPrefix ? matchPrefix[1] : '') : '* ';
+        const itemText = isOrdered ? trimmedLine.replace(/^(\d+[\.)]\s)/, '').trim() : trimmedLine.substring(2);
+        const liIndex = paragraphIndexCounter++;
+        paragraphRangesRef.current.push({ index: liIndex, start: index, end: index, text: itemText, prefix, block: 'li', listStyle: currentListStyle || undefined });
+        currentListCount++;
+        lastListLineIndex = index;
+
+        currentListItems.push(
+          <li key={index} className="relative group text-slate-300 font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 mb-2 hover:bg-slate-900/30 animate-fade-in-stagger transition-colors">
+            <div className="flex items-start gap-2">
+              <span className="text-indigo-400 mt-1 text-sm font-bold">{isOrdered ? prefix.trim() : '▸'}</span>
+              <span className="flex-1">{renderWithBoldAndLinks(itemText)}</span>
+            </div>
+            <div className={`absolute -top-3 right-2 z-[1000] ${isControlsActive(liIndex) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+              <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-md shadow px-2 py-1">
+                <button
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${busyIdx === liIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
+                  onClick={(e) => { e.preventDefault(); handleQuickChange(liIndex); }}
+                  disabled={busyIdx === liIndex}
+                >
+                  {busyIdx === liIndex ? 'Working…' : 'Quick Change'}
+                </button>
+                <button
+                  className="text-xs px-1 py-0.5 rounded-md hover:bg-white/10 text-slate-300"
+                  onClick={(e) => { e.preventDefault(); setMenuOpenIdx(menuOpenIdx === liIndex ? null : liIndex); }}
+                  aria-label="More item actions"
+                >
+                  ▾
+                </button>
+              </div>
+              {menuOpenIdx === liIndex && (
+                <div className="mt-1 w-56 bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
+                  <button
+                    className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                    onClick={(e) => { e.preventDefault(); setPromptIdx(liIndex); setMenuOpenIdx(null); }}
+                  >
+                    Change with prompt…
+                  </button>
+                </div>
+              )}
+            </div>
+          </li>
+        );
       } else {
         flushList();
         flushTable();
+        if (paragraphBuffer.length === 0) {
+          paragraphStartLine = index;
+        }
         paragraphBuffer.push(trimmedLine);
+        paragraphBufferRaw.push(line.replace(/\s+$/, ''));
+        lastNonEmptyLineInBuffer = index;
       }
     }
   });
@@ -460,7 +764,109 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     elements.push(<FaqHtmlDisplay key="faq-html-display" html={faqHtml} />);
   }
 
-  return <>{elements}</>;
+  // Central prompt modal (prevents hover-close, adds overlay + transitions)
+  const renderPromptModal = () => {
+    if (promptIdx === null) return null;
+    // Preset prompt actions (label + instruction + description for tooltip)
+    const presets: Array<{ key: string; label: string; instruction: string; description: string }>= [
+      {
+        key: 'shorter',
+        label: 'Shorter',
+        instruction: 'Keep the semantic integrity and make it 25% shorter.',
+        description: 'Reduce length ~25% while preserving meaning.'
+      },
+      {
+        key: 'longer',
+        label: 'Longer',
+        instruction: 'Keep the semantic integrity and make it 25% longer.',
+        description: 'Expand content ~25% without adding new facts.'
+      },
+      {
+        key: 'concise',
+        label: 'Concise',
+        instruction: 'Keep the semantic integrity, make it more concise and brief.',
+        description: 'Tighten wording; remove redundancy; keep meaning.'
+      },
+      {
+        key: 'simplify',
+        label: 'Simplify',
+        instruction: 'Rewrite in simpler, plain language without losing key information.',
+        description: 'Use plain language and shorter sentences.'
+      },
+      {
+        key: 'polish',
+        label: 'Fluent Polish',
+        instruction: 'Enhance flow, transitions, and readability without changing meaning.',
+        description: 'Improve flow and readability; keep content the same.'
+      },
+      {
+        key: 'casual',
+        label: 'Casual',
+        instruction: 'Make it more conversational and reader-friendly.',
+        description: 'Loosen tone slightly; sound friendly and natural.'
+      },
+      {
+        key: 'formal',
+        label: 'Formalize',
+        instruction: 'Adjust tone to a more formal and professional style.',
+        description: 'More formal, precise tone without changing meaning.'
+      },
+    ];
+    return createPortal(
+      <div className="fixed inset-0 z-[10010]">
+        <div className="absolute inset-0 bg-black/20 opacity-100 transition-opacity" onClick={() => { setPromptIdx(null); setPromptText(''); }} />
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 text-slate-200 transform transition-all duration-200 ease-out scale-100">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold">Change with prompt</div>
+              <button className="text-xs text-slate-400 hover:text-slate-200" onClick={() => { setPromptIdx(null); setPromptText(''); }}>Close</button>
+            </div>
+            <div className="text-[11px] text-slate-300 mb-1">Instruction for this text</div>
+            <textarea
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              placeholder="e.g., Make it more concise and persuasive"
+              className="w-full text-sm bg-slate-800/70 border border-slate-700 rounded px-2 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[120px]"
+            />
+            {/* Preset prompt actions (compact, scrollable row) */}
+            <div className="mt-2 -mx-2 px-2 overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-600">
+              <div className="flex items-center gap-2 whitespace-nowrap py-1 pr-2">
+                {presets.map((p) => (
+                  <div key={p.key} className="relative group">
+                    <button
+                      className={`text-xs px-3 py-1.5 rounded-md transition-colors ${busyIdx === promptIdx ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                      title={p.instruction}
+                      disabled={busyIdx === promptIdx}
+                      onClick={async (e) => { e.preventDefault(); if (promptIdx !== null) { await handlePresetPromptChange(promptIdx, p.instruction); } }}
+                    >
+                      {p.label}
+                    </button>
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full w-60 px-3 py-2 text-[11px] text-white bg-accent-700 border border-accent-500/40 rounded-md shadow opacity-0 group-hover:opacity-100 group-hover:-translate-y-[110%] transition-all duration-200 ease-out">
+                      {p.instruction}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button className="text-xs text-slate-400 hover:text-slate-200" onClick={() => { setPromptIdx(null); setPromptText(''); }}>Cancel</button>
+              <button
+                className={`text-xs px-3 py-1.5 rounded ${busyIdx === promptIdx ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                disabled={busyIdx === promptIdx || !promptText.trim()}
+                onClick={async (e) => { e.preventDefault(); const idx = promptIdx; await handlePromptChange(idx!); }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  return <>{elements}{renderPromptModal()}</>;
 };
 
 interface ArticleDisplayProps {
@@ -703,6 +1109,11 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(9);
 
+  // Local content override so paragraph edits reflect immediately
+  const [contentOverride, setContentOverride] = React.useState<string | null>(null);
+  useEffect(() => { setContentOverride(null); }, [article.id]);
+  const effectiveContent = contentOverride ?? article.articleContent;
+
   // Fetch images when Images tab is selected
   useEffect(() => {
     if (activeTab === 'images' && images.length === 0 && !imagesLoading) {
@@ -741,8 +1152,8 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
     }
 
     // Generate HTML if it's not already there
-    if (!faqHtml && article.articleContent) {
-      const lines = article.articleContent.split('\n');
+    if (!faqHtml && effectiveContent) {
+      const lines = effectiveContent.split('\n');
       let htmlString = '';
       let inFaq = false;
       let currentDetails = { summary: '', content: [] as string[] };
@@ -797,8 +1208,8 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
     return `<table style="width: 100%; border-collapse: collapse; font-family: sans-serif; margin-top: 1.5em; margin-bottom: 1.5em;">${header}<tbody>${body}</tbody></table>`;
   };
 
-  const wordCount = calculateWordCount(article.articleContent || '');
-  const contentToCopy = (article.articleContent || '').replace(
+  const wordCount = calculateWordCount(effectiveContent || '');
+  const contentToCopy = (effectiveContent || '').replace(
     /\[PRICE_COMPARISON_TABLE\]/g,
     article.priceComparison ? generatePriceTableHtml(article.priceComparison) : ''
   );
@@ -806,14 +1217,14 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
   const computedMetrics = useMemo(() => {
     try {
       return calculateSEOMetrics(
-        article.articleContent || '',
+        effectiveContent || '',
         article.keywords || [],
         article.primaryKeyword || ''
       );
     } catch {
       return article.seoMetrics;
     }
-  }, [article.articleContent, article.keywords, article.primaryKeyword, article.seoMetrics]);
+  }, [effectiveContent, article.keywords, article.primaryKeyword, article.seoMetrics]);
 
   const TabButton: React.FC<{ tabName: Tab, label: string }> = ({ tabName, label }) => (
     <button
@@ -844,8 +1255,8 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-between items-center pt-1 pb-2 border-b border-slate-700 mb-6">
-          <div className="flex items-center gap-2 p-1 bg-white/5 rounded-lg w-fit">
+        <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center pt-1 pb-2 border-b border-slate-700 mb-6">
+          <div className="flex items-center gap-2 p-1 bg-white/5 rounded-lg w-full md:w-fit flex-wrap">
             <TabButton tabName="article" label="Article" />
             <TabButton tabName="metadata" label="Metadata" />
             <TabButton tabName="images" label="Images" />
@@ -854,7 +1265,7 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
           <SEOMetricsBox
             seoMetrics={computedMetrics || article.seoMetrics}
             articleTitle={article.title}
-            articleContent={article.articleContent}
+            articleContent={effectiveContent}
             keywords={article.keywords}
             primaryKeyword={article.primaryKeyword}
             onMutateContent={onMutateContent ? (next) => onMutateContent(next.content, next.title) : undefined}
@@ -870,14 +1281,22 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
                 </div>
                 <CopyButton textToCopy={contentToCopy} label="Copy Content" />
               </div>
+              <div className="mb-3 text-xs text-slate-400">
+                Tip: Hover the text you'd like to change with AI.
+              </div>
               <article className="prose prose-invert max-w-none">
                 <ArticleContent
-                  content={article.articleContent}
+                  content={effectiveContent}
                   priceComparison={article.priceComparison}
                   location={article.location}
                   onShowFaqHtml={generateAndToggleFaqHtml}
                   showFaqHtml={showFaqHtml}
                   faqHtml={faqHtml}
+                  article={article}
+                  onMutateContent={(next: string) => {
+                    setContentOverride(next);
+                    if (onMutateContent) onMutateContent(next, undefined);
+                  }}
                 />
               </article>
             </div>
