@@ -611,6 +611,157 @@ export function calculateSEOMetricsWithContentComparison(
 }
 
 /**
+ * Analyze heading structure in content
+ */
+export function analyzeHeadingStructure(content: string, articleTitle?: string): {
+  h1: number;
+  h2: number;
+  h3: number;
+  idealDistribution: boolean;
+  suggestions: string[];
+  hierarchyScore: number;
+} {
+  const lines = content.split('\n');
+  let h1Count = articleTitle ? 1 : 0; // Article title at top serves as H1
+  let h2Count = 0;
+  let h3Count = 0;
+
+  // Count headings
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === '') continue;
+
+    if (/^#\s+/.test(trimmed)) h1Count++;
+    else if (/^##\s+/.test(trimmed)) h2Count++;
+    else if (/^###\s+/.test(trimmed)) h3Count++;
+  }
+
+  // Calculate ideal distribution score
+  // Ideal: 1 H1, 3-7 H2, H3 >= H2/2
+  const h1Ideal = h1Count === 1 ? 1 : h1Count === 0 ? 0.8 : 0.3;
+  const h2Ideal = h2Count >= 3 && h2Count <= 7 ? 1 : h2Count >= 1 && h2Count <= 10 ? 0.8 : 0.5;
+  const h3Ideal = h3Count >= Math.ceil(h2Count / 2) ? 1 : h3Count >= h2Count ? 0.9 : 0.6;
+
+  const hierarchyScore = Math.round((h1Ideal + h2Ideal + h3Ideal) / 3 * 100);
+  const idealDistribution = hierarchyScore >= 70;
+
+  // Generate suggestions
+  const suggestions: string[] = [];
+
+  if (h1Count === 0) suggestions.push('Add an H1 heading at the top of your content');
+  else if (h1Count > 1) suggestions.push('Use only one H1 heading per page');
+
+  if (h2Count < 3) suggestions.push('Add more H2 headings to structure your content');
+  else if (h2Count > 10) suggestions.push('Consider consolidating some H2 headings');
+
+  if (h3Count < h2Count / 2) suggestions.push('Add more H3 headings under your H2 sections');
+
+  return {
+    h1: h1Count,
+    h2: h2Count,
+    h3: h3Count,
+    idealDistribution,
+    suggestions,
+    hierarchyScore
+  };
+}
+
+/**
+ * Analyze link density in content
+ */
+export function analyzeLinkDensity(content: string): {
+  internalLinks: number;
+  externalLinks: number;
+  totalLinks: number;
+  internalDensity: number;
+  externalDensity: number;
+  linkQuality: 'low' | 'medium' | 'high';
+  suggestions: string[];
+} {
+  const wordCount = content.split(/\s+/).filter(w => w.length > 0).length;
+
+  // Match markdown links: [text](url) and HTML links: <a href="url">text</a>
+  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const htmlLinkRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
+
+  const links: string[] = [];
+
+  // Extract markdown links
+  let match;
+  while ((match = markdownLinkRegex.exec(content)) !== null) {
+    links.push(match[2]);
+  }
+
+  // Extract HTML links
+  while ((match = htmlLinkRegex.exec(content)) !== null) {
+    links.push(match[1]);
+  }
+
+  let internalLinks = 0;
+  let externalLinks = 0;
+
+  // Categorize links (simple heuristic)
+  for (const link of links) {
+    const cleanUrl = link.trim().toLowerCase();
+    // Skip anchor links and relative paths without domain
+    if (cleanUrl.startsWith('#') || (!cleanUrl.includes('://') && !cleanUrl.startsWith('//'))) {
+      continue; // Skip internal anchors/relative links
+    }
+
+    // Check for common external domains or http/https protocols
+    if (cleanUrl.includes('://') || cleanUrl.includes('www.') ||
+        /\.(com|org|net|edu|gov|co\.uk|de|fr|es|it|nl|au|ca)$/i.test(cleanUrl)) {
+      externalLinks++;
+    } else {
+      internalLinks++;
+    }
+  }
+
+  const totalLinks = internalLinks + externalLinks;
+  const internalDensity = wordCount > 0 ? (internalLinks / (wordCount / 100)) : 0;
+  const externalDensity = wordCount > 0 ? (externalLinks / (wordCount / 100)) : 0;
+
+  // Assess link quality based on distribution
+  let linkQuality: 'low' | 'medium' | 'high';
+  let qualityScore = 0;
+
+  // Internal links are good (up to 5% density)
+  if (internalDensity <= 5) qualityScore += 40;
+  else if (internalDensity <= 10) qualityScore += 20;
+
+  // External links should be limited (1-2% ideal)
+  if (externalDensity <= 2) qualityScore += 40;
+  else if (externalDensity <= 5) qualityScore += 20;
+
+  // Overall link diversity
+  if (totalLinks >= 3 && internalLinks >= 1) qualityScore += 20;
+
+  if (qualityScore >= 80) linkQuality = 'high';
+  else if (qualityScore >= 50) linkQuality = 'medium';
+  else linkQuality = 'low';
+
+  // Generate suggestions
+  const suggestions: string[] = [];
+
+  if (totalLinks === 0) suggestions.push('Add internal and external links to enhance SEO');
+  if (internalLinks === 0) suggestions.push('Add at least 2-3 internal links to related content');
+  if (externalLinks === 0) suggestions.push('Add 1-2 reputable external links for credibility');
+
+  if (internalDensity > 5) suggestions.push('Reduce internal link density (aim for 3-5%)');
+  if (externalDensity > 2) suggestions.push('Limit external links to maintain link equity');
+
+  return {
+    internalLinks,
+    externalLinks,
+    totalLinks,
+    internalDensity: Math.round(internalDensity * 100) / 100,
+    externalDensity: Math.round(externalDensity * 100) / 100,
+    linkQuality,
+    suggestions
+  };
+}
+
+/**
  * Content Category Types
  */
 export type ContentCategory = 'medical' | 'technical' | 'academic' | 'blog' | 'business' | 'news' | 'general';

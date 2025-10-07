@@ -6,7 +6,11 @@ import { CheckIcon } from './icons/CheckIcon';
 import { CodeIcon } from './icons/CodeIcon';
 import { SEOMetricsBox } from './SEOMetricsBox';
 import { searchImages, type ImageResult } from '../services/imageService';
-import { calculateSEOMetrics } from '../services/seoAnalysisService';
+import { calculateSEOMetrics, analyzeHeadingStructure, analyzeLinkDensity } from '../services/seoAnalysisService';
+import { BarChartIcon } from './icons/BarChartIcon';
+import { FilesIcon } from './icons/FilesIcon';
+import { InfoIcon } from './icons/InfoIcon';
+import { TargetIcon } from './icons/TargetIcon';
 import { rewriteParagraphQuick, rewriteParagraphWithPrompt, rewriteListQuick, rewriteListWithPrompt } from '../services/geminiService';
 import { updateArticle } from '../services/supabase';
 
@@ -1281,6 +1285,22 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
     }
   }, [effectiveContent, article.keywords, article.primaryKeyword, article.seoMetrics]);
 
+  const headingAnalysis = useMemo(() => {
+    try {
+      return analyzeHeadingStructure(effectiveContent || '', article.title);
+    } catch {
+      return null;
+    }
+  }, [effectiveContent, article.title]);
+
+  const linkAnalysis = useMemo(() => {
+    try {
+      return analyzeLinkDensity(effectiveContent || '');
+    } catch {
+      return null;
+    }
+  }, [effectiveContent]);
+
   const TabButton: React.FC<{ tabName: Tab, label: string }> = ({ tabName, label }) => (
     <button
       onClick={() => setActiveTab(tabName)}
@@ -1385,6 +1405,189 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
                   <CopyButton textToCopy={article.keywords ? article.keywords.join(', ') : ''} className="mt-1" />
                 </div>
               </div>
+
+              {/* Heading Structure Analysis */}
+              {headingAnalysis && (
+                <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                  <div className="flex justify-between items-start gap-4 mb-4">
+                    <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                      <BarChartIcon className="h-5 w-5 text-blue-400" />
+                      Heading Structure Analysis
+                    </h2>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      headingAnalysis.hierarchyScore >= 80 ? 'bg-green-500/20 text-green-300' :
+                      headingAnalysis.hierarchyScore >= 60 ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-red-500/20 text-red-300'
+                    }`}>
+                      Score: {headingAnalysis.hierarchyScore}%
+                    </div>
+                  </div>
+
+                  {/* Heading Counts */}
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div className={`text-2xl font-bold ${
+                        headingAnalysis.h1 === 1 ? 'text-green-400' :
+                        headingAnalysis.h1 === 0 ? 'text-red-400' : 'text-yellow-400'
+                      }`}>
+                        {headingAnalysis.h1}
+                      </div>
+                      <div className="text-xs text-slate-400">H1 Headings</div>
+                    </div>
+                    <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div className={`text-2xl font-bold ${
+                        headingAnalysis.h2 >= 3 && headingAnalysis.h2 <= 7 ? 'text-green-400' :
+                        headingAnalysis.h2 >= 1 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {headingAnalysis.h2}
+                      </div>
+                      <div className="text-xs text-slate-400">H2 Headings</div>
+                    </div>
+                    <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div className={`text-2xl font-bold ${
+                        headingAnalysis.h3 >= Math.ceil(headingAnalysis.h2 / 2) ? 'text-green-400' :
+                        headingAnalysis.h3 >= headingAnalysis.h2 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {headingAnalysis.h3}
+                      </div>
+                      <div className="text-xs text-slate-400">H3 Headings</div>
+                    </div>
+                  </div>
+
+                  {/* Distribution Indicator */}
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-slate-300">Structure Balance</span>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        headingAnalysis.idealDistribution ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+                      }`}>
+                        {headingAnalysis.idealDistribution ? 'Balanced' : 'Adjustable'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          headingAnalysis.idealDistribution ? 'bg-green-500' : 'bg-yellow-500'
+                        }`}
+                        style={{ width: `${Math.min(100, headingAnalysis.hierarchyScore)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  {headingAnalysis.suggestions.length > 0 && (
+                    <div className="border-t border-slate-700 pt-3">
+                      <h3 className="text-sm font-medium text-slate-200 mb-2 flex items-center gap-2">
+                        <InfoIcon className="h-4 w-4 text-amber-400" />
+                        Suggestions
+                      </h3>
+                      <ul className="space-y-1">
+                        {headingAnalysis.suggestions.map((suggestion, index) => (
+                          <li key={index} className="text-xs text-slate-400 flex items-start gap-2">
+                            <span className="text-slate-500 mt-1">•</span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Link Density Analysis */}
+              {linkAnalysis && (
+                <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                  <div className="flex justify-between items-start gap-4 mb-4">
+                    <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                      <FilesIcon className="h-5 w-5 text-purple-400" />
+                      Link Density Analysis
+                    </h2>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      linkAnalysis.linkQuality === 'high' ? 'bg-green-500/20 text-green-300' :
+                      linkAnalysis.linkQuality === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-red-500/20 text-red-300'
+                    }`}>
+                      {linkAnalysis.linkQuality.charAt(0).toUpperCase() + linkAnalysis.linkQuality.slice(1)} Quality
+                    </div>
+                  </div>
+
+                  {/* Link Counts */}
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-400">
+                        {linkAnalysis.internalLinks}
+                      </div>
+                      <div className="text-xs text-slate-400">Internal Links</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {linkAnalysis.internalDensity}% density
+                      </div>
+                    </div>
+                    <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-400">
+                        {linkAnalysis.externalLinks}
+                      </div>
+                      <div className="text-xs text-slate-400">External Links</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {linkAnalysis.externalDensity}% density
+                      </div>
+                    </div>
+                    <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-400">
+                        {linkAnalysis.totalLinks}
+                      </div>
+                      <div className="text-xs text-slate-400">Total Links</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {(linkAnalysis.totalLinks > 0 ? ((linkAnalysis.internalLinks + linkAnalysis.externalLinks * 2) / linkAnalysis.totalLinks).toFixed(1) : '0.0')} avg quality
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quality Indicator */}
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-slate-300">SEO Link Health</span>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        linkAnalysis.linkQuality === 'high' ? 'bg-green-500/20 text-green-300' :
+                        linkAnalysis.linkQuality === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-red-500/20 text-red-300'
+                      }`}>
+                        {linkAnalysis.linkQuality === 'high' ? 'Excellent' :
+                         linkAnalysis.linkQuality === 'medium' ? 'Good' : 'Needs Attention'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          linkAnalysis.linkQuality === 'high' ? 'bg-green-500' :
+                          linkAnalysis.linkQuality === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{
+                          width: linkAnalysis.linkQuality === 'high' ? '90%' :
+                                 linkAnalysis.linkQuality === 'medium' ? '65%' : '40%'
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  {linkAnalysis.suggestions.length > 0 && (
+                    <div className="border-t border-slate-700 pt-3">
+                      <h3 className="text-sm font-medium text-slate-200 mb-2 flex items-center gap-2">
+                        <TargetIcon className="h-4 w-4 text-blue-400" />
+                        Recommendations
+                      </h3>
+                      <ul className="space-y-1">
+                        {linkAnalysis.suggestions.map((suggestion, index) => (
+                          <li key={index} className="text-xs text-slate-400 flex items-end gap-2">
+                            <span className="text-slate-500 mt-1">•</span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
