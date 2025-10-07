@@ -147,6 +147,15 @@ export interface BulkGenerationState {
   lastSaved: string;
 }
 
+// Website URLs Types
+export interface UserWebsiteUrl {
+  id: string;
+  user_id: string;
+  url: string;
+  name?: string;
+  created_at: string;
+}
+
 // Publishing Integration Types
 export type IntegrationProvider = 'wordpress' | 'medium';
 

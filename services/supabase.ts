@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { User, Article, UserIntegration, CalendarEvent } from '../types';
+import type { User, Article, UserIntegration, CalendarEvent, UserWebsiteUrl } from '../types';
 import { encryptData, decryptData } from './crypto';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -510,6 +510,63 @@ export const saveLanguagePreference = async (language: string): Promise<void> =>
   const { error } = await supabase.auth.updateUser({
     data: { language }
   });
+
+  if (error) throw error;
+};
+
+// User Website URL functions
+export const getUserWebsiteUrls = async (): Promise<UserWebsiteUrl[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('user_website_urls')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+};
+
+export const addUserWebsiteUrl = async (url: string, name?: string): Promise<UserWebsiteUrl> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('user_website_urls')
+    .insert([{
+      user_id: user.id,
+      url: url.trim(),
+      name: name?.trim() || null
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateUserWebsiteUrl = async (id: string, updates: { url?: string; name?: string }): Promise<UserWebsiteUrl> => {
+  const { data, error } = await supabase
+    .from('user_website_urls')
+    .update({
+      ...(updates.url && { url: updates.url.trim() }),
+      ...(updates.name !== undefined && { name: updates.name?.trim() || null })
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteUserWebsiteUrl = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('user_website_urls')
+    .delete()
+    .eq('id', id);
 
   if (error) throw error;
 };

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ArticleForm } from './ArticleForm';
 import { BulkGenerationModal } from './BulkGenerationModal';
 import { generateSeoGeoArticle } from '../services/geminiService';
@@ -12,7 +12,8 @@ import { CreditCardIcon } from './icons/CreditCardIcon';
 import { MailIcon } from './icons/MailIcon';
 import { ChevronDown, ChevronUp, Copy, Globe } from 'lucide-react';
 import { AppPageTitle } from './PageTitle';
-import type { SuggestedKeyword } from '../types'; // Import SuggestedKeyword type
+import type { SuggestedKeyword, UserWebsiteUrl } from '../types'; // Import SuggestedKeyword type
+import * as supabaseService from '../services/supabase';
 
 interface GeneratorProps {
   topic: string;
@@ -81,6 +82,24 @@ export const Generator: React.FC<GeneratorProps> = ({
     tone: '',
     startTime: null
   });
+
+  // User Website URLs state
+  const [userWebsiteUrls, setUserWebsiteUrls] = useState<UserWebsiteUrl[]>([]);
+
+  // Load user website URLs on mount
+  useEffect(() => {
+    const loadUserWebsiteUrls = async () => {
+      try {
+        const urls = await supabaseService.getUserWebsiteUrls();
+        setUserWebsiteUrls(urls);
+      } catch (error) {
+        console.error('Failed to load user website URLs:', error);
+      }
+    };
+    if (user) {
+      loadUserWebsiteUrls();
+    }
+  }, [user]);
 
   // Load generation state from localStorage on mount
   React.useEffect(() => {
@@ -453,6 +472,7 @@ export const Generator: React.FC<GeneratorProps> = ({
         setEnableInternalLinks={setEnableInternalLinks}
         websiteUrl={websiteUrl}
         setWebsiteUrl={setWebsiteUrl}
+        userWebsiteUrls={userWebsiteUrls}
         onSubmit={handleGenerateArticle}
         isLoading={isLoading}
         onAnalyzeContent={handlePerformAnalysis}

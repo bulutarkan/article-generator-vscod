@@ -1,6 +1,6 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import type { User, Article } from '../types';
+import type { User, Article, UserWebsiteUrl } from '../types';
 import * as supabaseService from '../services/supabase';
 import { LockIcon } from './icons/LockIcon';
 import { UserCogIcon } from './icons/UserCogIcon';
@@ -45,12 +45,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [recentArticles, setRecentArticles] = useState<Article[]>([]);
+  const [websiteUrls, setWebsiteUrls] = useState<UserWebsiteUrl[]>([]);
+  const [newWebsiteUrl, setNewWebsiteUrl] = useState('');
+  const [newWebsiteName, setNewWebsiteName] = useState('');
+  const [editingUrl, setEditingUrl] = useState<UserWebsiteUrl | null>(null);
 
     useEffect(() => {
       // Get recent 3 articles for preview
       const recent = articles.slice(0, 3);
       setRecentArticles(recent);
     }, [articles]);
+
+    useEffect(() => {
+      // Load user website URLs
+      const loadWebsiteUrls = async () => {
+        try {
+          const urls = await supabaseService.getUserWebsiteUrls();
+          setWebsiteUrls(urls);
+        } catch (error) {
+          console.error('Failed to load website URLs:', error);
+        }
+      };
+      loadWebsiteUrls();
+    }, []);
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
@@ -111,6 +128,59 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         setError(e.message);
       } finally {
         setIsLoading(false);
+      }
+    };
+
+    // Website URL handlers
+    const handleAddWebsiteUrl = async (e: FormEvent) => {
+      e.preventDefault();
+      if (!newWebsiteUrl.trim()) return;
+
+      setError(null);
+      setSuccess(null);
+      try {
+        const addedUrl = await supabaseService.addUserWebsiteUrl(newWebsiteUrl, newWebsiteName);
+        setWebsiteUrls(prev => [addedUrl, ...prev]);
+        setNewWebsiteUrl('');
+        setNewWebsiteName('');
+        setSuccess('Website URL added successfully!');
+      } catch (e: any) {
+        setError(e.message);
+      }
+    };
+
+    const handleUpdateWebsiteUrl = async (e: FormEvent) => {
+      e.preventDefault();
+      if (!editingUrl) return;
+
+      setError(null);
+      setSuccess(null);
+      try {
+        await supabaseService.updateUserWebsiteUrl(editingUrl.id, {
+          url: editingUrl.url,
+          name: editingUrl.name || undefined
+        });
+        setWebsiteUrls(prev => prev.map(url =>
+          url.id === editingUrl.id ? editingUrl : url
+        ));
+        setEditingUrl(null);
+        setSuccess('Website URL updated successfully!');
+      } catch (e: any) {
+        setError(e.message);
+      }
+    };
+
+    const handleDeleteWebsiteUrl = async (id: string) => {
+      if (!confirm('Are you sure you want to delete this website URL?')) return;
+
+      setError(null);
+      setSuccess(null);
+      try {
+        await supabaseService.deleteUserWebsiteUrl(id);
+        setWebsiteUrls(prev => prev.filter(url => url.id !== id));
+        setSuccess('Website URL deleted successfully!');
+      } catch (e: any) {
+        setError(e.message);
       }
     };
 
@@ -251,6 +321,124 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             {/* Publishing Integrations */}
             <IntegrationsManager currentUser={currentUser} />
+
+            {/* Website Project URLs */}
+            <div className="bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">
+                <h2 className="text-2xl font-bold text-slate-100 mb-6">Website Project URLs</h2>
+                <p className="text-sm text-slate-400 mb-6">
+                  Add your website URLs here to easily access them when creating internal links in articles.
+                  These URLs will appear as suggestions in the article generator's internal links section.
+                </p>
+
+                {/* Add new URL form */}
+                <form onSubmit={handleAddWebsiteUrl} className="mb-8 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <h3 className="text-lg font-semibold text-slate-200 mb-4">Add New Website URL</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="websiteUrl" className="block text-sm font-medium text-slate-300 mb-2">URL</label>
+                      <input
+                        type="url"
+                        id="websiteUrl"
+                        value={newWebsiteUrl}
+                        onChange={(e) => setNewWebsiteUrl(e.target.value)}
+                        placeholder="https://yourwebsite.com"
+                        className="block w-full rounded-md border-0 bg-white/5 py-3 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm transition-all"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="websiteName" className="block text-sm font-medium text-slate-300 mb-2">Display Name (Optional)</label>
+                      <input
+                        type="text"
+                        id="websiteName"
+                        value={newWebsiteName}
+                        onChange={(e) => setNewWebsiteName(e.target.value)}
+                        placeholder="My Website"
+                        className="block w-full rounded-md border-0 bg-white/5 py-3 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm transition-all"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isLoading || !newWebsiteUrl.trim()}
+                      className="flex w-full justify-center items-center rounded-md bg-indigo-500 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 disabled:bg-indigo-500/50"
+                    >
+                      {isLoading ? 'Adding...' : 'Add Website URL'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Existing URLs list */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-200">Your Website URLs ({websiteUrls.length})</h3>
+                  {websiteUrls.length === 0 ? (
+                    <p className="text-slate-400 text-center py-4">No website URLs added yet. Add your first website URL above.</p>
+                  ) : (
+                    websiteUrls.map((url) => (
+                      <div key={url.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                        {editingUrl?.id === url.id ? (
+                          <form onSubmit={handleUpdateWebsiteUrl} className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">URL</label>
+                              <input
+                                type="url"
+                                value={editingUrl.url}
+                                onChange={(e) => setEditingUrl({ ...editingUrl, url: e.target.value })}
+                                className="block w-full rounded-md border-0 bg-slate-900/80 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm transition-all"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">Display Name (Optional)</label>
+                              <input
+                                type="text"
+                                value={editingUrl.name || ''}
+                                onChange={(e) => setEditingUrl({ ...editingUrl, name: e.target.value })}
+                                className="block w-full rounded-md border-0 bg-slate-900/80 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm transition-all"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="submit"
+                                className="px-3 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-400 text-sm"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingUrl(null)}
+                                className="px-3 py-2 bg-slate-600 text-white rounded hover:bg-slate-500 text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="text-slate-200 font-medium">{url.name || 'Unnamed Website'}</p>
+                              <p className="text-slate-400 text-sm">{url.url}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setEditingUrl(url)}
+                                className="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 text-sm"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteWebsiteUrl(url.id)}
+                                className="px-3 py-1 bg-red-600 text-red-200 rounded hover:bg-red-500 text-sm"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+            </div>
 
             {/* Account Statistics */}
             <div className="bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">

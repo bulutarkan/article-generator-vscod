@@ -32,6 +32,7 @@ interface ArticleFormProps {
   setEnableInternalLinks: (enabled: boolean) => void;
   websiteUrl: string;
   setWebsiteUrl: (url: string) => void;
+  userWebsiteUrls?: Array<{ id: string; url: string; name?: string }>;
   onSubmit: () => void;
   isLoading: boolean;
   onAnalyzeContent?: () => void;
@@ -58,6 +59,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   setEnableInternalLinks,
   websiteUrl,
   setWebsiteUrl,
+  userWebsiteUrls = [],
   onSubmit,
   isLoading,
   onAnalyzeContent,
@@ -85,6 +87,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   const toneDropdownRef = useRef<HTMLDivElement>(null);
   const langDropdownRef = useRef<HTMLDivElement>(null);
   const aiMenuRef = useRef<HTMLDivElement>(null);
+  const websiteUrlDropdownRef = useRef<HTMLDivElement>(null);
 
   // File upload states
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -123,6 +126,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   ];
   const [speechLang, setSpeechLang] = useState<string>('tr-TR');
   const [isLangOpen, setIsLangOpen] = useState<boolean>(false);
+  const [isWebsiteUrlOpen, setIsWebsiteUrlOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const w = window as any;
@@ -309,6 +313,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
       if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
         setIsLangOpen(false);
       }
+      if (websiteUrlDropdownRef.current && !websiteUrlDropdownRef.current.contains(event.target as Node)) {
+        setIsWebsiteUrlOpen(false);
+      }
       if (aiMenuRef.current && !aiMenuRef.current.contains(event.target as Node)) {
         setIsAiMenuOpen(false);
       }
@@ -324,6 +331,20 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   };
 
   const filteredCountries = countries.filter(c => c.toLowerCase().includes(locationSearch.toLowerCase()));
+
+  const handleWebsiteUrlSelect = (url: string) => {
+    setWebsiteUrl(url);
+    setIsWebsiteUrlOpen(false);
+  };
+
+  const handleWebsiteUrlInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setWebsiteUrl(e.target.value);
+  };
+
+  const websiteOptions = [
+    ...(userWebsiteUrls || []),
+    ...(websiteUrl && !userWebsiteUrls?.find(u => u.url === websiteUrl) ? [{ id: 'custom', url: websiteUrl, name: 'Custom URL' }] : [])
+  ];
 
   // File parsing functions
   const parsePDFFile = async (file: File): Promise<string> => {
@@ -1097,7 +1118,8 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
           if (chosenLocation && chosenLocation.trim()) setLocation(chosenLocation);
           if (suggestedPrompt) {
             const prefix = 'AI Focus: ';
-            setBrief(prev => prev && prev.trim().length > 0 ? `${prev}\n\n${prefix}${suggestedPrompt}` : `${prefix}${suggestedPrompt}`);
+            const newBrief = brief && brief.trim().length > 0 ? `${brief}\n\n${prefix}${suggestedPrompt}` : `${prefix}${suggestedPrompt}`;
+            setBrief(newBrief);
           }
         }}
       />
@@ -1686,20 +1708,90 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
         {enableInternalLinks && (
           <div className="space-y-3">
-            <div>
+            <div className="relative" ref={websiteUrlDropdownRef}>
               <label htmlFor="websiteUrl" className="text-sm font-medium text-slate-300 mb-2 block">
                 Website URL
               </label>
-              <input
-                id="websiteUrl"
-                type="url"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full text-sm bg-slate-900/80 border border-slate-700 rounded-md px-4 py-2 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200"
-              />
+
+              {/* Main input/combobox */}
+              <div className="relative">
+                <input
+                  id="websiteUrl"
+                  type="url"
+                  value={websiteUrl}
+                  onChange={handleWebsiteUrlInputChange}
+                  onFocus={() => setIsWebsiteUrlOpen(true)}
+                  placeholder="https://... or select from your saved URLs"
+                  className="w-full text-sm bg-slate-900/80 border border-slate-700 rounded-md px-4 py-2 pr-10 text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsWebsiteUrlOpen(!isWebsiteUrlOpen)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-300"
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isWebsiteUrlOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {/* Dropdown menu */}
+              {isWebsiteUrlOpen && (
+                <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-slate-800 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm border border-slate-700">
+                  {/* Free text input in dropdown */}
+                  {websiteUrl && !websiteOptions.some(u => u.url === websiteUrl) && (
+                    <div className="p-2 border-b border-slate-700 bg-slate-750/50">
+                      <div className="text-xs text-slate-400 mb-1">Custom URL:</div>
+                      <div className="flex items-center gap-2 px-3 py-1.5 text-slate-200 bg-slate-900/80 rounded-md text-sm">
+                        <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                        </svg>
+                        {websiteUrl}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Profile URLs section */}
+                  {websiteOptions.length > 0 && (
+                    <div>
+                      {websiteOptions.map((url) => (
+                        <button
+                          key={url.id}
+                          type="button"
+                          onClick={() => handleWebsiteUrlSelect(url.url)}
+                          className={`w-full text-left hover:bg-sky-500/30 py-2 pl-3 pr-4 flex items-center justify-between ${
+                            websiteUrl === url.url ? 'bg-sky-500/20' : ''
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-slate-200 text-sm truncate">
+                              {url.name || url.url}
+                            </div>
+                            <div className="text-slate-400 text-xs truncate">
+                              {url.url}
+                            </div>
+                          </div>
+                          {websiteUrl === url.url && (
+                            <CheckIcon className="w-4 h-4 text-sky-400 flex-shrink-0 ml-2" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {websiteOptions.length === 0 && (
+                    <div className="p-4 text-center text-slate-400 text-sm">
+                      <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                      </svg>
+                      No saved URLs yet.<br/>
+                      <span className="text-xs">Add URLs in your Profile page for quick access.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="text-xs text-slate-500 mt-1">
-                We'll analyze your website and add relevant internal links to improve SEO.
+                We'll analyze your website and add relevant internal links to improve SEO. Select from your saved profile URLs or enter a custom one.
               </p>
             </div>
           </div>
