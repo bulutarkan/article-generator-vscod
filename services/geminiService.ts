@@ -173,6 +173,124 @@ Do not add commentary. Return ONLY the rewritten items, one per line, without ma
   }
 }
 
+// --- Table rewriting helpers ---
+// Rewrites table cell texts while preserving the table shape (same rows/cols)
+export async function rewriteTableQuick(input: {
+  headers: string[];
+  rows: string[][];
+  topic?: string;
+  tone?: string;
+  location?: string;
+}): Promise<string[][]> {
+  const { headers, rows, topic = '', tone = '', location = '' } = input;
+  const rowCount = rows.length;
+  const colCount = headers.length;
+  if (!Array.isArray(rows) || rowCount === 0 || !Array.isArray(headers) || colCount === 0) return rows || [];
+
+  const systemInstruction = `You are a precise editing assistant.
+Given a markdown-like table structure (headers and rows), improve the clarity and consistency of cell texts WITHOUT changing factual meaning.
+CRITICAL RULES:
+- Preserve the table shape: exactly ${rowCount} data rows and ${colCount} columns.
+- Do not add or remove rows/columns.
+- Do not introduce new facts or prices.
+- Keep any formatting markers like **bold** or <a href> links intact if present.
+Return ONLY a JSON array of arrays for the data rows (no headers), where each inner array has ${colCount} strings.`;
+
+  const prompt = [
+    topic ? `Topic: ${topic}` : '',
+    tone ? `Tone: ${tone}` : '',
+    location ? `Location Context: ${location}` : '',
+    '---',
+    `Headers: ${JSON.stringify(headers)}`,
+    'Rows:',
+    JSON.stringify(rows),
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    const data = JSON.parse(res.text || '[]');
+    if (!Array.isArray(data)) return rows;
+    // Validate shape
+    const ok = data.length === rowCount && data.every((r: any) => Array.isArray(r) && r.length === colCount && r.every((c: any) => typeof c === 'string'));
+    return ok ? data : rows;
+  } catch (e) {
+    console.warn('rewriteTableQuick failed:', e);
+    return rows;
+  }
+}
+
+export async function rewriteTableWithPrompt(input: {
+  headers: string[];
+  rows: string[][];
+  userPrompt: string;
+  topic?: string;
+  tone?: string;
+  location?: string;
+}): Promise<string[][]> {
+  const { headers, rows, userPrompt, topic = '', tone = '', location = '' } = input;
+  const rowCount = rows.length;
+  const colCount = headers.length;
+  if (!Array.isArray(rows) || rowCount === 0 || !Array.isArray(headers) || colCount === 0) return rows || [];
+
+  const systemInstruction = `You are a precise editing assistant.
+Apply the user's instruction to improve the wording of table cells while preserving meaning.
+CRITICAL RULES:
+- Preserve the table shape: exactly ${rowCount} data rows and ${colCount} columns.
+- Do not add/remove rows or columns.
+- Keep any **bold** markers and <a href="...">...</a> links intact if present.
+Return ONLY a JSON array of arrays for the data rows (no headers).`;
+
+  const prompt = [
+    topic ? `Topic: ${topic}` : '',
+    tone ? `Tone: ${tone}` : '',
+    location ? `Location Context: ${location}` : '',
+    userPrompt ? `Instruction: ${userPrompt}` : '',
+    '---',
+    `Headers: ${JSON.stringify(headers)}`,
+    'Rows:',
+    JSON.stringify(rows),
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    const data = JSON.parse(res.text || '[]');
+    if (!Array.isArray(data)) return rows;
+    const ok = data.length === rowCount && data.every((r: any) => Array.isArray(r) && r.length === colCount && r.every((c: any) => typeof c === 'string'));
+    return ok ? data : rows;
+  } catch (e) {
+    console.warn('rewriteTableWithPrompt failed:', e);
+    return rows;
+  }
+}
+
 // Clean up dictated text into well-formed sentences while preserving meaning and language
 export async function refineDictationText(text: string, langCode?: string): Promise<string> {
     // Helper to ensure the model output closely matches the input content (no hallucinations)

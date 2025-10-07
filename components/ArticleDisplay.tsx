@@ -11,7 +11,8 @@ import { BarChartIcon } from './icons/BarChartIcon';
 import { FilesIcon } from './icons/FilesIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TargetIcon } from './icons/TargetIcon';
-import { rewriteParagraphQuick, rewriteParagraphWithPrompt, rewriteListQuick, rewriteListWithPrompt } from '../services/geminiService';
+import { rewriteParagraphQuick, rewriteParagraphWithPrompt, rewriteListQuick, rewriteListWithPrompt, rewriteTableQuick, rewriteTableWithPrompt } from '../services/geminiService';
+import { TrashIcon } from './icons/TrashIcon';
 import { updateArticle } from '../services/supabase';
 
 
@@ -188,13 +189,15 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   const [promptText, setPromptText] = React.useState<string>('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragHoverStart, setDragHoverStart] = useState<number | null>(null);
   type RangeEntry = {
     index: number;
     start: number;
     end: number;
     text: string;
     prefix: string;
-    block?: 'p' | 'li' | 'list';
+    block?: 'p' | 'li' | 'list' | 'table' | 'faq';
     listStyle?: 'ordered' | 'unordered';
     itemCount?: number;
   };
@@ -205,6 +208,8 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   let inList = false;
   let currentListItems: JSX.Element[] = [];
   let currentFaq: { question: string; answer: string[] } | null = null;
+  let currentFaqStart = -1;
+  let currentFaqEnd = -1;
   let paragraphBuffer: string[] = [];
   let paragraphBufferRaw: string[] = [];
   let paragraphStartLine = -1;
@@ -217,7 +222,52 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   let inTable = false;
   let tableRows: string[][] = [];
   let tableHeaders: string[] = [];
+  let tableStartIndex = -1;
+  let tableEndIndex = -1;
   let sectionCounter = 0;
+
+  // H2 section drag-and-drop helpers
+  const sectionRangesRef = React.useRef<Array<{ id: number; start: number; end: number }>>([]);
+  const dragBlockRef = React.useRef<{ start: number; end: number } | null>(null);
+
+  const computeSectionRanges = (arr: string[]) => {
+    const ranges: Array<{ id: number; start: number; end: number }> = [];
+    let currentStart: number | null = null;
+    for (let i = 0; i < arr.length; i++) {
+      const t = arr[i].trim();
+      if (t.startsWith('## ')) {
+        if (currentStart !== null) {
+          ranges.push({ id: currentStart, start: currentStart, end: i - 1 });
+        }
+        currentStart = i;
+      }
+    }
+    if (currentStart !== null) {
+      ranges.push({ id: currentStart, start: currentStart, end: arr.length - 1 });
+    }
+    sectionRangesRef.current = ranges;
+  };
+
+  // Generic slice move helper used by all DnD
+  const performMove = (targetStart: number) => {
+    const src = dragBlockRef.current;
+    if (!src) return;
+    const arr = content.split('\n');
+    // Guard: dropping into same slice does nothing
+    if (targetStart >= src.start && targetStart <= src.end) { dragBlockRef.current = null; return; }
+    const slice = arr.slice(src.start, src.end + 1);
+    const sliceLen = slice.length;
+    // Remove source
+    const arrWithout = [...arr.slice(0, src.start), ...arr.slice(src.end + 1)];
+    // Adjust target index if source was before target
+    let insertAt = targetStart;
+    if (src.start < targetStart) insertAt = Math.max(0, targetStart - sliceLen);
+    const nextArr = [...arrWithout.slice(0, insertAt), ...slice, ...arrWithout.slice(insertAt)];
+    dragBlockRef.current = null;
+    setDragging(false);
+    setDragHoverStart(null);
+    persistContent(nextArr.join('\n'));
+  };
 
   const parseTableRow = (line: string): string[] => {
     // Remove leading/trailing | and split by |
@@ -273,10 +323,65 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
 
   const flushTable = () => {
     if (inTable && tableHeaders.length > 0) {
-      elements.push(renderMarkdownTable(tableHeaders, tableRows));
+      const blockIndex = paragraphIndexCounter++;
+      // Register table range for editing, deletion and DnD
+      const tblStart = tableStartIndex < 0 ? 0 : tableStartIndex;
+      const tblEnd = tableEndIndex < 0 ? (tableStartIndex < 0 ? 0 : tableStartIndex) : tableEndIndex;
+      paragraphRangesRef.current.push({ index: blockIndex, start: tblStart, end: tblEnd, text: '', prefix: '', block: 'table' });
+
+      elements.push(
+        <div
+          key={`tablewrap-${elements.length}`}
+          className="group relative"
+          onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(tblStart); } }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(tblStart); }}
+        >
+          {dragging && dragHoverStart === tblStart && (
+            <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+          )}
+          {/* Drag handle + actions */}
+          <div className="absolute -top-4 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000] flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30">
+            <button
+              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${busyIdx === blockIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
+              onClick={(e) => { e.preventDefault(); handleQuickChange(blockIndex); }}
+              disabled={busyIdx === blockIndex}
+            >
+              {busyIdx === blockIndex ? 'Working…' : 'Quick Change'}
+            </button>
+            <button
+              className="text-xs px-2.5 py-1 rounded-full hover:bg-white/10 text-slate-300 transition-all duration-200"
+              onClick={(e) => { e.preventDefault(); setPromptIdx(blockIndex); setMenuOpenIdx(null); }}
+              aria-label="Change table with prompt"
+            >
+              Prompt…
+            </button>
+            <button
+              className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+              onClick={(e) => { e.preventDefault(); deleteBlockAt(blockIndex); }}
+              aria-label="Delete table"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+            {/* Drag handle */}
+            <div
+              draggable
+              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: tblStart, end: tblEnd }; setDragging(true); setDragHoverStart(null); }}
+              onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+              className="ml-1 cursor-grab text-slate-400 hover:text-slate-200"
+              title="Drag to move table"
+            >
+              ⋮⋮
+            </div>
+          </div>
+          {renderMarkdownTable(tableHeaders, tableRows)}
+        </div>
+      );
+
       tableHeaders = [];
       tableRows = [];
       inTable = false;
+      tableStartIndex = -1;
+      tableEndIndex = -1;
     }
   };
 
@@ -317,6 +422,37 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     await persistContent(nextContent);
   }
 
+  function parseTableFromSlice(start: number, end: number): { headers: string[]; rows: string[][] } | null {
+    const arr = content.split('\n').slice(start, end + 1);
+    const rows: string[][] = [];
+    let headers: string[] | null = null;
+    for (const ln of arr) {
+      const t = ln.trim();
+      if (isTableSeparator(t)) continue;
+      if (isTableRow(t)) {
+        const cells = parseTableRow(t);
+        if (!headers) headers = cells; else rows.push(cells);
+      }
+    }
+    if (!headers) return null;
+    return { headers, rows };
+  }
+
+  async function replaceTableBlockAt(index: number, headers: string[], nextRows: string[][]) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry) return;
+    const arr = content.split('\n');
+    const before = arr.slice(0, entry.start);
+    const after = arr.slice(entry.end + 1);
+
+    const headerLine = `| ${headers.join(' | ')} |`;
+    const sepLine = `|${headers.map(() => '---').join('|')}|`;
+    const rowLines = nextRows.map(r => `| ${r.join(' | ')} |`);
+    const tableLines = [headerLine, sepLine, ...rowLines];
+    const nextContent = [...before, ...tableLines, ...after].join('\n');
+    await persistContent(nextContent);
+  }
+
   async function handleQuickChange(index: number) {
     const entry = paragraphRangesRef.current.find(e => e.index === index);
     if (!entry) return;
@@ -334,6 +470,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           location: article?.location,
         });
         await replaceListBlockAt(index, rewrittenItems);
+      } else if (entry.block === 'table') {
+        const parsed = parseTableFromSlice(entry.start, entry.end);
+        if (parsed) {
+          const rewritten = await rewriteTableQuick({
+            headers: parsed.headers,
+            rows: parsed.rows,
+            topic: article?.topic,
+            tone: article?.tone,
+            location: article?.location,
+          });
+          await replaceTableBlockAt(index, parsed.headers, rewritten);
+        }
       } else {
         const candidate = entry.text.replace(/\s+/g, ' ').trim();
         const rewritten = await rewriteParagraphQuick({
@@ -368,6 +516,19 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           location: article?.location,
         });
         await replaceListBlockAt(index, rewritten);
+      } else if (entry.block === 'table') {
+        const parsed = parseTableFromSlice(entry.start, entry.end);
+        if (parsed) {
+          const rewritten = await rewriteTableWithPrompt({
+            headers: parsed.headers,
+            rows: parsed.rows,
+            userPrompt: promptText.trim(),
+            topic: article?.topic,
+            tone: article?.tone,
+            location: article?.location,
+          });
+          await replaceTableBlockAt(index, parsed.headers, rewritten);
+        }
       } else {
         const candidate = entry.text.replace(/\s+/g, ' ').trim();
         const rewritten = await rewriteParagraphWithPrompt({
@@ -386,6 +547,16 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       setPromptText('');
       setBusyIdx(null);
     }
+  }
+
+  async function deleteBlockAt(index: number) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry) return;
+    const arr = content.split('\n');
+    const before = arr.slice(0, entry.start);
+    const after = arr.slice(entry.end + 1);
+    const next = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n');
+    await persistContent(next);
   }
 
   // Apply one of the preset prompt actions without echoing into the textarea
@@ -435,7 +606,15 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       paragraphRangesRef.current.push({ index: myIndex, start, end, text: paragraphBufferRaw.join('\n'), prefix: '' });
 
       elements.push(
-        <div key={`pwrap-${elements.length}`} className="group relative mb-4">
+        <div
+          key={`pwrap-${elements.length}`}
+          className="group relative mb-4"
+          onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(start); } }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(start); }}
+        >
+          {dragging && dragHoverStart === start && (
+            <div className="h-5 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+          )}
           <p className="text-slate-300 leading-relaxed font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 animate-fade-in-stagger hover:bg-slate-900/30 transition-colors terminal-cursor ring-0 group-hover:ring-2 group-hover:ring-indigo-500/40">
             {renderWithBoldAndLinks(paragraphText)}
           </p>
@@ -447,6 +626,22 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                 disabled={busyIdx === myIndex}
               >
                 {busyIdx === myIndex ? 'Working…' : 'Quick Change'}
+              </button>
+              <div
+                className="cursor-grab text-slate-400 hover:text-slate-200 px-1"
+                draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start, end }; setDragging(true); setDragHoverStart(null); }}
+                onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+                title="Drag paragraph"
+              >
+                ⋮⋮
+              </div>
+              <button
+                className="p-1 rounded-md text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); deleteBlockAt(myIndex); }}
+                aria-label="Delete paragraph"
+              >
+                <TrashIcon className="h-4 w-4" />
               </button>
               <button
                 className="text-sm px-2 py-1 rounded-md hover:bg-white/10 text-slate-300 transition-all duration-200 hover:scale-105"
@@ -498,8 +693,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
         itemCount: currentListCount,
       });
 
+      const startL = listStartIndex < 0 ? 0 : listStartIndex;
+      const endL = lastListLineIndex < 0 ? (listStartIndex < 0 ? 0 : listStartIndex) : lastListLineIndex;
       elements.push(
-        <div key={`ulwrap-${elements.length}`} className="group relative mb-6">
+        <div
+          key={`ulwrap-${elements.length}`}
+          className="group relative mb-6"
+          onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(startL); } }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(startL); }}
+        >
+          {dragging && dragHoverStart === startL && (
+            <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+          )}
           <ul className="pl-0 space-y-1 text-slate-300">
             {currentListItems}
           </ul>
@@ -526,6 +731,23 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+              <button
+                className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); deleteBlockAt(blockIndex); }}
+                aria-label="Delete list"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+              {/* Drag handle */}
+              <div
+                className="ml-1 cursor-grab text-slate-400 hover:text-slate-200"
+                draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: startL, end: endL }; setDragging(true); setDragHoverStart(null); }}
+                onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+                title="Drag list block"
+              >
+                ⋮⋮
+              </div>
             </div>
           </div>
         </div>
@@ -543,24 +765,58 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
 
   const flushFaq = () => {
     if (currentFaq) {
+      const faqStart = currentFaqStart < 0 ? 0 : currentFaqStart;
+      const faqEnd = currentFaqEnd < 0 ? faqStart : currentFaqEnd;
+      const blockIndex = paragraphIndexCounter++;
+      paragraphRangesRef.current.push({ index: blockIndex, start: faqStart, end: faqEnd, text: '', prefix: '', block: 'faq' });
       elements.push(
-        <details key={`faq-${elements.length}`} className="mb-2 last:mb-0 bg-white/10 p-4 rounded-lg border border-white/10 group transition-all duration-300 ease-in-out">
-          <summary className="font-semibold text-slate-200 cursor-pointer list-none flex justify-between items-center">
-            <span className="flex-grow pr-4">{renderWithBoldAndLinks(currentFaq.question)}</span>
-            <svg className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </summary>
-          <div className="mt-3 pt-3 pl-4 border-l-2 border-slate-600">
-            {currentFaq.answer.map((p, i) => (
-              <p key={i} className="text-slate-300 leading-relaxed mb-4 last:mb-0">
-                {renderWithBoldAndLinks(p)}
-              </p>
-            ))}
+        <div
+          key={`faq-${elements.length}`}
+          className="relative group"
+          onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(faqStart); } }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(faqStart); }}
+        >
+          {dragging && dragHoverStart === faqStart && (
+            <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+          )}
+          <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000] flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30">
+            <div
+              className="cursor-grab text-slate-400 hover:text-slate-200"
+              draggable
+              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: faqStart, end: faqEnd }; setDragging(true); setDragHoverStart(null); }}
+              onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+              title="Drag FAQ item"
+            >
+              ⋮⋮
+            </div>
+            <button
+              className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteBlockAt(blockIndex); }}
+              aria-label="Delete FAQ"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
           </div>
-        </details>
+          <details className="mb-2 last:mb-0 bg-white/10 p-4 rounded-lg border border-white/10 group transition-all duration-300 ease-in-out">
+            <summary className="font-semibold text-slate-200 cursor-pointer list-none flex justify-between items-center">
+              <span className="flex-grow pr-4">{renderWithBoldAndLinks(currentFaq.question)}</span>
+              <svg className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </summary>
+            <div className="mt-3 pt-3 pl-4 border-l-2 border-slate-600">
+              {currentFaq.answer.map((p, i) => (
+                <p key={i} className="text-slate-300 leading-relaxed mb-4 last:mb-0">
+                  {renderWithBoldAndLinks(p)}
+                </p>
+              ))}
+            </div>
+          </details>
+        </div>
       );
       currentFaq = null;
+      currentFaqStart = -1;
+      currentFaqEnd = -1;
     }
   };
 
@@ -626,9 +882,12 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
         // This is the first row, treat as headers
         tableHeaders = parseTableRow(trimmedLine);
         inTable = true;
+        tableStartIndex = index;
+        tableEndIndex = index;
       } else {
         // This is a data row
         tableRows.push(parseTableRow(trimmedLine));
+        tableEndIndex = index;
       }
       return;
     }
@@ -642,8 +901,11 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       if (trimmedLine.startsWith('* ')) {
         flushFaq();
         currentFaq = { question: trimmedLine.substring(2).trim(), answer: [] };
+        currentFaqStart = index;
+        currentFaqEnd = index;
       } else if (currentFaq) {
         currentFaq.answer.push(trimmedLine);
+        currentFaqEnd = index;
       }
     } else {
       // Developer-friendly content detection and callout creation
@@ -681,12 +943,44 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
         flushList();
         flushTable();
         sectionCounter++;
-        elements.push(<h2 key={index} className="text-2xl font-bold mt-10 mb-6 text-slate-100 pb-3 border-b-2 border-slate-700/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 px-4 -mx-4 animate-fade-in-stagger hover:border-slate-600/70 transition-colors">
-          <span className="inline-flex items-center gap-3">
-            <span className="text-purple-400 text-3xl">✦</span>
-            {renderWithBoldAndLinks(trimmedLine.substring(3))}
-          </span>
-        </h2>);
+        // Drag-enabled H2 container
+        elements.push(
+          <div key={`h2wrap-${index}`} className="relative group"
+               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(index); } }}
+               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(index); }}
+          >
+            {dragging && dragHoverStart === index && (
+              <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+            )}
+            <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 cursor-grab bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1"
+                 draggable
+                 onDragStart={(e) => {
+                    // Determine bounds for this H2 section based on content
+                    const arr = content.split('\n');
+                    let start = index;
+                    let end = arr.length - 1;
+                    for (let j = index + 1; j < arr.length; j++) {
+                      const t = arr[j].trim();
+                      if (t.startsWith('## ')) { end = j - 1; break; }
+                    }
+                   dragBlockRef.current = { start, end };
+                   e.dataTransfer.effectAllowed = 'move';
+                   try { e.dataTransfer.setData('text/plain', 'move'); } catch {}
+                   e.stopPropagation();
+                   setDragging(true);
+                   setDragHoverStart(null);
+                  }}
+                 onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+                 title="Drag this section"
+            >⋮⋮</div>
+            <h2 className="text-2xl font-bold mt-10 mb-6 text-slate-100 pb-3 border-b-2 border-slate-700/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 px-4 -mx-4 animate-fade-in-stagger hover:border-slate-600/70 transition-colors">
+              <span className="inline-flex items-center gap-3">
+                <span className="text-purple-400 text-3xl">✦</span>
+                {renderWithBoldAndLinks(trimmedLine.substring(3))}
+              </span>
+            </h2>
+          </div>
+        );
       } else if (content.includes('tip:') || content.includes('💡') || content.includes('pro tip')) {
         // Extract tip content
         flushParagraph();
@@ -740,6 +1034,13 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                   disabled={busyIdx === liIndex}
                 >
                   {busyIdx === liIndex ? 'Working…' : 'Quick Change'}
+                </button>
+                <button
+                  className="p-1 rounded-md text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                  onClick={(e) => { e.preventDefault(); deleteBlockAt(liIndex); }}
+                  aria-label="Delete list item"
+                >
+                  <TrashIcon className="h-4 w-4" />
                 </button>
                 <button
                   className="text-sm px-3 py-2 rounded-md hover:bg-white/10 text-slate-300 transition-all duration-200 hover:scale-105"

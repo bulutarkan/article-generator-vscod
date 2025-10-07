@@ -112,7 +112,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({ message: customMessa
                     ) : isActive ? (
                       <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
                     ) : (
-                      <span className="text-base font-semibold">{index + 1}</span>
+                      <span className="text-sm font-semibold">{index + 1}</span>
                     )}
                   </div>
                   <div className="flex flex-col items-center space-y-2">
