@@ -92,7 +92,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onDelete, onV
             <div className="flex items-center gap-2 shrink-0 ml-auto">
               <button 
                 onClick={handleDelete}
-                className="p-2 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-red-400/30"
+                className="p-2 rounded-md text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-red-400/30"
                 aria-label="Delete article"
               >
                 <TrashIcon className="h-4 w-4" />

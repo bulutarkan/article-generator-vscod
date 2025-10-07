@@ -14,6 +14,7 @@ import { SendIcon } from './icons/SendIcon';
 import { PublishModal } from './PublishModal';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { ArticlePageTitle } from './PageTitle';
+import { SEO } from './SEO';
 import { webCrawlerService } from '../services/webCrawlerService';
 
 interface ArticleDetailProps {
@@ -335,6 +336,15 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
 
   return (
     <div className="animate-fade-in-up max-w-7xl mx-auto flex flex-col h-full">
+      <SEO
+        title={article.title}
+        description={article.metaDescription || article.excerpt || article.title}
+        path={`/app/articles/${article.id}`}
+        type="article"
+        keywords={article.keywords}
+        publishedTime={article.createdAt}
+        modifiedTime={article.created_at || article.createdAt}
+      />
       <ArticlePageTitle articleTitle={article.title} />
       <div className="flex-shrink-0">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">

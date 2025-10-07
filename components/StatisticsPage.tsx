@@ -12,6 +12,12 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import SkeletonLoader from './SkeletonLoader'; // Import SkeletonLoader
 import { AiRecommendationCard } from './AiRecommendationCard'; // Import AiRecommendationCard
 import { AiRecommendationCardSkeleton } from './AiRecommendationCardSkeleton'; // Import AiRecommendationCardSkeleton
+import { calculateSEOMetrics } from '../services/seoAnalysisService';
+import { TrendingUpIcon } from './icons/TrendingUpIcon';
+import { TrendingDownIcon } from './icons/TrendingDownIcon';
+import { FileTextIcon } from './icons/FileTextIcon';
+import { InfoIcon } from './icons/InfoIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
 
 interface DailyStats {
   date: string;
@@ -31,6 +37,7 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
   const [isAiLoading, setIsAiLoading] = useState(false); // New state for AI loading
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [dateRange, setDateRange] = useState<'7' | '30'>('7'); // '7' for last 7 days, '30' for last 30 days
+  const [chartMode, setChartMode] = useState<'articles' | 'words'>('articles');
 
   const fetchStatistics = useCallback(async () => {
     // Ensure overall isLoading is managed by parent or local state if this is the only fetch
@@ -110,8 +117,42 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
     return sortedDates.map(date => ({ date, count: counts[date] }));
   };
 
+  const getDailyWordCounts = (days: number): DailyStats[] => {
+    const counts: { [key: string]: number } = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      counts[d.toISOString().split('T')[0]] = 0;
+    }
+
+    articles.forEach(article => {
+      const articleDate = new Date(article.createdAt);
+      articleDate.setHours(0, 0, 0, 0);
+      const diffTime = Math.abs(today.getTime() - articleDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= days) {
+        const dateKey = articleDate.toISOString().split('T')[0];
+        const words = (article.articleContent && article.articleContent.trim() !== '')
+          ? article.articleContent.trim().split(/\s+/).length
+          : 0;
+        counts[dateKey] = (counts[dateKey] || 0) + words;
+      }
+    });
+
+    const sortedDates = Object.keys(counts).sort();
+    return sortedDates.map(date => ({ date, count: counts[date] }));
+  };
+
   const dailyArticleCounts = useMemo(() => {
     return getDailyArticleCounts(parseInt(dateRange));
+  }, [articles, dateRange]);
+
+  const dailyWordCounts = useMemo(() => {
+    return getDailyWordCounts(parseInt(dateRange));
   }, [articles, dateRange]);
 
   const totalWordsGenerated = useMemo(() => {
@@ -124,16 +165,67 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
   }, [articles]);
 
   const chartData = useMemo(() => ({
-    labels: dailyArticleCounts.map(d => d.date.substring(5)), // e.g., "09-18"
+    labels: (chartMode === 'articles' ? dailyArticleCounts : dailyWordCounts).map(d => d.date.substring(5)),
     datasets: [{
-      label: 'Articles Created',
-      data: dailyArticleCounts.map(d => d.count),
-      borderColor: '#6366F1', // indigo-500
-      backgroundColor: 'rgba(99, 102, 241, 0.2)',
+      label: chartMode === 'articles' ? 'Articles Created' : 'Words Generated',
+      data: (chartMode === 'articles' ? dailyArticleCounts : dailyWordCounts).map(d => d.count),
+      borderColor: chartMode === 'articles' ? '#6366F1' : '#22c55e',
+      backgroundColor: chartMode === 'articles' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(34, 197, 94, 0.2)',
       fill: true,
-      tension: 0.1
+      tension: 0.1,
     }]
-  }), [dailyArticleCounts]);
+  }), [dailyArticleCounts, dailyWordCounts, chartMode]);
+
+  const articlesWithContent = useMemo(() => (
+    articles.filter(a => a.articleContent && a.articleContent.trim() !== '')
+  ), [articles]);
+
+  const { avgReadability, avgSeoScore } = useMemo(() => {
+    if (articlesWithContent.length === 0) return { avgReadability: 0, avgSeoScore: 0 };
+    let rSum = 0;
+    let sSum = 0;
+    let n = 0;
+    for (const a of articlesWithContent) {
+      try {
+        const m = calculateSEOMetrics(a.articleContent, a.keywords || [], a.primaryKeyword || '');
+        rSum += m.readabilityScore;
+        sSum += m.seoScore;
+        n++;
+      } catch (e) {
+        // ignore per-article metric failures
+      }
+    }
+    return {
+      avgReadability: n ? Math.round(rSum / n) : 0,
+      avgSeoScore: n ? Math.round(sSum / n) : 0,
+    };
+  }, [articlesWithContent]);
+
+  const wordsPerArticleAvg = useMemo(() => {
+    const n = articlesWithContent.length;
+    return n ? Math.round(totalWordsGenerated / n) : 0;
+  }, [totalWordsGenerated, articlesWithContent]);
+
+  const estimatedReadingTimeMin = useMemo(() => {
+    const wpm = 200; // average reading speed
+    return Math.max(1, Math.ceil(totalWordsGenerated / wpm));
+  }, [totalWordsGenerated]);
+
+  const { articlesChangePct, wordsChangePct } = useMemo(() => {
+    const days = parseInt(dateRange);
+    const artAll = getDailyArticleCounts(days * 2);
+    const artPrev = artAll.slice(0, days).reduce((s, d) => s + d.count, 0);
+    const artCurr = artAll.slice(days).reduce((s, d) => s + d.count, 0);
+    const wrdAll = getDailyWordCounts(days * 2);
+    const wrdPrev = wrdAll.slice(0, days).reduce((s, d) => s + d.count, 0);
+    const wrdCurr = wrdAll.slice(days).reduce((s, d) => s + d.count, 0);
+    const artPct = artPrev === 0 ? (artCurr > 0 ? 100 : 0) : ((artCurr - artPrev) / artPrev) * 100;
+    const wrdPct = wrdPrev === 0 ? (wrdCurr > 0 ? 100 : 0) : ((wrdCurr - wrdPrev) / wrdPrev) * 100;
+    return {
+      articlesChangePct: Math.round(artPct),
+      wordsChangePct: Math.round(wrdPct),
+    };
+  }, [articles, dateRange]);
 
   if (authLoading || isLoading) {
     return (
@@ -186,7 +278,7 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
     >
       <AppPageTitle pageName="Statistics" />
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div className="flex space-x-2">
           <button
             onClick={() => setDateRange('7')}
@@ -201,21 +293,37 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
             Last 30 Days
           </button>
         </div>
-        <button
-          onClick={fetchStatistics}
-          className="flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white gap-2"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            <RefreshCcwIcon className="h-5 w-5" />
-          )}
-          Refresh Data
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-slate-700 rounded-lg p-1">
+            <button
+              onClick={() => setChartMode('articles')}
+              className={`px-3 py-1 text-sm rounded-md ${chartMode === 'articles' ? 'bg-slate-600 text-white' : 'text-slate-300 hover:text-white'}`}
+            >
+              Articles
+            </button>
+            <button
+              onClick={() => setChartMode('words')}
+              className={`px-3 py-1 text-sm rounded-md ${chartMode === 'words' ? 'bg-slate-600 text-white' : 'text-slate-300 hover:text-white'}`}
+            >
+              Words
+            </button>
+          </div>
+          <button
+            onClick={fetchStatistics}
+            className="flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white gap-2"
+            disabled={isAiLoading}
+          >
+            {isAiLoading ? (
+              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <RefreshCcwIcon className="h-5 w-5" />
+            )}
+            Refresh AI Insights
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -224,7 +332,17 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
           <p className="text-sm text-neutral-400">Total Articles Generated</p>
           <div className="flex items-start gap-5">
             <BarChartIcon className="h-10 w-10 text-primary-400 opacity-50" />
-            <p className="text-3xl font-bold text-white mt-1">{articles.length}</p>
+            <div className="flex items-baseline gap-3">
+              <p className="text-3xl font-bold text-white mt-1">{articles.length}</p>
+              <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${articlesChangePct >= 0 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>
+                {articlesChangePct >= 0 ? (
+                  <TrendingUpIcon className="h-3 w-3" />
+                ) : (
+                  <TrendingDownIcon className="h-3 w-3" />
+                )}
+                {Math.abs(articlesChangePct)}%
+              </span>
+            </div>
           </div>
           
         </div>
@@ -234,7 +352,17 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
           <p className="text-sm text-neutral-400">Total Words Generated</p>
           <div className="flex items-start gap-5">
             <SparkleIcon className="h-10 w-10 text-accent-400 opacity-50" />
-            <p className="text-3xl font-bold text-white mt-1">{totalWordsGenerated.toLocaleString()}</p>
+            <div className="flex items-baseline gap-3">
+              <p className="text-3xl font-bold text-white mt-1">{totalWordsGenerated.toLocaleString()}</p>
+              <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${wordsChangePct >= 0 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>
+                {wordsChangePct >= 0 ? (
+                  <TrendingUpIcon className="h-3 w-3" />
+                ) : (
+                  <TrendingDownIcon className="h-3 w-3" />
+                )}
+                {Math.abs(wordsChangePct)}%
+              </span>
+            </div>
           </div>
         </div>
 
@@ -249,10 +377,49 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ articles, isLoad
         </div>
       </div>
 
+      {/* Additional KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Avg Words per Article */}
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Avg Words / Article</p>
+          <div className="flex items-start gap-5">
+            <FileTextIcon className="h-10 w-10 text-neutral-300 opacity-50" />
+            <p className="text-3xl font-bold text-white mt-1">{wordsPerArticleAvg.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Estimated Reading Time */}
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Estimated Reading Time</p>
+          <div className="flex items-start gap-5">
+            <CalendarIcon className="h-10 w-10 text-neutral-300 opacity-50" />
+            <p className="text-3xl font-bold text-white mt-1">{estimatedReadingTimeMin} min</p>
+          </div>
+        </div>
+
+        {/* Avg Readability */}
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Avg Readability</p>
+          <div className="flex items-start gap-5">
+            <InfoIcon className="h-10 w-10 text-neutral-300 opacity-50" />
+            <p className="text-3xl font-bold text-white mt-1">{avgReadability}</p>
+          </div>
+        </div>
+
+        {/* Avg SEO Score */}
+        <div className="card p-6 flex flex-col justify-between gap-2">
+          <p className="text-sm text-neutral-400">Avg SEO Score</p>
+          <div className="flex items-start gap-5">
+            <TrendingUpIcon className="h-10 w-10 text-neutral-300 opacity-50" />
+            <p className="text-3xl font-bold text-white mt-1">{avgSeoScore}</p>
+          </div>
+        </div>
+      </div>
+
       {/* Daily Article Creation Chart */}
       <div className="card p-6">
-        <h3 className="text-xl font-semibold text-white mb-4">Daily Article Creation</h3>
-        {dailyArticleCounts.length > 0 ? (
+        <h3 className="text-xl font-semibold text-white mb-4">Daily {chartMode === 'articles' ? 'Article Creation' : 'Words Generated'}</h3>
+        {(chartMode === 'articles' ? dailyArticleCounts : dailyWordCounts).length > 0 ? (
           <div className="h-64"> {/* Chart container */}
             <LineChart data={chartData} />
           </div>

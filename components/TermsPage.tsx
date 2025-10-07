@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { SEO } from './SEO';
 import { SiteHeader } from './SiteHeader';
 
 interface TermsPageProps {
@@ -42,6 +43,11 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onNavigateToAuth, onNaviga
 
   return (
     <>
+      <SEO
+        title="Terms - AIrticle"
+        description="AIrticle kullanım şartları. Hizmet koşulları, hesaplar, fikri mülkiyet ve güvenlik politikaları."
+        path="/terms"
+      />
       <StaticPageTitle pageName="Terms" />
       <SiteHeader
         onNavigateToAuth={onNavigateToAuth}

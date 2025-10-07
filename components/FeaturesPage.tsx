@@ -20,6 +20,7 @@ import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
 import { useAuth } from './AuthContext';
 import { SiteHeader } from './SiteHeader';
+import { SEO } from './SEO';
 
 interface FeaturesPageProps {
   onNavigateToAuth: () => void;
@@ -109,6 +110,21 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, on
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      <SEO
+        title="Features - AIrticle"
+        description="AIrticle ile içerik üretimini hızlandıran güçlü özellikler: yapay zekâ yazım, yerel hedefleme, SEO optimizasyonu, toplu üretim ve daha fazlası."
+        path="/features"
+        image="/vite.svg"
+        type="website"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          name: 'AIrticle',
+          applicationCategory: 'ContentCreation',
+          operatingSystem: 'Web',
+          description: 'AI ile SEO uyumlu içerik üretimi ve yönetimi.',
+        }}
+      />
       <StaticPageTitle pageName="Features" />
       <SiteHeader
         onNavigateToAuth={onNavigateToAuth}
@@ -121,7 +137,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigateToAuth, on
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
+            <h1 className="text-4xl mt-10 sm:text-5xl font-extrabold text-white tracking-tight">
               Powerful Features to Supercharge Your Content
             </h1>
             <p className="mt-4 text-lg text-slate-400 max-w-3xl mx-auto">

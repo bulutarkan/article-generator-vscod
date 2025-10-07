@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { SEO } from './SEO';
 import { SiteHeader } from './SiteHeader';
 
 interface PrivacyPageProps {
@@ -42,6 +43,11 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNa
 
   return (
     <>
+      <SEO
+        title="Privacy - AIrticle"
+        description="AIrticle gizlilik politikası. Kişisel verilerin korunması, veri işleme ve güvenlik uygulamalarımız."
+        path="/privacy"
+      />
       <StaticPageTitle pageName="Privacy" />
       <SiteHeader
         onNavigateToAuth={onNavigateToAuth}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Footer } from './Footer';
 import type { User } from '../types';
 import { StaticPageTitle } from './PageTitle';
+import { SEO } from './SEO';
 import { useAuth } from './AuthContext';
 import { SiteHeader } from './SiteHeader';
 
@@ -22,6 +23,11 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNa
 
   return (
     <>
+      <SEO
+        title="Contact - AIrticle"
+        description="AIrticle ekibine ulaşın. Sorularınız, geri bildirimleriniz ve iş birlikleri için iletişime geçin."
+        path="/contact"
+      />
       <StaticPageTitle pageName="Contact" />
       <SiteHeader
         onNavigateToAuth={onNavigateToAuth}

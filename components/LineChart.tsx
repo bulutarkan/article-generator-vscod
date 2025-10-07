@@ -54,14 +54,10 @@ export const LineChart: React.FC<LineChartProps> = ({ data }) => {
       tooltip: {
         callbacks: {
           label: function(context: any) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y + ' articles';
-            }
-            return label;
+            const dsLabel = context.dataset?.label || '';
+            const y = context.parsed?.y;
+            const value = (typeof y === 'number' && Number.isFinite(y)) ? y.toLocaleString() : y;
+            return dsLabel ? `${dsLabel}: ${value}` : `${value}`;
           }
         }
       }

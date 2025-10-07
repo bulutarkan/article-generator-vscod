@@ -23,6 +23,7 @@ import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { Footer } from './Footer';
 import DemoSection from './DemoSection';
 import { LandingPageTitle } from './PageTitle';
+import { SEO } from './SEO';
 import { useAuth } from './AuthContext';
 
 interface LandingPageProps {
@@ -222,6 +223,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO
+        title="AIrticle - SEO Optimized Articles"
+        description="AI ile dakikalar içinde SEO uyumlu, yerel hedeflemeli içerikler üretin. İçerik üretimini hızlandırın, analitikle güçlendirin."
+        path="/"
+        image="/vite.svg"
+        type="website"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'AIrticle',
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: '/?q={search_term_string}',
+            'query-input': 'required name=search_term_string',
+          },
+        }}
+      />
       <LandingPageTitle />
       {/* Header */}
       <motion.header

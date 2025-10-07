@@ -182,6 +182,8 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   const [menuOpenIdx, setMenuOpenIdx] = React.useState<number | null>(null);
   const [promptIdx, setPromptIdx] = React.useState<number | null>(null);
   const [promptText, setPromptText] = React.useState<string>('');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   type RangeEntry = {
     index: number;
     start: number;
@@ -433,27 +435,34 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           <p className="text-slate-300 leading-relaxed font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 animate-fade-in-stagger hover:bg-slate-900/30 transition-colors terminal-cursor ring-0 group-hover:ring-2 group-hover:ring-indigo-500/40">
             {renderWithBoldAndLinks(paragraphText)}
           </p>
-          <div className={`absolute -top-3 right-2 z-[1000] ${isControlsActive(myIndex) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+          <div className={`absolute -top-8 right-0 z-[1000] ${isControlsActive(myIndex) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
             <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-md shadow px-2 py-1">
               <button
-                className={`text-xs px-2 py-0.5 rounded-md transition-colors ${busyIdx === myIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
+                className={`text-xs px-2 py-1 rounded-md transition-colors ${busyIdx === myIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
                 onClick={(e) => { e.preventDefault(); handleQuickChange(myIndex); }}
                 disabled={busyIdx === myIndex}
               >
                 {busyIdx === myIndex ? 'Working…' : 'Quick Change'}
               </button>
               <button
-                className="text-xs px-1 py-0.5 rounded-md hover:bg-white/10 text-slate-300"
+                className="text-sm px-2 py-1 rounded-md hover:bg-white/10 text-slate-300 transition-all duration-200 hover:scale-105"
                 onClick={(e) => { e.preventDefault(); setMenuOpenIdx(menuOpenIdx === myIndex ? null : myIndex); }}
                 aria-label="More paragraph actions"
               >
-                ▾
+                <svg
+                  className={`w-4 h-4 transition-transform duration-300 ${menuOpenIdx === myIndex ? 'rotate-180' : 'rotate-0'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
             </div>
             {menuOpenIdx === myIndex && (
-              <div className="mt-1 w-56 bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
+              <div className="mt-1 w-full bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
                 <button
-                  className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                  className="text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
                   onClick={(e) => { e.preventDefault(); setPromptIdx(myIndex); setMenuOpenIdx(null); }}
                 >
                   Change with prompt…
@@ -500,11 +509,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                 {busyIdx === blockIndex ? 'Working…' : 'Quick Change All'}
               </button>
               <button
-                className="text-xs px-2 py-1 rounded-full hover:bg-white/10 text-slate-300"
+                className="text-sm px-3 py-2 rounded-full hover:bg-white/10 text-slate-300 transition-all duration-200 hover:scale-105"
                 onClick={(e) => { e.preventDefault(); setPromptIdx(blockIndex); setMenuOpenIdx(null); }}
                 aria-label="Change list with prompt"
               >
-                ▾
+                <svg
+                  className={`w-4 h-4 transition-transform duration-300 ${promptIdx === blockIndex ? 'rotate-180' : 'rotate-0'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
             </div>
           </div>
@@ -722,15 +738,22 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                   {busyIdx === liIndex ? 'Working…' : 'Quick Change'}
                 </button>
                 <button
-                  className="text-xs px-1 py-0.5 rounded-md hover:bg-white/10 text-slate-300"
+                  className="text-sm px-3 py-2 rounded-md hover:bg-white/10 text-slate-300 transition-all duration-200 hover:scale-105"
                   onClick={(e) => { e.preventDefault(); setMenuOpenIdx(menuOpenIdx === liIndex ? null : liIndex); }}
                   aria-label="More item actions"
                 >
-                  ▾
+                  <svg
+                    className={`w-4 h-4 transition-transform duration-300 ${menuOpenIdx === liIndex ? 'rotate-180' : 'rotate-0'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
               </div>
               {menuOpenIdx === liIndex && (
-                <div className="mt-1 w-56 bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
+                <div className="mt-1 w-full bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
                   <button
                     className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
                     onClick={(e) => { e.preventDefault(); setPromptIdx(liIndex); setMenuOpenIdx(null); }}
@@ -765,10 +788,29 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   }
 
   // Central prompt modal (prevents hover-close, adds overlay + transitions)
+  useEffect(() => {
+    if (promptIdx !== null) {
+      setIsModalVisible(false);
+      setIsFadingOut(false);
+      // Small delay to trigger fade-in
+      setTimeout(() => setIsModalVisible(true), 10);
+    }
+  }, [promptIdx]);
+
+  const handleCloseModal = () => {
+    setIsFadingOut(true);
+    setTimeout(() => {
+      setPromptIdx(null);
+      setPromptText('');
+      setIsModalVisible(false);
+      setIsFadingOut(false);
+    }, 200);
+  };
+
   const renderPromptModal = () => {
     if (promptIdx === null) return null;
     // Preset prompt actions (label + instruction + description for tooltip)
-    const presets: Array<{ key: string; label: string; instruction: string; description: string }>= [
+    const presets: Array<{ key: string; label: string; instruction: string; description: string }> = [
       {
         key: 'shorter',
         label: 'Shorter',
@@ -813,13 +855,26 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       },
     ];
     return createPortal(
-      <div className="fixed inset-0 z-[10010]">
-        <div className="absolute inset-0 bg-black/20 opacity-100 transition-opacity" onClick={() => { setPromptIdx(null); setPromptText(''); }} />
+      <div className={`fixed inset-0 z-[10010] transition-opacity duration-200 ${isModalVisible && !isFadingOut ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="absolute inset-0 bg-black/20 transition-opacity duration-200" onClick={handleCloseModal} />
         <div className="absolute inset-0 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 text-slate-200 transform transition-all duration-200 ease-out scale-100">
+          <div className={`w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 text-slate-200 transform transition-all duration-200 ease-out ${isModalVisible && !isFadingOut ? 'scale-100' : 'scale-95'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold">Change with prompt</div>
-              <button className="text-xs text-slate-400 hover:text-slate-200" onClick={() => { setPromptIdx(null); setPromptText(''); }}>Close</button>
+              <button
+                className="w-6 h-6 text-slate-400 hover:text-slate-200 transition-colors duration-200 hover:scale-110 rounded-md flex items-center justify-center hover:bg-white/10"
+                onClick={handleCloseModal}
+                aria-label="Close"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
             <div className="text-[11px] text-slate-300 mb-1">Instruction for this text</div>
             <textarea
@@ -850,9 +905,9 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
               </div>
             </div>
             <div className="mt-3 flex justify-end gap-2">
-              <button className="text-xs text-slate-400 hover:text-slate-200" onClick={() => { setPromptIdx(null); setPromptText(''); }}>Cancel</button>
+              <button className="text-xs text-slate-400 hover:text-slate-200 transition-colors" onClick={handleCloseModal}>Cancel</button>
               <button
-                className={`text-xs px-3 py-1.5 rounded ${busyIdx === promptIdx ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                className={`text-xs px-3 py-1.5 rounded transition-colors ${busyIdx === promptIdx ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
                 disabled={busyIdx === promptIdx || !promptText.trim()}
                 onClick={async (e) => { e.preventDefault(); const idx = promptIdx; await handlePromptChange(idx!); }}
               >

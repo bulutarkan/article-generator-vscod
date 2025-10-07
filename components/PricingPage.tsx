@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckIcon } from './icons/CheckIcon';
 import { Footer } from './Footer';
 import { StaticPageTitle } from './PageTitle';
+import { SEO } from './SEO';
 import { useAuth } from './AuthContext';
 import { SiteHeader } from './SiteHeader';
 
@@ -244,6 +245,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
 
   return (
     <>
+      <SEO
+        title="Pricing - AIrticle"
+        description="AIrticle fiyatlandırma: Ücretsiz başlangıçtan profesyonel planlara kadar içerik üretimini ölçekleyin."
+        path="/pricing"
+      />
       <StaticPageTitle pageName="Pricing" />
       <SiteHeader
         onNavigateToAuth={onNavigateToAuth}
