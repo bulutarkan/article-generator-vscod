@@ -4,7 +4,7 @@ import { BulkGenerationModal } from './BulkGenerationModal';
 import { generateSeoGeoArticle } from '../services/geminiService';
 import { webCrawlerService } from '../services/webCrawlerService';
 import { performContentAnalysis } from '../services/contentAnalyticsService';
-import { Loader } from './Loader';
+import { StepProgress } from './StepProgress';
 import { ContentAnalysisModal } from './ContentAnalysisModal';
 import { useAuth } from './AuthContext';
 import type { Article, ContentAnalysis } from '../types';
@@ -381,7 +381,7 @@ export const Generator: React.FC<GeneratorProps> = ({
 
   // Show loading only when auth is ready and we're actually loading
   if (effectiveIsLoading) {
-    return <Loader />;
+    return <StepProgress />;
   }
 
   return (
