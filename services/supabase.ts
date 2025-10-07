@@ -422,11 +422,11 @@ export const getCalendarEvents = async (): Promise<CalendarEvent[]> => {
 
   if (error) throw error;
 
-  return (data || []).map(event => ({
-    ...event,
-    start_date: new Date(event.start_date),
-    end_date: new Date(event.end_date),
-  }));
+  return (data || []).map(event => {
+    const start = new Date(event.start_date);
+    const end = event.end_date ? new Date(event.end_date) : new Date(event.start_date);
+    return { ...event, start_date: start, end_date: end } as any;
+  });
 };
 
 export const addCalendarEvent = async (event: Omit<CalendarEvent, 'id' | 'user_id'>): Promise<CalendarEvent> => {

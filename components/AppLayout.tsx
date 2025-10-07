@@ -8,6 +8,8 @@ import { Dashboard } from './Dashboard';
 import { ArticleDetail } from './ArticleDetail';
 import { AiAssistant } from './AiAssistant';
 import { ContentCalendar } from './ContentCalendar';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ProfilePage } from './ProfilePage';
 import { AdminPanel } from './AdminPanel';
 import { StatisticsPage } from './StatisticsPage';
@@ -323,7 +325,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <ContentCalendar onNavigateToArticle={handleViewArticle} />
+                    <DndProvider backend={HTML5Backend}>
+                      <ContentCalendar onNavigateToArticle={handleViewArticle} />
+                    </DndProvider>
                   </motion.div>
                 }
               />

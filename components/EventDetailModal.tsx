@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent, useRef } from 'react';
+import moment from 'moment';
 import { createPortal } from 'react-dom';
 import { CalendarEvent, CalendarEventStatus } from '../types';
 import { generateSeoGeoArticle } from '../services/geminiService';
@@ -37,6 +38,8 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onCl
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'event' | 'generate'>('event');
+  const [startDateStr, setStartDateStr] = useState<string>('');
+  const [endDateStr, setEndDateStr] = useState<string>('');
 
   // Generation form states
   const [tone, setTone] = useState<string>('Authoritative');
@@ -59,11 +62,18 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onCl
       setTitle(event.title || '');
       setStatus(event.status || 'planned');
       setNotes(event.notes || '');
+      const initStart = event.start_date ? moment(event.start_date).format('YYYY-MM-DD') : moment().format('YYYY-MM-DD');
+      const initEnd = event.end_date ? moment(event.end_date).format('YYYY-MM-DD') : initStart;
+      setStartDateStr(initStart);
+      setEndDateStr(initEnd);
     } else {
       // Reset for new event
       setTitle('');
       setStatus('planned');
       setNotes('');
+      const today = moment().format('YYYY-MM-DD');
+      setStartDateStr(today);
+      setEndDateStr(today);
     }
   }, [event]);
 
@@ -95,15 +105,21 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onCl
     try {
       if (event?.id) {
         // Update existing event
-        await onUpdate(event.id, { title, status, notes });
+        await onUpdate(event.id, {
+          title,
+          status,
+          notes,
+          start_date: moment(startDateStr, 'YYYY-MM-DD').toDate(),
+          end_date: moment(endDateStr, 'YYYY-MM-DD').toDate(),
+        });
       } else {
         // Create new event
         const newEvent: Omit<CalendarEvent, 'id' | 'user_id'> = {
           title,
           status,
           notes,
-          start_date: event?.start_date || new Date(),
-          end_date: event?.end_date || new Date(),
+          start_date: moment(startDateStr, 'YYYY-MM-DD').toDate(),
+          end_date: moment(endDateStr, 'YYYY-MM-DD').toDate(),
         };
         await onSave(newEvent);
       }
@@ -267,25 +283,47 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onCl
         {/* Content */}
         <div className="max-h-[70vh] overflow-y-auto p-6">
           {activeTab === 'event' ? (
-            /* Event Edit Tab */
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
+          /* Event Edit Tab */
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="title" className="block text-sm font-medium text-slate-300 mb-2">Topic</label>
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  required
+                  className="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-slate-300 mb-2">Topic</label>
+                  <label htmlFor="start-date" className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
                   <input
-                    id="title"
-                    type="text"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    required
+                    id="start-date"
+                    type="date"
+                    value={startDateStr}
+                    onChange={e => setStartDateStr(e.target.value)}
                     className="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="status" className="block text-sm font-medium text-slate-300 mb-2">Status</label>
-                  <select
-                    id="status"
-                    value={status}
+                  <label htmlFor="end-date" className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
+                  <input
+                    id="end-date"
+                    type="date"
+                    value={endDateStr}
+                    onChange={e => setEndDateStr(e.target.value)}
+                    className="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-slate-300 mb-2">Status</label>
+                <select
+                  id="status"
+                  value={status}
                     onChange={e => setStatus(e.target.value as CalendarEventStatus)}
                     className="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                   >
