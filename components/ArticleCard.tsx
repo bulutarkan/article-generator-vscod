@@ -39,13 +39,12 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onDelete, onV
     <motion.div
       onClick={() => onView(article.id)}
       className="cursor-pointer block h-full flex group bg-slate-800/70 p-5 rounded-xl border border-slate-700 transition-all duration-300 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 relative"
-      style={{ perspective: 1000, transformStyle: 'preserve-3d' as any }}
-      whileHover={prefersReducedMotion ? undefined : { y: -6, rotateX: 2, rotateY: -2 }}
+      whileHover={prefersReducedMotion ? undefined : { y: -6 }}
       whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 250, damping: 20, mass: 0.4 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onView(article.id); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ')     onView(article.id); }}
     >
       <div className="flex flex-col h-full overflow-hidden">
         <h3 className="text-lg font-bold text-slate-100 group-hover:text-indigo-300 transition-colors duration-300 leading-tight break-words">
