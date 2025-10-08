@@ -2205,7 +2205,7 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
 
   return (
     <>
-      <NavigationSlider />
+      {activeTab === 'article' && <NavigationSlider />}
       <div className="relative bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">
         <div className="mb-6">
           <div className="flex flex-col gap-4">
