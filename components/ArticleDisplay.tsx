@@ -191,6 +191,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dragHoverStart, setDragHoverStart] = useState<number | null>(null);
+  const dragSessionRef = React.useRef<{ handled: boolean } | null>(null);
   type RangeEntry = {
     index: number;
     start: number;
@@ -203,10 +204,10 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   };
   const paragraphRangesRef = React.useRef<Array<RangeEntry>>([]);
   paragraphRangesRef.current = [];
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactNode[] = [];
   let inFaqSection = false;
   let inList = false;
-  let currentListItems: JSX.Element[] = [];
+  let currentListItems: React.ReactNode[] = [];
   let currentFaq: { question: string; answer: string[] } | null = null;
   let currentFaqStart = -1;
   let currentFaqEnd = -1;
@@ -262,12 +263,45 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     // Adjust target index if source was before target
     let insertAt = targetStart;
     if (src.start < targetStart) insertAt = Math.max(0, targetStart - sliceLen);
-    const nextArr = [...arrWithout.slice(0, insertAt), ...slice, ...arrWithout.slice(insertAt)];
+    // Build insertion with safe blank-line separation to prevent paragraph merging
+    const beforeIns = arrWithout.slice(0, insertAt);
+    const afterIns = arrWithout.slice(insertAt);
+
+    const needsBlankBefore = beforeIns.length > 0 && beforeIns[beforeIns.length - 1].trim() !== '';
+    const needsBlankAfter = afterIns.length > 0 && afterIns[0].trim() !== '';
+
+    const segment: string[] = [];
+    if (needsBlankBefore) segment.push('');
+    segment.push(...slice);
+    if (needsBlankAfter) segment.push('');
+
+    // Compose and normalize excessive blank lines to max two
+    const nextArr = [...beforeIns, ...segment, ...afterIns];
+    for (let i = nextArr.length - 2; i >= 1; i--) {
+      if (nextArr[i] === '' && nextArr[i - 1] === '' && nextArr[i + 1] === '') {
+        nextArr.splice(i, 1);
+      }
+    }
     dragBlockRef.current = null;
+    dragSessionRef.current = null;
     setDragging(false);
     setDragHoverStart(null);
     persistContent(nextArr.join('\n'));
   };
+
+  async function deleteRange(start: number, end: number) {
+    const arr = content.split('\n');
+    const before = arr.slice(0, Math.max(0, start));
+    const after = arr.slice(Math.min(arr.length, end + 1));
+    // Ensure we don't leave 3+ blank lines when concatenating
+    const merged = [...before, ...after];
+    for (let i = merged.length - 2; i >= 1; i--) {
+      if (merged[i] === '' && merged[i - 1] === '' && merged[i + 1] === '') {
+        merged.splice(i, 1);
+      }
+    }
+    await persistContent(merged.join('\n'));
+  }
 
   const parseTableRow = (line: string): string[] => {
     // Remove leading/trailing | and split by |
@@ -290,7 +324,22 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     });
   };
 
-  const renderMarkdownTable = (headers: string[], rows: string[][]): JSX.Element => {
+  // Heading helpers for DnD boundaries
+  const headingLevel = (trimmed: string): number => {
+    const m = trimmed.match(/^(#{2,6})\s/);
+    return m ? m[1].length : 0;
+  };
+  const findHeadingEnd = (arr: string[], start: number, level: number): number => {
+    let end = arr.length - 1;
+    for (let j = start + 1; j < arr.length; j++) {
+      const t = arr[j].trim();
+      const lvl = headingLevel(t);
+      if (lvl > 0 && lvl <= level) { end = j - 1; break; }
+    }
+    return end;
+  };
+
+  const renderMarkdownTable = (headers: string[], rows: string[][]): React.ReactElement => {
     return (
       <div className="my-8">
         <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/30">
@@ -334,13 +383,17 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           key={`tablewrap-${elements.length}`}
           className="group relative"
           onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(tblStart); } }}
-          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(tblStart); }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(tblStart); }}
         >
           {dragging && dragHoverStart === tblStart && (
             <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
           )}
           {/* Drag handle + actions */}
-          <div className="absolute -top-4 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000] flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30">
+          <div
+            className="absolute -top-4 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000] flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30"
+            onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(tblStart); } }}
+            onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(tblStart); }}
+          >
             <button
               className={`text-xs px-2.5 py-1 rounded-full transition-colors ${busyIdx === blockIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
               onClick={(e) => { e.preventDefault(); handleQuickChange(blockIndex); }}
@@ -365,8 +418,19 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
             {/* Drag handle */}
             <div
               draggable
-              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: tblStart, end: tblEnd }; setDragging(true); setDragHoverStart(null); }}
-              onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+              onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: tblStart, end: tblEnd }; setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+              onDragEnd={() => {
+                // finalize move to last hovered target
+                const target = dragHoverStart;
+                if (target != null && dragBlockRef.current) {
+                  performMove(target);
+                } else {
+                  setDragging(false);
+                  setDragHoverStart(null);
+                  dragBlockRef.current = null;
+                  dragSessionRef.current = null;
+                }
+              }}
               className="ml-1 cursor-grab text-slate-400 hover:text-slate-200"
               title="Drag to move table"
             >
@@ -610,7 +674,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           key={`pwrap-${elements.length}`}
           className="group relative mb-4"
           onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(start); } }}
-          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(start); }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
         >
           {dragging && dragHoverStart === start && (
             <div className="h-5 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
@@ -618,7 +682,11 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           <p className="text-slate-300 leading-relaxed font-mono text-sm bg-slate-900/20 px-3 py-2 rounded-md border-l-2 border-indigo-500/30 animate-fade-in-stagger hover:bg-slate-900/30 transition-colors terminal-cursor ring-0 group-hover:ring-2 group-hover:ring-indigo-500/40">
             {renderWithBoldAndLinks(paragraphText)}
           </p>
-          <div className={`absolute -top-8 right-0 z-[1000] ${isControlsActive(myIndex) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+          <div
+            className={`absolute -top-8 right-0 z-[1000] ${isControlsActive(myIndex) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+            onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(start); } }}
+            onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+          >
             <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-md shadow px-2 py-1">
               <button
                 className={`text-xs px-2 py-1 rounded-md transition-colors ${busyIdx === myIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
@@ -630,8 +698,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
               <div
                 className="cursor-grab text-slate-400 hover:text-slate-200 px-1"
                 draggable
-                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start, end }; setDragging(true); setDragHoverStart(null); }}
-                onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start, end }; setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+                onDragEnd={() => {
+                  const target = dragHoverStart;
+                  if (target != null && dragBlockRef.current) {
+                    performMove(target);
+                  } else {
+                    setDragging(false);
+                    setDragHoverStart(null);
+                    dragBlockRef.current = null;
+                    dragSessionRef.current = null;
+                  }
+                }}
                 title="Drag paragraph"
               >
                 ⋮⋮
@@ -700,7 +778,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           key={`ulwrap-${elements.length}`}
           className="group relative mb-6"
           onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(startL); } }}
-          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(startL); }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(startL); }}
         >
           {dragging && dragHoverStart === startL && (
             <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
@@ -708,7 +786,11 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           <ul className="pl-0 space-y-1 text-slate-300">
             {currentListItems}
           </ul>
-          <div className="absolute -top-4 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000]">
+          <div
+            className="absolute -top-4 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000]"
+            onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(startL); } }}
+            onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(startL); }}
+          >
             <div className="flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30">
               <button
                 className={`text-xs px-2.5 py-1 rounded-full transition-colors ${busyIdx === blockIndex ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
@@ -742,8 +824,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
               <div
                 className="ml-1 cursor-grab text-slate-400 hover:text-slate-200"
                 draggable
-                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: startL, end: endL }; setDragging(true); setDragHoverStart(null); }}
-                onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: startL, end: endL }; setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+                onDragEnd={() => {
+                  const target = dragHoverStart;
+                  if (target != null && dragBlockRef.current) {
+                    performMove(target);
+                  } else {
+                    setDragging(false);
+                    setDragHoverStart(null);
+                    dragBlockRef.current = null;
+                    dragSessionRef.current = null;
+                  }
+                }}
                 title="Drag list block"
               >
                 ⋮⋮
@@ -774,17 +866,31 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
           key={`faq-${elements.length}`}
           className="relative group"
           onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(faqStart); } }}
-          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(faqStart); }}
+          onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(faqStart); }}
         >
           {dragging && dragHoverStart === faqStart && (
             <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
           )}
-          <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000] flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30">
+          <div
+            className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[1000] flex items-center gap-1 bg-slate-900/95 border border-slate-700 rounded-full shadow-lg px-2.5 py-1.5 backdrop-blur-sm ring-1 ring-indigo-400/30"
+            onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(faqStart); } }}
+            onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(faqStart); }}
+          >
             <div
               className="cursor-grab text-slate-400 hover:text-slate-200"
               draggable
               onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {} e.stopPropagation(); dragBlockRef.current = { start: faqStart, end: faqEnd }; setDragging(true); setDragHoverStart(null); }}
-              onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+              onDragEnd={() => {
+                const target = dragHoverStart;
+                if (target != null && dragBlockRef.current) {
+                  performMove(target);
+                } else {
+                  setDragging(false);
+                  setDragHoverStart(null);
+                  dragBlockRef.current = null;
+                  dragSessionRef.current = null;
+                }
+              }}
               title="Drag FAQ item"
             >
               ⋮⋮
@@ -909,70 +1015,234 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       }
     } else {
       // Developer-friendly content detection and callout creation
-      const content = trimmedLine.toLowerCase();
+      const lower = trimmedLine.toLowerCase();
 
-      if (trimmedLine.startsWith('##### ')) {
+      if (trimmedLine.startsWith('###### ')) {
         flushParagraph();
         flushList();
         flushTable();
-        elements.push(<h5 key={index} className="text-base font-semibold mt-4 mb-2 text-slate-200 flex items-center gap-2">
-          <span className="text-slate-500 text-xs">○</span>{renderWithBoldAndLinks(trimmedLine.substring(6))}
-        </h5>);
+        const arr = content.split('\n');
+        const start = index;
+        const end = findHeadingEnd(arr, start, 6);
+        elements.push(
+          <div key={`h6wrap-${index}`} className="relative group"
+               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(start); } }}
+               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+          >
+            {dragging && dragHoverStart === start && (
+              <div className="h-4 my-1 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+            )}
+            <div
+              className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1 flex items-center gap-1"
+              onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(start); } }}
+              onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+            >
+              <button
+                className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 6); deleteRange(s, eIdx); }}
+                aria-label="Delete H6 section"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+              <div
+                 className="cursor-grab"
+                 draggable
+                 onDragStart={(e) => { const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 6); dragBlockRef.current = { start: s, end: eIdx }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {}; e.stopPropagation(); setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+                 onDragEnd={() => { const target = dragHoverStart; if (target != null && dragBlockRef.current) { performMove(target); } else { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; dragSessionRef.current = null; } }}
+                 title="Drag this H6 section"
+              >⋮⋮</div>
+            </div>
+            <h6 className="text-sm font-semibold mt-3 mb-1 text-slate-200 flex items-center gap-2">
+              <span className="text-slate-500 text-xs">•</span>{renderWithBoldAndLinks(trimmedLine.substring(7))}
+            </h6>
+          </div>
+        );
+      } else if (trimmedLine.startsWith('##### ')) {
+        flushParagraph();
+        flushList();
+        flushTable();
+        const arr = content.split('\n');
+        const start = index;
+        const end = findHeadingEnd(arr, start, 5);
+        elements.push(
+          <div key={`h5wrap-${index}`} className="relative group"
+               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(start); } }}
+               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+          >
+            {dragging && dragHoverStart === start && (
+              <div className="h-5 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+            )}
+            <div
+              className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1 flex items-center gap-1"
+              onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(start); } }}
+              onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+            >
+              <button
+                className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 5); deleteRange(s, eIdx); }}
+                aria-label="Delete H5 section"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+              <div
+                 className="cursor-grab"
+                 draggable
+                 onDragStart={(e) => { const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 5); dragBlockRef.current = { start: s, end: eIdx }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {}; e.stopPropagation(); setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+                 onDragEnd={() => { const target = dragHoverStart; if (target != null && dragBlockRef.current) { performMove(target); } else { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; dragSessionRef.current = null; } }}
+                 title="Drag this H5 section"
+              >⋮⋮</div>
+            </div>
+            <h5 className="text-base font-semibold mt-4 mb-2 text-slate-200 flex items-center gap-2">
+              <span className="text-slate-500 text-xs">○</span>{renderWithBoldAndLinks(trimmedLine.substring(6))}
+            </h5>
+          </div>
+        );
       } else if (trimmedLine.startsWith('#### ')) {
         flushParagraph();
         flushList();
         flushTable();
         sectionCounter++;
-        elements.push(<h4 key={index} className="text-lg font-semibold mt-5 mb-3 text-slate-200 flex items-center gap-3 group animate-fade-in-stagger hover:translate-x-1 transition-transform cursor-default">
-          <span className="text-indigo-400 font-mono text-sm bg-indigo-500/20 px-2 py-1 rounded border border-indigo-500/30">{sectionCounter}</span>
-          {renderWithBoldAndLinks(trimmedLine.substring(5))}
-        </h4>);
+        const arr = content.split('\n');
+        const start = index;
+        const end = findHeadingEnd(arr, start, 4);
+        elements.push(
+          <div key={`h4wrap-${index}`} className="relative group"
+               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(start); } }}
+               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+          >
+            {dragging && dragHoverStart === start && (
+              <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+            )}
+            <div
+              className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1 flex items-center gap-1"
+              onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(start); } }}
+              onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(start); }}
+            >
+              <button
+                className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 4); deleteRange(s, eIdx); }}
+                aria-label="Delete H4 section"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+              <div
+                 className="cursor-grab"
+                 draggable
+                 onDragStart={(e) => { const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 4); dragBlockRef.current = { start: s, end: eIdx }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {}; e.stopPropagation(); setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+                 onDragEnd={() => { const target = dragHoverStart; if (target != null && dragBlockRef.current) { performMove(target); } else { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; dragSessionRef.current = null; } }}
+                 title="Drag this H4 section"
+              >⋮⋮</div>
+            </div>
+            <h4 className="text-lg font-semibold mt-5 mb-3 text-slate-200 flex items-center gap-3 group animate-fade-in-stagger hover:translate-x-1 transition-transform cursor-default">
+              <span className="text-indigo-400 font-mono text-sm bg-indigo-500/20 px-2 py-1 rounded border border-indigo-500/30">{sectionCounter}</span>
+              {renderWithBoldAndLinks(trimmedLine.substring(5))}
+            </h4>
+          </div>
+        );
       } else if (trimmedLine.startsWith('### ')) {
         flushParagraph();
         flushList();
         flushTable();
         sectionCounter++;
-        elements.push(<h3 key={index} className="text-xl font-bold mt-6 mb-4 text-slate-100 border-l-4 border-indigo-400 pl-4 bg-gradient-to-r from-indigo-500/5 to-transparent animate-fade-in-stagger hover:border-indigo-300 transition-colors">
-          <span className="inline-flex items-center gap-2">
-            <span className="text-indigo-400">▶</span>
-            {renderWithBoldAndLinks(trimmedLine.substring(4))}
-          </span>
-        </h3>);
+        const arr = content.split('\n');
+        const start = index;
+        const end = findHeadingEnd(arr, start, 3);
+        elements.push(
+          <div key={`h3wrap-${index}`} className="relative group"
+               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(start); } }}
+               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(index); }}
+          >
+            {dragging && dragHoverStart === start && (
+              <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
+            )}
+            <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1 flex items-center gap-1">
+              <button
+                className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 3); deleteRange(s, eIdx); }}
+                aria-label="Delete H3 section"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+              <div
+                 className="cursor-grab"
+                 draggable
+                 onDragStart={(e) => { const a = content.split('\n'); const s = start; const eIdx = findHeadingEnd(a, s, 3); dragBlockRef.current = { start: s, end: eIdx }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', 'move'); } catch {}; e.stopPropagation(); setDragging(true); setDragHoverStart(null); dragSessionRef.current = { handled: false }; }}
+                 onDragEnd={() => {
+                   const target = dragHoverStart;
+                   if (target != null && dragBlockRef.current) {
+                     performMove(target);
+                   } else {
+                     setDragging(false);
+                     setDragHoverStart(null);
+                     dragBlockRef.current = null;
+                     dragSessionRef.current = null;
+                   }
+                 }}
+                 title="Drag this H3 section"
+              >⋮⋮</div>
+            </div>
+            <h3 className="text-xl font-bold mt-6 mb-4 text-slate-100 border-l-4 border-indigo-400 pl-4 bg-gradient-to-r from-indigo-500/5 to-transparent animate-fade-in-stagger hover:border-indigo-300 transition-colors">
+              <span className="inline-flex items-center gap-2">
+                <span className="text-indigo-400">▶</span>
+                {renderWithBoldAndLinks(trimmedLine.substring(4))}
+              </span>
+            </h3>
+          </div>
+        );
       } else if (trimmedLine.startsWith('## ')) {
         flushParagraph();
         flushList();
         flushTable();
         sectionCounter++;
         // Drag-enabled H2 container
+        const h2Start = index;
+        const h2End = findHeadingEnd(content.split('\n'), h2Start, 2);
         elements.push(
           <div key={`h2wrap-${index}`} className="relative group"
-               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(index); } }}
-               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); performMove(index); }}
+               onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDragHoverStart(h2Start); } }}
+               onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(h2Start); }}
           >
-            {dragging && dragHoverStart === index && (
+            {dragging && dragHoverStart === h2Start && (
               <div className="h-6 my-2 rounded-md border-2 border-dashed border-indigo-500/60 bg-indigo-500/10" />
             )}
-            <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 cursor-grab bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1"
+            <div
+              className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 bg-slate-900/90 border border-slate-700 rounded-md px-2 py-1 flex items-center gap-1"
+              onDragOver={(e) => { if (dragBlockRef.current) { e.preventDefault(); e.stopPropagation(); setDragHoverStart(h2Start); } }}
+              onDrop={(e) => { if (!dragBlockRef.current) return; e.preventDefault(); e.stopPropagation(); if (dragSessionRef.current?.handled) return; dragSessionRef.current = { handled: true }; performMove(h2Start); }}
+            >
+              <button
+                className="p-1 rounded-full text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteRange(h2Start, h2End); }}
+                aria-label="Delete H2 section"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+              <div
+                 className="cursor-grab"
                  draggable
                  onDragStart={(e) => {
-                    // Determine bounds for this H2 section based on content
-                    const arr = content.split('\n');
-                    let start = index;
-                    let end = arr.length - 1;
-                    for (let j = index + 1; j < arr.length; j++) {
-                      const t = arr[j].trim();
-                      if (t.startsWith('## ')) { end = j - 1; break; }
-                    }
-                   dragBlockRef.current = { start, end };
+                   dragBlockRef.current = { start: h2Start, end: h2End };
                    e.dataTransfer.effectAllowed = 'move';
                    try { e.dataTransfer.setData('text/plain', 'move'); } catch {}
                    e.stopPropagation();
                    setDragging(true);
                    setDragHoverStart(null);
+                   dragSessionRef.current = { handled: false };
                   }}
-                 onDragEnd={() => { setDragging(false); setDragHoverStart(null); dragBlockRef.current = null; }}
+                 onDragEnd={() => {
+                   const target = dragHoverStart;
+                   if (target != null && dragBlockRef.current) {
+                     performMove(target);
+                   } else {
+                     setDragging(false);
+                     setDragHoverStart(null);
+                     dragBlockRef.current = null;
+                     dragSessionRef.current = null;
+                   }
+                 }}
                  title="Drag this section"
-            >⋮⋮</div>
+              >⋮⋮</div>
+            </div>
             <h2 className="text-2xl font-bold mt-10 mb-6 text-slate-100 pb-3 border-b-2 border-slate-700/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 px-4 -mx-4 animate-fade-in-stagger hover:border-slate-600/70 transition-colors">
               <span className="inline-flex items-center gap-3">
                 <span className="text-purple-400 text-3xl">✦</span>
@@ -981,7 +1251,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
             </h2>
           </div>
         );
-      } else if (content.includes('tip:') || content.includes('💡') || content.includes('pro tip')) {
+      } else if (lower.includes('tip:') || lower.includes('💡') || lower.includes('pro tip')) {
         // Extract tip content
         flushParagraph();
         flushList();
@@ -989,14 +1259,14 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
         elements.push(<CalloutBox key={index} type="tip">
           <span className="font-medium">{renderWithBoldAndLinks(trimmedLine)}</span>
         </CalloutBox>);
-      } else if (content.includes('important:') || content.includes('⚡') || content.includes('warning') || content.includes('note:')) {
+      } else if (lower.includes('important:') || lower.includes('⚡') || lower.includes('warning') || lower.includes('note:')) {
         flushParagraph();
         flushList();
         flushTable();
         elements.push(<CalloutBox key={index} type="important">
           <span className="font-medium">{renderWithBoldAndLinks(trimmedLine)}</span>
         </CalloutBox>);
-      } else if (content.includes('key point') || content.includes('🎯') || content.includes('key takeaway')) {
+      } else if (lower.includes('key point') || lower.includes('🎯') || lower.includes('key takeaway')) {
         flushParagraph();
         flushList();
         flushTable();
