@@ -17,6 +17,116 @@ import { updateArticle } from '../services/supabase';
 
 
 
+const ExtractHeadings = (content: string): Array<{id: string, text: string, level: number}> => {
+  const headings: Array<{id: string, text: string, level: number}> = [];
+  const lines = content.split('\n');
+  let headingIndex = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    const match = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (match && match[2].trim()) {
+      const level = match[1].length;
+      const text = match[2].trim();
+      headings.push({
+        id: `heading-${headingIndex}`,
+        text: text,
+        level: level
+      });
+      headingIndex++;
+    }
+  }
+  return headings;
+};
+
+const TOC: React.FC<{ headings: Array<{id: string, text: string, level: number}> }> = ({ headings }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const scrollToHeading = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Mobile'de scroll sonrası otomatik collapse
+      if (window.innerWidth < 768) {
+        setIsExpanded(false);
+      }
+    }
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const collapseIcon = '⋮⋮';
+
+  return (
+    <div className="sticky top-6 h-fit">
+      {/* Round purple button - top of TOC */}
+      <div className="flex flex-col items-center gap-4">
+        <button
+          onClick={scrollToTop}
+          className="w-12 h-12 bg-purple-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-purple-600 transition-all duration-200 hover:scale-105"
+          aria-label="Scroll to top"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </button>
+
+        {/* TOC toggle button for mobile */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="md:hidden w-12 h-12 bg-white/10 text-slate-300 rounded-full flex items-center justify-center shadow-lg hover:bg-white/20 transition-all duration-200 hover:scale-105"
+          aria-label="Toggle table of contents"
+        >
+          <span className="text-sm font-bold">{collapseIcon}</span>
+        </button>
+      </div>
+
+      {/* TOC content */}
+      <div className={`mt-4 w-56 bg-slate-800/70 backdrop-blur-sm p-4 rounded-lg border border-slate-700 shadow-xl ${isExpanded || window.innerWidth >= 768 ? 'block' : 'hidden md:block'}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-200">Table of Contents</h3>
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="md:hidden w-6 h-6 text-slate-400 hover:text-slate-200 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+            aria-label="Close TOC"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-600">
+          <ul className="space-y-1">
+            {headings.map((heading, index) => (
+              <li key={heading.id} className="text-sm hover:text-indigo-300 cursor-pointer transition-colors group">
+                <div
+                  className="flex items-start gap-2 py-1 px-2 rounded hover:bg-white/5 transition-colors"
+                  onClick={() => scrollToHeading(heading.id)}
+                >
+                  <span className="text-indigo-400 font-mono text-xs flex-shrink-0 mt-0.5">
+                    {heading.level}.
+                  </span>
+                  <span className="text-slate-300 group-hover:text-indigo-300 leading-tight flex-shrink-0" style={{ paddingLeft: `${(heading.level - 1) * 8}px` }}>
+                    {heading.text}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {headings.length === 0 && (
+          <div className="text-slate-400 text-sm text-center py-4">
+            No headings found
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const renderWithBoldAndLinks = (text: string): React.ReactNode => {
   if (!text) return null;
 
@@ -226,6 +336,7 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   let tableStartIndex = -1;
   let tableEndIndex = -1;
   let sectionCounter = 0;
+  let headingIndex = 0;
 
   // H2 section drag-and-drop helpers
   const sectionRangesRef = React.useRef<Array<{ id: number; start: number; end: number }>>([]);
@@ -1243,7 +1354,10 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                  title="Drag this section"
               >⋮⋮</div>
             </div>
-            <h2 className="text-2xl font-bold mt-10 mb-6 text-slate-100 pb-3 border-b-2 border-slate-700/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 px-4 -mx-4 animate-fade-in-stagger hover:border-slate-600/70 transition-colors">
+            <h2
+              id={`heading-${headingIndex++}`}
+              className="text-2xl font-bold mt-10 mb-6 text-slate-100 pb-3 border-b-2 border-slate-700/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 px-4 -mx-4 animate-fade-in-stagger hover:border-slate-600/70 transition-colors"
+            >
               <span className="inline-flex items-center gap-3">
                 <span className="text-purple-400 text-3xl">✦</span>
                 {renderWithBoldAndLinks(trimmedLine.substring(3))}
@@ -1725,6 +1839,208 @@ const ImageModal: React.FC<{
   );
 };
 
+const NavigationSlider: React.FC = () => {
+  const [headings, setHeadings] = useState<Array<{id: string, text: string, top: number, level: number}>>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const inactivityTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const SCROLLBAR_HEIGHT = 300;
+
+  // Activity management for fade out
+  const startInactivityTimer = () => {
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+    inactivityTimeoutRef.current = setTimeout(() => {
+      setIsVisible(false);
+    }, 1000); // 2 seconds
+  };
+
+  const resetActivity = () => {
+    setIsVisible(true);
+    startInactivityTimer();
+  };
+
+  // Event handlers for activity
+  const handleMouseEnter = () => resetActivity();
+  const handleMouseLeave = () => startInactivityTimer();
+  const handleScroll = () => resetActivity();
+
+  useEffect(() => {
+    // Find all headings and their positions
+    const updateHeadings = () => {
+      const headingElements = document.querySelectorAll('h2[id], h3[id]');
+      const headingPositions = Array.from(headingElements).map(el => {
+        const tagName = el.tagName.toLowerCase();
+        return {
+          id: el.id,
+          text: el.textContent || '',
+          top: el.getBoundingClientRect().top + window.scrollY,
+          level: tagName === 'h2' ? 2 : 3
+        };
+      });
+      setHeadings(headingPositions);
+    };
+
+    // Initial update and on resize
+    updateHeadings();
+    window.addEventListener('resize', updateHeadings);
+    return () => window.removeEventListener('resize', updateHeadings);
+  }, []);
+
+  // Snap to heading with proper positioning
+  const snapToHeading = (index: number) => {
+    if (headings[index]) {
+      // Position heading at top of viewport with small offset
+      const targetTop = Math.max(0, headings[index].top - 60); // 60px offset for header
+      window.scrollTo({ top: targetTop, behavior: 'smooth' });
+      setCurrentIndex(index);
+    }
+  };
+
+  // Find closest heading based on current scroll
+  const findClosestHeading = () => {
+    const scrollTop = window.scrollY;
+    if (headings.length === 0) return 0;
+
+    let closestIndex = 0;
+    let minDistance = Math.abs(headings[0].top - scrollTop);
+
+    for (let i = 1; i < headings.length; i++) {
+      const distance = Math.abs(headings[i].top - scrollTop);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+    return closestIndex;
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!isDragging) {
+        const closestIndex = findClosestHeading();
+        setCurrentIndex(closestIndex);
+      }
+      resetActivity();
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [headings, isDragging]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('mouseenter', handleMouseEnter);
+      container.addEventListener('mouseleave', handleMouseLeave);
+    }
+    return () => {
+      if (container) {
+        container.removeEventListener('mouseenter', handleMouseEnter);
+        container.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    resetActivity();
+    setIsDragging(true);
+    setDragStartY(e.clientY);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging || headings.length === 0) return;
+
+    const deltaY = e.clientY - dragStartY;
+    const sensitivity = 0.5; // Adjust sensitivity
+    const rawIndex = currentIndex + (deltaY * sensitivity) / 50;
+    const newIndex = Math.max(0, Math.min(headings.length - 1, Math.round(rawIndex)));
+
+    if (newIndex !== currentIndex) {
+      snapToHeading(newIndex);
+      setDragStartY(e.clientY); // Reset drag start to prevent stepping
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging]);
+
+  // Calculate positions for markers and thumb
+  const getThumbPosition = () => {
+    if (headings.length === 0) return 0;
+    const progress = currentIndex / Math.max(1, headings.length - 1);
+    return progress * SCROLLBAR_HEIGHT;
+  };
+
+  return createPortal(
+    <div
+      ref={containerRef}
+      className="fixed left-5 top-1/2 -translate-y-1/2 z-[9998] flex flex-col items-center transition-opacity duration-300"
+      style={{ opacity: isVisible ? 1 : 0 }}
+    >
+      {/* Vertical line with markers */}
+      <div className="relative h-96" style={{ height: `${SCROLLBAR_HEIGHT}px` }}>
+        {/* Markers for each heading */}
+        {headings.map((heading, index) => {
+          const isH2 = heading.level === 2;
+          const isActive = index === currentIndex;
+          const position = (index / Math.max(1, headings.length - 1)) * SCROLLBAR_HEIGHT;
+
+          return (
+            <div
+              key={`marker-${index}`}
+              className={`absolute w-4 h-0.5 cursor-pointer transition-all duration-200 ${
+                isH2 ? 'bg-purple-400' : 'bg-slate-400'
+              } ${isActive ? 'bg-purple-500 scale-110' : 'hover:bg-slate-300'}`}
+              style={{
+                opacity: 0.5,
+                height: '5px',
+                borderRadius: '20px',
+                left: isH2 ? '-8px' : '-4px',
+                width: isH2 ? '16px' : '8px',
+                top: `${position}px`,
+                transform: isActive ? 'scaleY(1.5)' : 'scaleY(1)'
+              }}
+              onClick={() => snapToHeading(index)}
+              title={heading.text}
+            />
+          );
+        })}
+
+        {/* Main vertical line */}
+        <div className="absolute left-0 top-0 w-px bg-slate-600 opacity-50" style={{ height: `${SCROLLBAR_HEIGHT}px` }} />
+
+        {/* Current position indicator (purple button) */}
+        <div
+          className="absolute -right-2 -top-3 w-4 h-4 bg-purple-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-all duration-200 hover:scale-110 active:scale-95 border border-white"
+          style={{ top: `${getThumbPosition() - 5}px` }}
+          onMouseDown={handleMouseDown}
+        />
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
   article,
   onMutateContent,
@@ -1743,6 +2059,9 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
   const [contentOverride, setContentOverride] = React.useState<string | null>(null);
   useEffect(() => { setContentOverride(null); }, [article.id]);
   const effectiveContent = contentOverride ?? article.articleContent;
+
+  // Extract headings for TOC
+  const headings = ExtractHeadings(effectiveContent);
 
   // Fetch images when Images tab is selected
   useEffect(() => {
@@ -1886,6 +2205,7 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
 
   return (
     <>
+      <NavigationSlider />
       <div className="relative bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">
         <div className="mb-6">
           <div className="flex flex-col gap-4">
