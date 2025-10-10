@@ -1,9 +1,10 @@
 {
   "name": "netlify-functions",
   "version": "1.0.0",
-  "description": "Netlify serverless functions for web crawling",
+  "description": "Netlify serverless functions for web crawling and image processing",
   "main": "crawl.js",
   "dependencies": {
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "sharp": "^0.33.3"
   }
 }
