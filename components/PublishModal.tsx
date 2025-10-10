@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { Article, UserIntegration } from '../types';
 import { getIntegrations } from '../services/supabase';
-import { publishToWordPress, publishToMedium, fetchWordPressCategories } from '../services/publishingService';
+import { publishToWordPress, publishToMedium, fetchWordPressCategories, fetchWordPressSettings } from '../services/publishingService';
 import { CheckIcon } from './icons/CheckIcon';
 import { ToggleSwitch } from './ToggleSwitch';
 
@@ -40,6 +42,11 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
   const [showEditFields, setShowEditFields] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
+  // WordPress Publishing Options
+  const [publishStatus, setPublishStatus] = useState<'draft' | 'publish' | 'future'>('draft');
+  const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+  const [wordpressTimezone, setWordpressTimezone] = useState<string>('');
+
   useEffect(() => {
     if (isOpen) {
       // Modal açıldığında body scroll'unu engelle
@@ -61,16 +68,22 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
           const data = await getIntegrations();
           setIntegrations(data || []);
 
-          // WordPress entegrasyonu varsa kategorileri yükle
+          // WordPress entegrasyonu varsa kategorileri ve timezone bilgisini yükle
           const wordpressIntegration = data?.find(int => int.provider === 'wordpress');
           if (wordpressIntegration) {
             setCategoriesLoading(true);
             try {
+              // WordPress timezone bilgisini çek
+              const wpSettings = await fetchWordPressSettings();
+              const timezoneDisplay = wpSettings.timezone_string || `UTC${wpSettings.gmt_offset >= 0 ? '+' : ''}${wpSettings.gmt_offset}`;
+              setWordpressTimezone(timezoneDisplay);
+
+              // Kategorileri yükle
               const cats = await fetchWordPressCategories();
               setCategories(cats);
             } catch (catError: any) {
-              console.warn('Failed to load WordPress categories:', catError);
-              // Kategoriler yüklenemezse devam et, zorunlu değil
+              console.warn('Failed to load WordPress data:', catError);
+              // Veri yüklenemezse devam et, zorunlu değil
             } finally {
               setCategoriesLoading(false);
             }
@@ -95,6 +108,12 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
   }, [isOpen, onClose]);
 
   const handlePublish = async (provider: 'wordpress' | 'medium') => {
+    // Validation for scheduled posts
+    if (provider === 'wordpress' && publishStatus === 'future' && !scheduledDate) {
+      setError('Please select a date and time for scheduling.');
+      return;
+    }
+
     setIsPublishing(provider);
     setError(null);
     setSuccess(null);
@@ -103,17 +122,31 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
       if (provider === 'wordpress') {
         // Use WebP if converted, otherwise original image
         const imageToUpload = enableFeaturedImage && (webpImage || selectedImage);
+
+        // Determine scheduled date for future posts
+        // scheduledDate comes as local timezone string from datetime-local input
+        const scheduledDateForApi = publishStatus === 'future' && scheduledDate
+          ? scheduledDate  // Keep as local timezone string
+          : undefined;
+
         result = await publishToWordPress(
           article,
           selectedCategory || undefined,
           imageToUpload || undefined,
           customAltText || undefined,
-          customTitle || undefined
+          customTitle || undefined,
+          publishStatus,
+          scheduledDateForApi
         );
       } else {
         result = await publishToMedium(article);
       }
-      setSuccess(`Successfully published to ${provider} as a draft!`);
+
+      // Dynamic success message based on status
+      const statusText = publishStatus === 'draft' ? 'as a draft'
+                         : publishStatus === 'publish' ? 'immediately'
+                         : publishStatus === 'future' ? 'scheduled' : 'as a draft';
+      setSuccess(`Successfully published to ${provider} ${statusText}!`);
       console.log('Publishing result:', result);
     } catch (e: any) {
       if (e.response && e.response.status === 401) {
@@ -235,10 +268,10 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors">&times;</button>
-        <h2 className="text-xl font-bold text-white mb-4">Publish Article</h2>
-        <p className="text-slate-400 mb-6">Choose a platform to publish "{article.title}" as a draft.</p>
+        <h2 className="text-lg font-semibold text-white mb-3">Publish Article</h2>
+        <p className="text-slate-500 text-sm mb-5">Choose a platform to publish <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">{article.title}</span> as your choice below.</p>
 
-        {isLoading && <div className="text-center text-slate-300">Loading integrations...</div>}
+        {isLoading && <div className="text-center text-slate-300 text-sm">Loading integrations...</div>}
         
         <div className="space-y-4">
           {integrations
@@ -248,6 +281,81 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
                 // WordPress için kategori seçimi ve featured image ile birlikte göster
                 return (
                   <div key={int.id} className="space-y-4">
+                    {/* Publishing Options */}
+                    <div>
+                      <label className="block text-xs text-slate-400/70 mb-2 font-medium">Publishing Options</label>
+                      <div className="space-y-2">
+                        {/* Status Radio Buttons */}
+                        <div className="flex flex-col space-y-1.5">
+                          <label className="flex items-center space-x-2 cursor-pointer group">
+                            <input
+                              type="radio"
+                              name="publishStatus"
+                              value="draft"
+                              checked={publishStatus === 'draft'}
+                              onChange={(e) => setPublishStatus(e.target.value as 'draft')}
+                              className="sr-only peer"
+                            />
+                            <div className="w-4 h-4 rounded-full border-2 border-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 peer-focus:ring-2 peer-focus:ring-indigo-500/20 transition-all duration-200"></div>
+                            <span className="text-xs text-slate-400 peer-checked:text-slate-200 font-medium">Draft</span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer group">
+                            <input
+                              type="radio"
+                              name="publishStatus"
+                              value="publish"
+                              checked={publishStatus === 'publish'}
+                              onChange={(e) => setPublishStatus(e.target.value as 'publish')}
+                              className="sr-only peer"
+                            />
+                            <div className="w-4 h-4 rounded-full border-2 border-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 peer-focus:ring-2 peer-focus:ring-indigo-500/20 transition-all duration-200"></div>
+                            <span className="text-xs text-slate-400 peer-checked:text-slate-200 font-medium">Publish Now</span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer group">
+                            <input
+                              type="radio"
+                              name="publishStatus"
+                              value="future"
+                              checked={publishStatus === 'future'}
+                              onChange={(e) => setPublishStatus(e.target.value as 'future')}
+                              className="sr-only peer"
+                            />
+                            <div className="w-4 h-4 rounded-full border-2 border-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 peer-focus:ring-2 peer-focus:ring-indigo-500/20 transition-all duration-200"></div>
+                            <span className="text-xs text-slate-400 peer-checked:text-slate-200 font-medium">Schedule</span>
+                          </label>
+                        </div>
+
+                        {/* Scheduled Date/Time Picker - only shown when "future" is selected */}
+                        {publishStatus === 'future' && (
+                          <div className="space-y-2">
+                            <label className="block text-xs text-slate-400/80 font-medium">
+                              Schedule Date & Time {wordpressTimezone && `(WordPress: ${wordpressTimezone})`}
+                            </label>
+                            <div className="w-full">
+                              <DatePicker
+                                selected={scheduledDate}
+                                onChange={(date: Date | null) => {
+                                  setScheduledDate(date);
+                                  // Clear any previous errors when user changes date
+                                  if (error) setError(null);
+                                }}
+                                showTimeSelect
+                                timeFormat="hh:mm aa"
+                                timeIntervals={15}
+                                dateFormat="MMM d, yyyy h:mm aa"
+                                minDate={new Date()}
+                                className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                placeholderText="Select date and time"
+                              />
+                            </div>
+                            <p className="text-xs text-slate-500/80">
+                              Times shown in your local timezone. It will be converted to your Wordpress timezone for scheduling. Cannot select past dates.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Featured Image Toggle */}
                     <div className="flex items-center space-x-3">
                       <ToggleSwitch
@@ -255,7 +363,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
                         checked={enableFeaturedImage}
                         onChange={setEnableFeaturedImage}
                       />
-                      <label htmlFor="enableFeaturedImage" className="text-sm font-medium text-slate-300 cursor-pointer">
+                      <label htmlFor="enableFeaturedImage" className="text-xs font-medium text-slate-300 cursor-pointer">
                         Add Featured Image to WordPress Post
                       </label>
                     </div>
@@ -279,7 +387,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
                             <svg className="w-8 h-8 text-slate-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <p className="text-slate-400 text-sm">Click to select or drag & drop image</p>
+                            <p className="text-slate-400 text-xs">Click to select or drag & drop image</p>
                             <p className="text-slate-500 text-xs mt-1">JPEG, PNG, BMP, TIFF, GIF supported - will be converted to WebP</p>
                             <input
                               id={`file-input-${int.id}`}
@@ -328,7 +436,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
                                 checked={showEditFields}
                                 onChange={setShowEditFields}
                               />
-                              <label htmlFor={`showEditFields-${int.id}`} className="text-sm font-medium text-slate-300 cursor-pointer">
+                              <label htmlFor={`showEditFields-${int.id}`} className="text-xs font-medium text-slate-300 cursor-pointer">
                                 Edit Alt Text & Title
                               </label>
                             </div>
@@ -336,22 +444,22 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
                             {showEditFields && (
                               <div className="grid gap-3">
                                 <div>
-                                  <label className="block text-sm text-slate-300 mb-1">Alt Text (SEO)</label>
+                                  <label className="block text-xs text-slate-300 mb-1">Alt Text (SEO)</label>
                                   <input
                                     type="text"
                                     value={customAltText}
                                     onChange={(e) => setCustomAltText(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
                                     placeholder="Describe the image for accessibility and SEO"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm text-slate-300 mb-1">Image Title</label>
+                                  <label className="block text-xs text-slate-300 mb-1">Image Title</label>
                                   <input
                                     type="text"
                                     value={customTitle}
                                     onChange={(e) => setCustomTitle(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
                                     placeholder="Title for the image"
                                   />
                                 </div>
@@ -364,12 +472,12 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
 
                     {/* Category Selection */}
                     <div>
-                      <label className="block text-sm text-slate-300 mb-2">WordPress Category</label>
+                      <label className="block text-xs text-slate-300 mb-2 font-medium">WordPress Category</label>
                       <div className="relative">
                         <button
                           type="button"
                           onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
-                          className="relative w-full cursor-default rounded-md bg-slate-900/80 border border-slate-700 py-2 pl-3 pr-10 text-left text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm transition-all duration-300"
+                          className="relative w-full cursor-default rounded-md bg-slate-900/80 border border-slate-700 py-2 pl-3 pr-10 text-left text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-xs transition-all duration-300"
                           disabled={isPublishing !== null}
                         >
                           <span className="block truncate">
@@ -424,7 +532,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({ isOpen, onClose, art
                     <button
                       onClick={() => handlePublish(int.provider)}
                       disabled={isPublishing !== null}
-                      className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors disabled:bg-indigo-500/50 disabled:cursor-wait"
+                      className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors disabled:bg-indigo-500/50 disabled:cursor-wait text-sm"
                     >
                       {isPublishing === int.provider ? `Publishing to ${int.provider}...` : `Publish to ${int.provider}`}
                     </button>

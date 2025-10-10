@@ -2,6 +2,7 @@ import { Article, UserIntegration, WordPressCredentials, MediumCredentials } fro
 import { getIntegrations } from './supabase';
 import axios from 'axios';
 import { convertMarkdownToHtml } from './markdownToHtml';
+import moment from 'moment-timezone';
 
 interface WordPressCategory {
   id: number;
@@ -43,6 +44,32 @@ export const fetchWordPressCategories = async (): Promise<WordPressCategory[]> =
       slug: cat.slug,
       count: cat.count
     }));
+};
+
+export interface WordPressSettings {
+  timezone_string: string;
+  gmt_offset: number;
+}
+
+export const fetchWordPressSettings = async (): Promise<WordPressSettings> => {
+  const integration = await getIntegrationForProvider('wordpress');
+  const credentials = integration.credentials as WordPressCredentials;
+
+  const url = `${credentials.url}/wp-json/wp/v2/settings`;
+
+  const token = btoa(`${credentials.username}:${credentials.password}`);
+
+  const { data } = await axios.get(url, {
+    headers: {
+      'Authorization': `Basic ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  return {
+    timezone_string: data.timezone_string || 'UTC',
+    gmt_offset: data.gmt_offset || 0
+  };
 };
 
 // Convert image to WebP format using Sharp via Netlify function
@@ -165,7 +192,9 @@ export const publishToWordPress = async (
   categoryId?: number,
   featuredImage?: File,
   customAltText?: string,
-  customTitle?: string
+  customTitle?: string,
+  status: 'draft' | 'publish' | 'future' = 'draft',
+  scheduledDate?: string // ISO string in local timezone
 ): Promise<any> => {
   const integration = await getIntegrationForProvider('wordpress');
   const credentials = integration.credentials as WordPressCredentials;
@@ -200,7 +229,7 @@ export const publishToWordPress = async (
     content: htmlContent,
     // Use generated meta description as the WordPress Excerpt
     excerpt: (article.metaDescription || article.excerpt || '').trim(),
-    status: 'draft' // Or 'publish'
+    status: status
   };
 
   // Add category if selected
@@ -213,12 +242,66 @@ export const publishToWordPress = async (
     postData.featured_media = featuredMediaId;
   }
 
+  // Add scheduled date if provided and status is 'future'
+  if (status === 'future' && scheduledDate) {
+    try {
+      console.log('🔄 Starting scheduled date processing...');
+      console.log('📅 Scheduled date input:', scheduledDate);
+
+      // Validate that the scheduled date is in the future (now + 1 minute buffer)
+      // Note: scheduledDate comes as ISO string from React DatePicker in local timezone
+      const scheduledDateObj = new Date(scheduledDate);
+      const now = new Date();
+      const oneMinuteFromNow = new Date(now.getTime() + 60 * 1000); // 1 minute in milliseconds
+
+      if (scheduledDateObj < oneMinuteFromNow) {
+        console.log('❌ Selected time is in the past. Scheduled:', scheduledDateObj.toString(), 'Now + 1min:', oneMinuteFromNow.toString());
+        throw new Error('Scheduled date must be at least 1 minute in the future');
+      }
+
+      // Fetch WordPress timezone settings
+      const wpSettings = await fetchWordPressSettings();
+      const wpTimezone = wpSettings.timezone_string || `Etc/GMT${wpSettings.gmt_offset >= 0 ? '-' : '+'}${Math.abs(wpSettings.gmt_offset)}`;
+
+      console.log('🌍 WordPress timezone settings:', wpSettings);
+      console.log('🌍 Resolved WP timezone:', wpTimezone);
+
+      // datetime-local from browser is in user's local timezone as ISO string
+      // moment(scheduledDate) parses this correctly as local time
+      const localMoment = moment(scheduledDate);
+      console.log('📅 Local moment (user timezone):', localMoment.format());
+
+      // Convert to WordPress timezone using moment-timezone
+      const wpMoment = localMoment.clone().tz(wpTimezone);
+      console.log('📅 WordPress moment (WP timezone):', wpMoment.format());
+      console.log('📅 WordPress moment is valid future:', wpMoment.isAfter(now));
+
+      // Format for WordPress API (YYYY-MM-DDTHH:mm:ss)
+      postData.date = wpMoment.format('YYYY-MM-DDTHH:mm:ss');
+      console.log('✅ Final WordPress API date parameter:', postData.date);
+
+    } catch (error) {
+      console.error('❌ Scheduled date processing failed:', error);
+      throw new Error(`Scheduled date processing failed: ${error.message}`);
+    }
+  }
+
+  console.log('📤 Sending to WordPress API:', {
+    url: url,
+    postData: postData,
+    status: status,
+    categoryId: categoryId,
+    has_featured_media: !!featuredMediaId
+  });
+
   const { data } = await axios.post(url, postData, {
     headers: {
       'Authorization': `Basic ${token}`,
       'Content-Type': 'application/json'
     }
   });
+
+  console.log('✅ WordPress API Response:', data);
 
   return data;
 };
