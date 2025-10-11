@@ -43,7 +43,10 @@ interface ArticleFormProps {
   handleCrawlWebsite: () => Promise<void>;
   handleKeywordToggle: (keyword: string) => void;
   crawlingError: string | null;
-
+  // Research Mode props
+  onResearchMode?: () => void;
+  isResearching?: boolean;
+  researchError?: string | null;
 }
 
 export const ArticleForm: React.FC<ArticleFormProps> = ({
@@ -70,6 +73,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({
   handleCrawlWebsite,
   handleKeywordToggle,
   crawlingError,
+  // Research Mode props
+  onResearchMode,
+  isResearching,
+  researchError,
 }) => {
   // Initialize contenteditable with existing brief content
   useEffect(() => {
@@ -1202,6 +1209,25 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
                 Listening...
               </span>
             )}
+            {onResearchMode && (
+              <button
+                type="button"
+                onClick={onResearchMode}
+                disabled={isResearching}
+                className={`inline-flex items-center px-3 py-1.5 rounded-md border transition-colors text-xs ${
+                  isResearching
+                    ? 'bg-indigo-600/50 border-indigo-600/60 text-indigo-300'
+                    : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500 hover:border-indigo-500'
+                }`}
+                title={'Research Mode (SERP)'}
+                aria-label="Research Mode"
+              >
+                <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {isResearching ? 'Researching...' : 'Research'}
+              </button>
+            )}
             {/* Compact Attachment Button */}
             <div className="relative">
               <input
@@ -1412,6 +1438,10 @@ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
         {speechError && (
           <p className="text-xs text-red-400 mt-1">{speechError}</p>
+        )}
+
+        {researchError && (
+          <p className="text-xs text-red-400 mt-1">{researchError}</p>
         )}
 
         {/* Hint message for DOCX @ reference feature */}

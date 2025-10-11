@@ -123,6 +123,83 @@ Output must be valid JSON matching the provided schema, without any extra commen
   return { summary: (content || '').split(/(?<=[.!?])\s+/).slice(0, 2).join(' '), insights: [] };
 }
 
+// --- Build a detailed brief from a single SERP competitor ---
+export async function generateBriefFromSerp(input: {
+  query: string;
+  competitor: { url: string; title: string; h2: string[]; h3: string[]; entities: string[] };
+  commonHeadings?: string[];
+  contentGaps?: string[];
+  selected?: string[]; // user-selected headings
+}): Promise<string> {
+  const { query, competitor, commonHeadings = [], contentGaps = [], selected = [] } = input;
+  const systemInstruction = `You are an expert content strategist inside an article generator app.
+Create a clear, actionable content brief that the generator can follow.
+Keep it concise but specific. Use markdown H2/H3 markers for the suggested outline.
+Avoid fluff; prefer concrete bullets and verifiable, generic statements. Do not fabricate facts.`;
+
+  // Prepare compact lists to reduce token usage
+  const h2 = Array.from(new Set(competitor.h2 || [])).slice(0, 24);
+  const h3 = Array.from(new Set(competitor.h3 || [])).slice(0, 36);
+  const ents = Array.from(new Set(competitor.entities || [])).slice(0, 24);
+  const sel = Array.from(new Set(selected || [])).slice(0, 40);
+
+  const prompt = [
+    `Topic: ${query}`,
+    `Source Title: ${competitor.title}`,
+    `Source URL: ${competitor.url}`,
+    '',
+    'Source H2:',
+    ...h2.map(s => `- ${s}`),
+    '',
+    'Source H3:',
+    ...h3.map(s => `- ${s}`),
+    '',
+    ents.length ? `Entities from source: ${ents.join(', ')}` : '',
+    sel.length ? `User-selected headings to prioritize: ${sel.join(' | ')}` : '',
+    commonHeadings.length ? `Common headings across competitors: ${commonHeadings.slice(0, 12).join(' | ')}` : '',
+    contentGaps.length ? `Potential gaps to address: ${contentGaps.join(', ')}` : '',
+    '',
+    '— Task —',
+    '1) Propose an optimal outline as markdown using only H2 and H3. Keep it tight (8–14 H2s max).',
+    '2) For each H2, add 2–4 concise bullets (talking points).',
+    '3) Provide a short brief header (Goal, Audience, Angle).',
+    '4) Include a compact SEO checklist: primary/secondary keywords, internal linking hints, FAQs (3–5).',
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'text/plain'
+      }
+    });
+    return (res.text || '').trim();
+  } catch (e) {
+    // Fallback to a deterministic brief template
+    const outline = [
+      'Goal: Create a comprehensive, trustworthy article that helps the reader understand and decide.\n',
+      'Audience: Searchers interested in the topic; informational and commercial intent.\n',
+      'Angle: Clear, neutral, practical guidance.\n',
+      'Suggested Outline (edit as needed):',
+      ...h2.slice(0, 10).map(h => `## ${h}`),
+      ...h3.slice(0, 10).map(h => `### ${h}`),
+      '',
+      ents.length ? `Mention relevant entities: ${ents.join(', ')}` : '',
+      contentGaps.length ? `Cover potential gaps: ${contentGaps.join(', ')}` : '',
+      '',
+      'SEO Checklist:',
+      '- Add internal links to relevant pages.',
+      '- Write descriptive meta title and description.',
+      '- Use clear H2/H3 structure and short paragraphs.',
+      '- Add 1–2 tables or lists where helpful.',
+      '- Include 3–5 FAQs at the end.'
+    ].filter(Boolean).join('\n');
+    return outline;
+  }
+}
+
 export async function rewriteParagraphWithPrompt(input: {
   paragraph: string;
   userPrompt: string;

@@ -6,6 +6,7 @@ import { webCrawlerService } from '../services/webCrawlerService';
 import { performContentAnalysis } from '../services/contentAnalyticsService';
 import { StepProgress } from './StepProgress';
 import { ContentAnalysisModal } from './ContentAnalysisModal';
+import { ResearchModal } from './ResearchModal';
 import { useAuth } from './AuthContext';
 import type { Article, ContentAnalysis } from '../types';
 import { CreditCardIcon } from './icons/CreditCardIcon';
@@ -197,6 +198,31 @@ export const Generator: React.FC<GeneratorProps> = ({
     }
   }, [topic, location]);
 
+  // Research Mode (SERP) state
+  const [isResearching, setIsResearching] = useState(false);
+  const [researchError, setResearchError] = useState<string | null>(null);
+  const [showResearchModal, setShowResearchModal] = useState(false);
+  const [researchData, setResearchData] = useState<any>(null);
+
+  const handleResearchMode = useCallback(async () => {
+    if (!topic.trim() || !location.trim()) {
+      setResearchError('Please provide both topic and location for research.');
+      return;
+    }
+    setIsResearching(true);
+    setResearchError(null);
+    try {
+      const data = await webCrawlerService.researchCompetitors(topic, location, 8);
+      setResearchData(data);
+      setShowResearchModal(true);
+    } catch (e: any) {
+      console.error('Research failed:', e);
+      setResearchError(e?.message || 'Research failed.');
+    } finally {
+      setIsResearching(false);
+    }
+  }, [topic, location]);
+
   const handleAnalysisComplete = useCallback(() => {
     setShowAnalysisModal(false);
     // Analysis tamamlandıktan sonra generation'a geç
@@ -351,13 +377,15 @@ export const Generator: React.FC<GeneratorProps> = ({
 
     setIsCrawling(true);
     setCrawlingError(null);
-    setSuggestedKeywords([]);
-    setSelectedKeywords([]);
 
     try {
       const { keywords } = await webCrawlerService.getSuggestedKeywords(websiteUrl, topic);
-      setSuggestedKeywords(keywords.map(k => ({ keyword: k, selected: true })));
-      setSelectedKeywords(keywords);
+      setSuggestedKeywords(prev => {
+        const existingManual = prev.filter(sk => !keywords.includes(sk.keyword));
+        const newFromCrawl = keywords.map(k => ({ keyword: k, selected: true }));
+        return existingManual.concat(newFromCrawl);
+      });
+      setSelectedKeywords(prev => Array.from(new Set([...prev, ...keywords])));
     } catch (e: any) {
       console.error('Web crawling for keywords failed:', e);
       setCrawlingError(e.message || 'Failed to crawl website for keywords.');
@@ -482,6 +510,9 @@ export const Generator: React.FC<GeneratorProps> = ({
         handleCrawlWebsite={handleCrawlWebsite}
         handleKeywordToggle={handleKeywordToggle}
         crawlingError={crawlingError}
+        onResearchMode={handleResearchMode}
+        isResearching={isResearching}
+        researchError={researchError}
       />
 
       {/* Bulk Generation Section */}
@@ -632,6 +663,37 @@ export const Generator: React.FC<GeneratorProps> = ({
         isOpen={showBulkModal}
         onClose={() => setShowBulkModal(false)}
       />
+
+      {/* Research Modal */}
+      {showResearchModal && researchData && (
+        <ResearchModal
+          isOpen={showResearchModal}
+          onClose={() => setShowResearchModal(false)}
+          data={researchData}
+          onAddToOutline={(outline) => {
+            // Append outline into brief so generation will use it
+            setBrief(prev => `${prev ? prev + '\n\n' : ''}${outline}`);
+          }}
+          onAddKeywords={(kws) => {
+            const clean = Array.from(new Set((kws || []).map(k => k.toString().trim()).filter(Boolean)));
+            if (clean.length === 0) return;
+            setSelectedKeywords(prev => Array.from(new Set([...prev, ...clean])));
+            setSuggestedKeywords(prev => {
+              const indexMap = new Map(prev.map((p, i) => [p.keyword, i] as const));
+              const out = [...prev];
+              clean.forEach(k => {
+                if (indexMap.has(k)) {
+                  const i = indexMap.get(k)!;
+                  out[i] = { ...out[i], selected: true };
+                } else {
+                  out.push({ keyword: k, selected: true });
+                }
+              });
+              return out.slice(0, 50);
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

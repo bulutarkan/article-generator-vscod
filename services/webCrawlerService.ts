@@ -25,6 +25,41 @@ export class WebCrawlerService {
     });
   }
 
+  // SERP + competitor research (DuckDuckGo + page fetch via Netlify function)
+  async researchCompetitors(topic: string, location: string, topN: number = 8): Promise<{
+    query: string;
+    serpResults: Array<{ url: string; title: string; snippet?: string }>;
+    competitors: Array<{ url: string; title: string; h2: string[]; h3: string[]; entities: string[] }>;
+    commonHeadings: string[];
+    commonEntities: string[];
+    suggestedOutline: string[]; // '## H2 ...' lines
+    contentGaps: string[];
+    generatedAt: string;
+  }> {
+    if (!topic?.trim() || !location?.trim()) {
+      throw new Error('Topic and location are required for research.');
+    }
+    const q = `${topic} ${location}`.trim();
+    // Simple locale heuristic
+    let lang = 'tr-tr';
+    const locLower = location.toLowerCase();
+    if (locLower.includes('united kingdom') || locLower.includes('uk') || locLower.includes('england') || locLower.includes('london')) lang = 'en-gb';
+    else if (locLower.includes('united states') || locLower.includes('usa') || locLower.includes('us')) lang = 'en-us';
+    else if (locLower.includes('germany') || locLower.includes('deutschland')) lang = 'de-de';
+    else if (locLower.includes('france')) lang = 'fr-fr';
+    else if (locLower.includes('netherlands')) lang = 'nl-nl';
+    const params = new URLSearchParams({ q, topN: String(Math.max(1, Math.min(10, topN))), lang });
+    const endpoint = `/.netlify/functions/serp-competitors?${params.toString()}`;
+
+    const res = await fetch(endpoint, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Research API failed (${res.status}): ${text}`);
+    }
+    const data = await res.json();
+    return data;
+  }
+
   // Get structured internal link suggestions for quick inline insertion
   async getInternalLinkSuggestions(websiteUrl: string, topic: string): Promise<Array<{ url: string; title: string }>> {
     const { internalLinksContext } = await this.getSuggestedKeywords(websiteUrl, topic);

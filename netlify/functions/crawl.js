@@ -33,8 +33,9 @@ exports.handler = async (event) => {
     // 1. ANAHTAR KELİME ARAMA (İçerik zenginleştirme için)
     console.log('🔍 Extracting keyword context...');
     const topicKeywords = extractKeywords(topic);
+    const importantTopicWords = extractImportantWords(topic);
     const textContent = extractTextFromHTML(htmlText);
-    const relevantKeywords = findRelevantKeywords(textContent, topicKeywords);
+    const relevantKeywords = findRelevantKeywords(textContent, topicKeywords, importantTopicWords);
 
     // 2. INTERNAL LINKING (SEO için)
     console.log('🔗 Finding all internal links...');
@@ -117,6 +118,13 @@ function extractTextFromHTML(htmlText) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Extract important words from topic (key non-stop words)
+function extractImportantWords(topic) {
+  const topicLower = topic.toLowerCase();
+  const baseWords = topicLower.split(/\s+/).filter(word => word.length > 2 && !isStopWord(word));
+  return baseWords.map(word => word.replace(/[^\w]/g, ''));
 }
 
 // Extract keywords from topic (improved for higher relevance and more dynamic N-gram generation)
@@ -207,112 +215,53 @@ function extractKeywords(topic) {
   return Array.from(generatedKeywords).filter(word => word.length > 2 && !/^\d+$/.test(word));
 }
 
-// Find relevant keywords in content - heavily prioritize topic-related phrases and filter irrelevant terms
-function findRelevantKeywords(textContent, topicKeywords) {
-  const relevantKeywords = new Map(); // Use a Map to store keywords and their scores
-  const textLower = textContent.toLowerCase();
+// Extract content keywords using 2-4 n-grams approach like serp-competitors.js
+function findRelevantKeywords(textContent, topicKeywords, importantTopicWords) {
+  const words = textContent.toLowerCase()
+    .match(/\b[a-z0-9ğüşöçıİğüşöçı]{3,}\b/g) || [];
+  const ngrams = new Map();
 
-  // Create a base relevance score for each topic keyword based on its length (longer phrases get higher base score)
-  const topicKeywordScores = new Map();
-  topicKeywords.forEach(kw => {
-    topicKeywordScores.set(kw, kw.split(' ').length * 1000); // Significantly increased base score for phrases
-  });
-
-  // First pass: Find and score all topic-generated keywords present in the content
-  // Sort topicKeywords by length in descending order to prioritize longer phrases
-  const sortedTopicKeywords = [...topicKeywords].sort((a, b) => b.length - a.length);
-
-  for (const keyword of sortedTopicKeywords) {
-    if (textLower.includes(keyword)) {
-      let currentScore = relevantKeywords.get(keyword) || 0;
-      relevantKeywords.set(keyword, currentScore + (topicKeywordScores.get(keyword) || 500)); // Add base score, higher default
-    }
-  }
-
-  // Second pass: Add top single words from the content, but with very strict relevance checks
-  const wordsInContent = textLower.match(/\b\w{3,}\b/g) || [];
-  const wordFrequency = new Map();
-  wordsInContent.forEach(word => {
-    if (!isStopWord(word) && !/^\d+$/.test(word)) {
-      wordFrequency.set(word, (wordFrequency.get(word) || 0) + 1);
-    }
-  });
-
-  // Define a very strict list of general terms to filter out if they are not part of a relevant phrase
-  const strictGeneralTermsToFilter = new Set([
-    'medical', 'international', 'turkey', 'hospital', 'clinic', 'surgery', 'health', 'treatment', 'procedure', 'operation', 'doctor',
-    'best', 'cost', 'types', 'benefits', 'recovery', 'options', 'tourism', 'travel', 'packages', 'guide', 'review', 'top', 'latest',
-    'september', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'october', 'november', 'december',
-    'and', 'or', 'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'from', 'with', 'for', 'about', 'just', 'only', 'also', 'more', 'less', 'very', 'much', 'many', 'few', 'some', 'any', 'all', 'none', 'every', 'each', 'other', 'another', 'such', 'what', 'where', 'when', 'why', 'how', 'who', 'whom', 'whose', 'which', 'wherever', 'whenever', 'whatever', 'whoever', 'whomever', 'whichever',
-    'contact', 'privacy', 'blog', 'home', 'about', 'service', 'services', 'solution', 'solutions', 'product', 'products', 'team', 'company', 'get', 'find', 'learn', 'read', 'click', 'here', 'more', 'info', 'information', 'page', 'site', 'website', 'online', 'new', 'old', 'good', 'bad', 'great', 'small', 'large', 'high', 'low', 'first', 'last', 'next', 'previous', 'today', 'tomorrow', 'yesterday', 'day', 'week', 'month', 'year', 'time', 'years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'email', 'phone', 'address' // Expanded common noise words
-  ]);
-
-  wordFrequency.forEach((freq, word) => {
-    // Check if the word is part of an already found multi-word relevant phrase
-    let isPartOfRelevantPhrase = false;
-    for (const relevantPhrase of relevantKeywords.keys()) {
-      if (relevantPhrase.split(' ').length > 1 && relevantPhrase.includes(word)) {
-        isPartOfRelevantPhrase = true;
-        break;
+  // Extract 2-gram, 3-gram and 4-gram (no single words)
+  for (let i = 0; i < words.length - 1; i++) {
+    if (!isStopWord(words[i]) && !isStopWord(words[i+1])) {
+      const bigram = `${words[i]} ${words[i+1]}`;
+      // Strict check: ngram must contain at least one important topic word
+      if (importantTopicWords.some(iw => bigram.includes(iw))) {
+        ngrams.set(bigram, (ngrams.get(bigram) || 0) + 1);
       }
-    }
-
-    if (!isPartOfRelevantPhrase) {
-      let wordRelevanceScore = freq; // Base score is frequency
-
-      // Boost if the word is semantically close to any topic keyword
-      let isSemanticallyClose = false;
-      for (const topicKw of topicKeywords) {
-        // More robust check: word is part of topic keyword, or vice versa, or Levenshtein distance is small
-        if (topicKw.includes(word) || word.includes(topicKw) || calculateLevenshteinDistance(word, topicKw) <= 1) { // Levenshtein distance 1 for very close matches
-          isSemanticallyClose = true;
-          wordRelevanceScore += 100; // Significant boost for semantic closeness
-          break;
+      if (i < words.length - 2 && !isStopWord(words[i+2])) {
+        const trigram = `${words[i]} ${words[i+1]} ${words[i+2]}`;
+        if (importantTopicWords.some(iw => trigram.includes(iw))) {
+          ngrams.set(trigram, (ngrams.get(trigram) || 0) + 1);
+        }
+        if (i < words.length - 3 && !isStopWord(words[i+3])) {
+          const fourgram = `${words[i]} ${words[i+1]} ${words[i+2]} ${words[i+3]}`;
+          if (importantTopicWords.some(iw => fourgram.includes(iw))) {
+            ngrams.set(fourgram, (ngrams.get(fourgram) || 0) + 1);
+          }
         }
       }
-      
-      // Only add to relevantKeywords if it's semantically close AND has a reasonable frequency,
-      // OR if it's a very specific term from the initial topicKeywords list.
-      if (isSemanticallyClose && freq > 1) { // Require reasonable frequency for single words (reduced from 2)
-        relevantKeywords.set(word, (relevantKeywords.get(word) || 0) + wordRelevanceScore);
-      } else if (topicKeywords.includes(word) && word.split(' ').length === 1) { // Ensure original single topic keywords are kept
-        relevantKeywords.set(word, (relevantKeywords.get(word) || 0) + wordRelevanceScore + 200); // Boost original single topic keywords
-      }
-    }
-  });
-
-  // Final filtering and sorting
-  let finalResultCandidates = Array.from(relevantKeywords.entries())
-    .filter(([kw, score]) => {
-      // Always keep multi-word keywords that were generated from the topic
-      if (topicKeywords.includes(kw) && kw.split(' ').length > 1) {
-        return true;
-      }
-      // Filter out single general terms unless they have an extremely high score
-      if (strictGeneralTermsToFilter.has(kw) && kw.split(' ').length === 1) {
-          return score > 300; // Only keep if it's exceptionally relevant (e.g., very high freq and semantically close) - Increased threshold
-      }
-      return true;
-    })
-    .sort((a, b) => b[1] - a[1]) // Sort by score descending
-    .map(entry => entry[0]); // Get just the keyword strings
-
-  // Ensure we return up to 10 keywords, prioritizing the most relevant
-  // Fallback to top single words if not enough relevant phrases are found
-  let finalKeywords = [];
-  let phrases = finalResultCandidates.filter(kw => kw.split(' ').length > 1);
-  let singles = finalResultCandidates.filter(kw => kw.split(' ').length === 1);
-
-  finalKeywords.push(...phrases);
-  
-  // Add single words until we have 10, but prioritize high-scoring ones
-  for (let i = 0; finalKeywords.length < 10 && i < singles.length; i++) {
-    if (!finalKeywords.includes(singles[i])) { // Avoid duplicates
-        finalKeywords.push(singles[i]);
     }
   }
 
-  return finalKeywords.slice(0, 10);
+  // Score and question bonus
+  const scored = [];
+  for (const [kw, freq] of ngrams.entries()) {
+    const minFreq = kw.split(' ').length > 3 ? 1 : 2; // Lower min for 4-grams
+    if (freq < minFreq) continue;
+    let score = freq;
+    if (kw.includes('?') || kw.toLowerCase().includes('what') || kw.toLowerCase().includes('how') ||
+        kw.toLowerCase().includes('when') || kw.toLowerCase().includes('where')) {
+      score *= 1.5; // Question bonus
+    }
+    scored.push([kw, score]);
+  }
+
+  // Sort by score and return top 10
+  return scored
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([kw]) => kw);
 }
 
 // Find additional relevant words (general high-frequency words in content)
