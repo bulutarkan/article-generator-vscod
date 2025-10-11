@@ -43,7 +43,9 @@
     "react-router-dom": "^7.8.2",
     "react-typed": "^2.0.12",
     "swiper": "^11.2.10",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "sharp": "^0.33.3",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.12",
