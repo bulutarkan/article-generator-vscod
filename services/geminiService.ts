@@ -48,6 +48,81 @@ Do not add new facts, headings or lists. Do not add extra paragraphs. Return exa
   }
 }
 
+// --- Article summary + insights ---
+export async function summarizeArticleAndInsights(input: {
+  title: string;
+  content: string;
+  location?: string;
+  keywords?: string[];
+  primaryKeyword?: string;
+}): Promise<{ summary: string; insights: Array<{ id: string; label: string; tip?: string }> }> {
+  const { title, content, location = '', keywords = [], primaryKeyword = '' } = input;
+  if (!content || !content.trim()) return { summary: '', insights: [] };
+
+  // Keep prompt compact but informative
+  const systemInstruction = `You are an assistant inside an article generator app (AIrticle).
+Return a concise 3–5 sentence summary of the article and optional actionable insights.
+Insights should nudge the user to use in‑app features: paragraph rewrite (hover to open AI tools), add FAQ snippet, adjust keyword usage (via SEO Dock), add internal links, add images with alt text, and publish/schedule.
+Only include insights that are truly relevant; keep them short and imperative. If none apply, return an empty insights array.
+Output must be valid JSON matching the provided schema, without any extra commentary.`;
+
+  const prompt = [
+    `Title: ${title}`,
+    location ? `Target location: ${location}` : '',
+    primaryKeyword ? `Primary keyword: ${primaryKeyword}` : '',
+    keywords.length ? `Keywords: ${keywords.join(', ')}` : '',
+    '---',
+    'Article content:',
+    content.slice(0, 120000), // guard extremely long docs
+  ].filter(Boolean).join('\n');
+
+  // Prefer the lightweight model for fast summary typing effect
+  const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+
+  for (const model of models) {
+    try {
+      const res = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summary: { type: Type.STRING },
+              insights: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING },
+                    label: { type: Type.STRING },
+                    tip: { type: Type.STRING },
+                  },
+                  required: ['label']
+                }
+              }
+            },
+            required: ['summary', 'insights']
+          }
+        }
+      });
+      const data = (() => { try { return JSON.parse(res.text || '{}'); } catch { return {}; } })() as any;
+      const out = {
+        summary: (data?.summary || '').toString(),
+        insights: Array.isArray(data?.insights) ? data.insights : []
+      };
+      return out;
+    } catch (e) {
+      // try next model
+      continue;
+    }
+  }
+  // Final fallback
+  return { summary: (content || '').split(/(?<=[.!?])\s+/).slice(0, 2).join(' '), insights: [] };
+}
+
 export async function rewriteParagraphWithPrompt(input: {
   paragraph: string;
   userPrompt: string;

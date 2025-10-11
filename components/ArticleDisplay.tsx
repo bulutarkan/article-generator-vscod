@@ -14,6 +14,7 @@ import { TargetIcon } from './icons/TargetIcon';
 import { rewriteParagraphQuick, rewriteParagraphWithPrompt, rewriteListQuick, rewriteListWithPrompt, rewriteTableQuick, rewriteTableWithPrompt } from '../services/geminiService';
 import { TrashIcon } from './icons/TrashIcon';
 import { updateArticle } from '../services/supabase';
+import { AISummaryModal } from './AISummaryModal';
 
 
 
@@ -2163,6 +2164,10 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
     article.priceComparison ? generatePriceTableHtml(article.priceComparison) : ''
   );
 
+  // AI Summary & Insights modal state
+  const [showAISummary, setShowAISummary] = useState(false);
+  const [aiDefaultTab, setAiDefaultTab] = useState<'summary' | 'insights'>('summary');
+
   const computedMetrics = useMemo(() => {
     try {
       return calculateSEOMetrics(
@@ -2245,7 +2250,29 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
                 <div className="text-sm text-slate-400 bg-white/5 px-3 py-1.5 rounded-md border border-white/10">
                   Word Count: <span className="font-semibold text-slate-200">{wordCount}</span>
                 </div>
-                <CopyButton textToCopy={contentToCopy} label="Copy Content" />
+                <div className="flex items-center gap-2">
+                  <CopyButton textToCopy={contentToCopy} label="Copy Content" />
+                  <button
+                    onClick={() => { setAiDefaultTab('summary'); setShowAISummary(true); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-slate-300 bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+                    aria-label="Summarize"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 3v3m0 12v3m9-9h-3M6 12H3m14.95 6.95l-2.12-2.12M7.17 7.17L5.05 5.05m12.02 0l-2.12 2.12M7.17 16.83l-2.12 2.12" />
+                    </svg>
+                    Summarize
+                  </button>
+                  <button
+                    onClick={() => { setAiDefaultTab('insights'); setShowAISummary(true); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-slate-300 bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+                    aria-label="AI Insights"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18h6m-7-2a7 7 0 1 1 8 0l-.5 1a2 2 0 0 1-1.5 1H10a2 2 0 0 1-1.5-1L8 16z" />
+                    </svg>
+                    AI Insights
+                  </button>
+                </div>
               </div>
               <div className="mb-3 text-xs text-slate-400">
                 Tip: Hover the text you'd like to change with AI.
@@ -2573,6 +2600,17 @@ export const ArticleDisplay: React.FC<ArticleDisplayProps> = ({
         </div>
 
       </div>
+      <AISummaryModal
+        isOpen={showAISummary}
+        onClose={() => setShowAISummary(false)}
+        defaultTab={aiDefaultTab}
+        articleTitle={article.title}
+        articleContent={effectiveContent}
+        location={article.location}
+        keywords={article.keywords}
+        primaryKeyword={article.primaryKeyword}
+        seoMetrics={computedMetrics || article.seoMetrics}
+      />
       <ImageModal
         image={selectedImage}
         onClose={() => setSelectedImage(null)}
