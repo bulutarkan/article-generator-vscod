@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import type { ContentAnalysis } from '../types';
 
 interface ContentAnalysisModalProps {
@@ -95,6 +96,15 @@ export const ContentAnalysisModal: React.FC<ContentAnalysisModalProps> = ({
   const [isAnimating, setIsAnimating] = useState<boolean>(true);
   const [showLoading, setShowLoading] = useState<boolean>(false);
 
+  // Prevent body scroll when mounted + ESC to close
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; document.removeEventListener('keydown', onKey); };
+  }, []);
+
   // Handle loading animation
   React.useEffect(() => {
     if (isLoading) {
@@ -132,38 +142,31 @@ export const ContentAnalysisModal: React.FC<ContentAnalysisModalProps> = ({
   };
 
   if (isLoading || showLoading) {
-    return (
+    const loadingNode = (
       <>
-      {/* Full page overlay - blur effect without darkening */}
-      <div
-        className="fixed inset-0 z-[200] backdrop-blur-sm transition-all duration-500"
-        onClick={() => setShowLoading(false)}
-      />
-
-        {/* Loading modal with smooth animation */}
-        <div className="fixed inset-0 z-[201] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[20000] bg-black/40 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-[20001] flex items-center justify-center p-4">
           <div
-            className={`bg-slate-900 border border-slate-700 rounded-xl p-8 max-w-md w-full mx-4 transition-all duration-500 transform ${
-              isLoading
-                ? 'scale-100 opacity-100 translate-y-0'
-                : 'scale-95 opacity-0 translate-y-4'
+            className={`bg-slate-900 border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl transition-all duration-200 transform ${
+              isLoading ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-2'
             }`}
           >
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <h3 className="text-lg font-semibold text-white mb-2">Analyzing Content Opportunity</h3>
+              <h3 className="text-base font-semibold text-white mb-2">Analyzing Content Opportunity</h3>
               <p className="text-slate-400 text-sm">Gathering insights for "{topic}" in {location}...</p>
             </div>
           </div>
         </div>
       </>
     );
+    return ReactDOM.createPortal(loadingNode, document.body);
   }
 
   // Don't render if not visible
   if (!isVisible) return null;
 
-  return (
+  const node = (
     <>
       {/* Full page overlay - blur effect without darkening */}
       <div
@@ -343,20 +346,27 @@ export const ContentAnalysisModal: React.FC<ContentAnalysisModalProps> = ({
                 </div>
               </div>
 
-              {/* Top Pages */}
+              {/* Top Pages (Backlinks removed; DA shown as AI Relevance) */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Top Competing Pages</h3>
                 {analysis.competitorAnalysis.topPages.map((page, index) => (
                   <div key={index} className="bg-slate-800/30 rounded-lg p-4 border border-slate-700">
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className="text-white font-medium text-sm line-clamp-2">{page.title}</h4>
-                      <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300 ml-2">
-                        DA: {page.daScore}
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(page.domain)}&sz=32`}
+                          alt=""
+                          className="w-4 h-4 rounded-sm opacity-90"
+                          loading="lazy"
+                        />
+                        <h4 className="text-white font-medium text-sm line-clamp-2">{page.title}</h4>
+                      </div>
+                      <span className="text-xs bg-blue-500/20 border border-blue-500/30 px-2 py-1 rounded text-blue-300 ml-2">
+                        AI Relevance: {Math.round(Number((page as any).daScore || 0))}/100
                       </span>
                     </div>
                     <p className="text-slate-400 text-sm mb-2">{page.domain}</p>
                     <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>Backlinks: {page.backlinks.toLocaleString()}</span>
                       <a
                         href={page.url}
                         target="_blank"
@@ -439,7 +449,19 @@ export const ContentAnalysisModal: React.FC<ContentAnalysisModalProps> = ({
 
               {/* Target Keywords */}
               <div className="bg-slate-800/30 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Recommended Keywords</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Recommended Keywords</h3>
+                  <button
+                    onClick={() => {
+                      const kw = Array.from(new Set(analysis.contentSuggestions.targetKeywords.map(k => k.trim()).filter(Boolean)));
+                      const event = new CustomEvent('addSuggestedKeywords', { detail: { source: 'contentAnalysis', keywords: kw } });
+                      window.dispatchEvent(event);
+                    }}
+                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md"
+                  >
+                    Add All Keywords
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {analysis.contentSuggestions.targetKeywords.map((keyword, index) => (
                     <span key={index} className="bg-blue-500/20 text-blue-300 text-sm px-3 py-1 rounded-full">
@@ -471,4 +493,7 @@ export const ContentAnalysisModal: React.FC<ContentAnalysisModalProps> = ({
     </div>
     </>
   );
+
+  // Render into body to avoid parent stacking/overflow issues
+  return ReactDOM.createPortal(node, document.body);
 };

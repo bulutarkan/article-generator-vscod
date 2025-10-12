@@ -46,37 +46,34 @@ export async function performContentAnalysis(topic: string, location: string): P
 
   console.log('🔍 Performing fresh content analysis for:', topic, location);
 
-  // Get real data from Google Trends via server-side API
-  console.log('🌐 Fetching real data from Google Trends via server API...');
-
+  // Get real data from Google Trends service (no mock, no fake /api)
+  console.log('🌐 Fetching real data from googleTrendsService...');
   let realTrend: 'Rising' | 'Falling' | 'Stable' = 'Stable';
-  let estimatedVolume: number = 1000;
+  let estimatedVolume: number = 0;
   let estimatedCompetition: 'Low' | 'Medium' | 'High' = 'Medium';
   let relatedKeywords: string[] = [];
-
   try {
-    // Call server-side Google Trends API
-    const response = await fetch(`/api/google-trends?keyword=${encodeURIComponent(topic)}&location=${encodeURIComponent(location)}`);
-
-    if (response.ok) {
-      const data = await response.json();
-      realTrend = data.trend;
-      estimatedVolume = data.volume;
-      estimatedCompetition = data.competition;
-      relatedKeywords = data.related || [];
-
-      console.log('📊 Server-side Google Trends Results:');
-      console.log('  - Real trend data:', realTrend);
-      console.log('  - Estimated volume:', estimatedVolume);
-      console.log('  - Estimated competition:', estimatedCompetition);
-      console.log('  - Related keywords:', relatedKeywords);
-    } else {
-      console.warn('❌ Server-side Google Trends API failed, using fallback values');
-      console.warn('Response status:', response.status);
-    }
-  } catch (error) {
-    console.error('❌ Error calling server-side Google Trends API:', error);
-    console.warn('Using fallback values for Google Trends data');
+    realTrend = await getKeywordTrend(topic, location);
+  } catch (e) {
+    console.warn('Trend fetch failed, defaulting Stable');
+    realTrend = 'Stable';
+  }
+  try {
+    estimatedVolume = await estimateSearchVolume(topic, location);
+  } catch (e) {
+    console.warn('Volume estimation failed, defaulting 1000');
+    estimatedVolume = 1000;
+  }
+  try {
+    estimatedCompetition = await estimateCompetition(topic, location);
+  } catch (e) {
+    console.warn('Competition estimation failed, defaulting Medium');
+    estimatedCompetition = 'Medium';
+  }
+  try {
+    relatedKeywords = await getRelatedKeywords(topic, location);
+  } catch (e) {
+    relatedKeywords = [];
   }
 
   const systemInstruction = `You are an expert SEO strategist and content marketing analyst. Your task is to perform a comprehensive content analysis for a given topic and target location.
@@ -210,6 +207,53 @@ Return the full JSON object with all required fields.`;
         ];
 
         console.log('Added related keywords from Google Trends:', newKeywords.slice(0, 3));
+      }
+
+      // Now enrich competitorAnalysis with real SERP + crawl + AI relevance scoring
+      try {
+        const lang = (location || '').toLowerCase().includes('tur') ? 'tr-tr' : 'en-us';
+        const serpUrl = `/.netlify/functions/serp-competitors?q=${encodeURIComponent(topic)}&topN=8&lang=${encodeURIComponent(lang)}`;
+        const serpRes = await fetch(serpUrl);
+        if (serpRes.ok) {
+          const serpData = await serpRes.json();
+          // Map to ContentAnalysis.competitorAnalysis.topPages
+          const aiRelevanceScores: number[] = [];
+
+          // Score each competitor with a lightweight AI call
+          for (const comp of serpData.competitors || []) {
+            const compText = JSON.stringify({ title: comp.title, h2: comp.h2, h3: comp.h3, entities: comp.entities }).slice(0, 8000);
+            try {
+              const judge = await ai.models.generateContent({
+                model: "gemini-1.5-flash",
+                contents: `Topic: ${topic}\nCompetitor: ${comp.title}\nOutline: ${compText}\nReturn a JSON with {score: number 0-100, reason: string}`,
+                config: {
+                  responseMimeType: "application/json",
+                  systemInstruction: "Score how relevant and comprehensive this page is for the topic. Score 0-100."
+                }
+              });
+              const parsed = JSON.parse(judge.text || '{}');
+              aiRelevanceScores.push(Math.max(0, Math.min(100, Number(parsed.score) || 0)));
+            } catch {
+              aiRelevanceScores.push(0);
+            }
+          }
+
+          const topPages = (serpData.competitors || []).map((c: any, i: number) => ({
+            title: c.title || 'Untitled',
+            domain: (() => { try { return new URL(c.url).hostname; } catch { return ''; } })(),
+            backlinks: 0, // no 3P API — keep 0 and label in UI as AI-derived relevance instead of backlink metrics
+            daScore: aiRelevanceScores[i] || 0, // repurpose as AI relevance score (0-100)
+            url: c.url
+          }));
+
+          parsedResponse.competitorAnalysis.topPages = topPages;
+          // average word count not available without fetching body length reliably; leave as heuristic from AI
+          parsedResponse.competitorAnalysis.commonHeadings = serpData.commonHeadings || parsedResponse.competitorAnalysis.commonHeadings;
+        } else {
+          console.warn('serp-competitors function failed:', serpRes.status);
+        }
+      } catch (e) {
+        console.warn('SERP enrichment failed:', e);
       }
 
       // Cache the result

@@ -198,6 +198,42 @@ export const Generator: React.FC<GeneratorProps> = ({
     }
   }, [topic, location]);
 
+  // Merge-in handler for external keyword additions (Research/Crawl/ContentAnalysis)
+  useEffect(() => {
+    const onAdd = (e: any) => {
+      const detail = e?.detail || {};
+      const incoming: string[] = (detail.keywords || []).map((k: string) => String(k).trim()).filter(Boolean);
+      if (incoming.length === 0) return;
+      // Keep previous suggestions; append new unique ones as SuggestedKeyword type
+      const existing = new Set(suggestedKeywords.map(k => k.keyword.toLowerCase()));
+      const toAdd: SuggestedKeyword[] = [];
+      for (const k of incoming) {
+        const key = k.toLowerCase();
+        if (!existing.has(key)) {
+          existing.add(key);
+          toAdd.push({ keyword: k, score: 0, selected: true });
+        }
+      }
+      if (toAdd.length) setSuggestedKeywords(prev => [...prev, ...toAdd]);
+      // Also mark existing ones as selected and add to selectedKeywords list
+      const all = Array.from(new Set([...selectedKeywords, ...incoming]));
+      setSelectedKeywords(all);
+      setSuggestedKeywords(prev => {
+        const map = new Map(prev.map((p) => [p.keyword.toLowerCase(), p]));
+        for (const k of incoming) {
+          const key = k.toLowerCase();
+          if (map.has(key)) {
+            const item = map.get(key)!;
+            map.set(key, { ...item, selected: true });
+          }
+        }
+        return Array.from(map.values());
+      });
+    };
+    window.addEventListener('addSuggestedKeywords', onAdd as any);
+    return () => window.removeEventListener('addSuggestedKeywords', onAdd as any);
+  }, [suggestedKeywords]);
+
   // Research Mode (SERP) state
   const [isResearching, setIsResearching] = useState(false);
   const [researchError, setResearchError] = useState<string | null>(null);

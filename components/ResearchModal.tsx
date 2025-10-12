@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { generateBriefFromSerp } from '../services/geminiService';
 import { CheckIcon } from './icons/CheckIcon';
 
@@ -80,9 +81,11 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({ isOpen, onClose, d
   // Disable background scroll + ESC to close when open
   useEffect(() => {
     if (!isOpen) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = original; document.removeEventListener('keydown', onKey); };
   }, [isOpen, onClose]);
 
   const decodeHtmlEntities = (input: string = ''): string => {
@@ -196,28 +199,29 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({ isOpen, onClose, d
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[320]">
+  const modalNode = (
+    <div className="fixed inset-0 z-[320] animate-[fadeIn_200ms_ease-out]">
+      <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}} @keyframes scaleIn{from{transform:translateY(8px) scale(.98)} to{transform:translateY(0) scale(1)}} @keyframes fadeOut{from{opacity:1}to{opacity:0}}`}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 grid place-items-center p-4 pointer-events-none">
-        <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden relative pointer-events-auto">
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden relative pointer-events-auto shadow-2xl animate-[scaleIn_180ms_ease-out]">
           {kwFeedback && (
             <div className="absolute right-3 top-3 text-[11px] px-2 py-1 rounded bg-emerald-600/20 text-emerald-200 border border-emerald-500/30">{kwFeedback}</div>
           )}
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b border-slate-700">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900/80 backdrop-blur-md">
             <div>
               <div className="text-white font-semibold text-base">Research Mode</div>
               <div className="text-slate-400 text-xs">Query: {data.query}</div>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={addSelected} className="px-2 py-1 text-xs rounded-md bg-emerald-600 hover:bg-emerald-500 text-white">Add Selected</button>
+            <div className="flex items-center gap-2">
+              <button onClick={addSelected} className="px-2.5 py-1.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow hover:shadow-md transition">Add Selected</button>
               <AddKeywordsButton activeComp={activeComp} onAddKeywords={onAddKeywords} setKwFeedback={setKwFeedback} />
-              <button onClick={addAllHeadings} className="px-2 py-1 text-xs rounded-md bg-blue-600 hover:bg-blue-500 text-white">Add All Headings</button>
-              <button onClick={addWithAI} disabled={aiLoading} className={`px-2 py-1 text-xs rounded-md ${aiLoading ? 'bg-purple-700/60 text-purple-200 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}>
+              <button onClick={addAllHeadings} className="px-2.5 py-1.5 text-xs rounded-md bg-blue-600 hover:bg-blue-500 text-white shadow hover:shadow-md transition">Add All Headings</button>
+              <button onClick={addWithAI} disabled={aiLoading} className={`px-2.5 py-1.5 text-xs rounded-md shadow transition ${aiLoading ? 'bg-purple-700/60 text-purple-200 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white hover:shadow-md'}`}>
                 {aiLoading ? 'AI…' : 'Add with AI'}
               </button>
-              <button onClick={onClose} aria-label="Close" className="px-2 py-1 text-xs rounded-md bg-white/10 hover:bg-white/20 text-slate-200">×</button>
+              <button onClick={onClose} aria-label="Close" className="w-8 h-8 grid place-items-center rounded-md bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 transition">×</button>
             </div>
           </div>
 
@@ -422,6 +426,9 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({ isOpen, onClose, d
       </div>
     </div>
   );
+
+  // Render into body to avoid parent stacking/overflow issues
+  return ReactDOM.createPortal(modalNode, document.body);
 };
 
 export default ResearchModal;
