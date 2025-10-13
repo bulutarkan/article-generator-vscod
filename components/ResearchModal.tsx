@@ -67,6 +67,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({ isOpen, onClose, d
   const [filterH2, setFilterH2] = useState<string>('');
   const [filterH3, setFilterH3] = useState<string>('');
   const [kwFeedback, setKwFeedback] = useState<string>('');
+  const [justAddedKw, setJustAddedKw] = useState<Record<string, boolean>>({});
 
   const compMap = useMemo(() => {
     const m = new Map<string, Competitor>();
@@ -282,8 +283,30 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({ isOpen, onClose, d
                 <SectionHeader title="Common Keywords" />
                 <div className="flex flex-wrap gap-1">
                   {(data.commonKeywords || []).map((e) => (
-                    <span key={e} title={e} onClick={() => navigator.clipboard?.writeText(e)} className="px-2 py-0.5 text-[10px] bg-sky-500/10 border border-sky-500/30 rounded text-sky-300 hover:bg-sky-500/20 cursor-pointer truncate max-w-[220px]">
-                      {e}
+                    <span
+                      key={e}
+                      title={e}
+                      className={`relative px-2 py-0.5 text-[10px] rounded truncate max-w-[220px] select-none cursor-pointer transition-colors duration-300 ${justAddedKw[e] ? 'bg-emerald-500/10 border border-emerald-500/50 text-emerald-300' : 'bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20'}`}
+                      onClick={() => {
+                        if (!onAddKeywords) return;
+                        onAddKeywords([e]);
+                        setKwFeedback('Added to Keywords');
+                        window.setTimeout(() => setKwFeedback(''), 1000);
+                        setJustAddedKw(prev => ({ ...prev, [e]: true }));
+                        window.setTimeout(() => setJustAddedKw(prev => {
+                          const next = { ...prev } as Record<string, boolean>;
+                          delete next[e];
+                          return next;
+                        }), 1000);
+                      }}
+                    >
+                      <span className="z-[1] relative">{e}</span>
+                      <span
+                        aria-hidden
+                        className={`pointer-events-none absolute inset-0 z-[2] grid place-items-center transition-all duration-300 ${justAddedKw[e] ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                      >
+                        <CheckIcon className="h-3 w-3 text-emerald-300 drop-shadow" />
+                      </span>
                     </span>
                   ))}
                 </div>
@@ -400,13 +423,35 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({ isOpen, onClose, d
                       <span
                         key={e}
                         title={e}
-                        className="group inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-sky-500/10 border border-sky-500/30 text-sky-300 rounded hover:bg-sky-500/20 cursor-default truncate max-w-[260px]"
+                        className={`group relative inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded truncate max-w-[260px] select-none cursor-pointer transition-colors duration-300 ${justAddedKw[e] ? 'bg-emerald-500/10 border border-emerald-500/50 text-emerald-300' : 'bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20'}`}
+                        onClick={() => {
+                          if (!onAddKeywords) return;
+                          onAddKeywords([e]);
+                          setKwFeedback('Added to Keywords');
+                          window.setTimeout(() => setKwFeedback(''), 1000);
+                          setJustAddedKw(prev => ({ ...prev, [e]: true }));
+                          window.setTimeout(() => setJustAddedKw(prev => {
+                            const next = { ...prev } as Record<string, boolean>;
+                            delete next[e];
+                            return next;
+                          }), 1000);
+                        }}
                       >
-                        <button className="text-sky-300/90 hover:text-sky-200" onClick={() => navigator.clipboard?.writeText(e)} title="Copy">⧉</button>
-                        <span className="truncate" onClick={() => navigator.clipboard?.writeText(e)}>{e}</span>
-                        {onAddKeywords && (
-                          <button className="ml-1 px-1 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30" title="Add to Keywords" onClick={() => { onAddKeywords([e]); setKwFeedback('Added to Keywords'); window.setTimeout(() => setKwFeedback(''), 1000); }}>＋</button>
-                        )}
+                        <button
+                          className="z-[1] opacity-90 hover:opacity-80"
+                          onClick={(evt) => { evt.stopPropagation(); navigator.clipboard?.writeText(e); }}
+                          title="Copy"
+                        >
+                          ⧉
+                        </button>
+                        <span className="z-[1] truncate">{e}</span>
+                        {/* Success check overlay */}
+                        <span
+                          aria-hidden
+                          className={`pointer-events-none absolute inset-0 z-[2] grid place-items-center transition-all duration-300 ${justAddedKw[e] ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                        >
+                          <CheckIcon className="h-3.5 w-3.5 text-emerald-300 drop-shadow" />
+                        </span>
                       </span>
                     ))}
                   </div>
