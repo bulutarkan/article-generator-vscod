@@ -67,6 +67,17 @@ export class WebCrawlerService {
     return this.parseAnchorsFromContext(internalLinksContext);
   }
 
+  // Search a given site for a keyword and return top links ranked similarly to internal-link scoring
+  async searchInternalLinksByKeyword(siteUrl: string, keyword: string, limit: number = 5): Promise<Array<{ url: string; title: string; score: number }>> {
+    if (!siteUrl?.trim() || !keyword?.trim()) return [];
+    const params = new URLSearchParams({ site: siteUrl.trim(), q: keyword.trim(), limit: String(Math.max(1, Math.min(10, limit))) });
+    const endpoint = `/.netlify/functions/site-search?${params.toString()}`;
+    const res = await fetch(endpoint, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({ results: [] }));
+    return Array.isArray(data?.results) ? data.results : [];
+  }
+
   async getSitemapPages(websiteUrl: string): Promise<PageInfo[]> {
     // Bu fonksiyon artık kullanılmayacak, sadece interface uyumluluğu için var
     console.warn('getSitemapPages is deprecated, use getWebsiteContext instead');

@@ -13,7 +13,8 @@ import { InfoIcon } from './icons/InfoIcon';
 import { TargetIcon } from './icons/TargetIcon';
 import { rewriteParagraphQuick, rewriteParagraphWithPrompt, rewriteListQuick, rewriteListWithPrompt, rewriteTableQuick, rewriteTableWithPrompt } from '../services/geminiService';
 import { TrashIcon } from './icons/TrashIcon';
-import { updateArticle } from '../services/supabase';
+import { updateArticle, getUserWebsiteUrls } from '../services/supabase';
+import { webCrawlerService } from '../services/webCrawlerService';
 import { AISummaryModal } from './AISummaryModal';
 
 
@@ -298,8 +299,19 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
   const [menuOpenIdx, setMenuOpenIdx] = React.useState<number | null>(null);
   const [promptIdx, setPromptIdx] = React.useState<number | null>(null);
   const [promptText, setPromptText] = React.useState<string>('');
+  // Internal linking UI state
+  const [linkIdx, setLinkIdx] = React.useState<number | null>(null);
+  const [linkPhrase, setLinkPhrase] = React.useState<string>('');
+  const [linkSite, setLinkSite] = React.useState<string>(() => localStorage.getItem('internalLinksWebsiteUrl') || '');
+  const [linkResults, setLinkResults] = React.useState<Array<{ url: string; title: string; score: number }>>([]);
+  const [selectedLink, setSelectedLink] = React.useState<string>('');
+  const [linkBusy, setLinkBusy] = React.useState<boolean>(false);
+  const [userSites, setUserSites] = React.useState<Array<{ id: string; url: string; name?: string }>>([]);
+  const [linkError, setLinkError] = React.useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [isLinkModalVisible, setIsLinkModalVisible] = useState(false);
+  const [isLinkFadingOut, setIsLinkFadingOut] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dragHoverStart, setDragHoverStart] = useState<number | null>(null);
   const dragSessionRef = React.useRef<{ handled: boolean } | null>(null);
@@ -585,6 +597,37 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     await persistContent(nextContent);
   }
 
+  function escapeRegExp(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  async function applyInternalLinkAt(index: number, phrase: string, url: string) {
+    const entry = paragraphRangesRef.current.find(e => e.index === index);
+    if (!entry) return;
+    // Only apply to regular paragraphs (lists/tables handled later if needed)
+    if (entry.block && entry.block !== 'p') return;
+    const original = (entry.text || '').replace(/\s+/g, ' ').trim();
+    if (!original || !phrase.trim() || !url.trim()) return;
+    const re = new RegExp(escapeRegExp(phrase.trim()), 'i');
+    if (!re.test(original)) return;
+    const nextParagraph = original.replace(re, (m) => `<a href="${url}">${m}</a>`);
+    await replaceParagraphAt(index, nextParagraph);
+  }
+
+  async function searchLinks(site: string, phrase: string) {
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      const results = await webCrawlerService.searchInternalLinksByKeyword(site, phrase, 5);
+      setLinkResults(results || []);
+    } catch (e: any) {
+      setLinkError(e?.message || 'Search failed');
+      setLinkResults([]);
+    } finally {
+      setLinkBusy(false);
+    }
+  }
+
   async function replaceListBlockAt(index: number, nextItems: string[]) {
     const entry = paragraphRangesRef.current.find(e => e.index === index);
     if (!entry) return;
@@ -849,12 +892,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
               </button>
             </div>
             {menuOpenIdx === myIndex && (
-              <div className="mt-1 w-full bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
+              <div className="mt-1 w-full bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001] flex flex-col gap-1">
                 <button
-                  className="text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                  className="w-full block text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
                   onClick={(e) => { e.preventDefault(); setPromptIdx(myIndex); setMenuOpenIdx(null); }}
                 >
                   Change with prompt…
+                </button>
+                <button
+                  className="w-full block text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                  onClick={(e) => { e.preventDefault(); setLinkIdx(myIndex); setMenuOpenIdx(null); setSelectedLink(''); setLinkResults([]); setLinkError(null); }}
+                >
+                  Internal Linkings…
                 </button>
               </div>
             )}
@@ -1443,12 +1492,18 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
                 </button>
               </div>
               {menuOpenIdx === liIndex && (
-                <div className="mt-1 w-full bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001]">
+                <div className="mt-1 w-full bg-slate-900/95 border border-slate-700 rounded-md shadow-lg p-2 z-[1001] flex flex-col gap-1">
                   <button
-                    className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                    className="w-full block text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
                     onClick={(e) => { e.preventDefault(); setPromptIdx(liIndex); setMenuOpenIdx(null); }}
                   >
                     Change with prompt…
+                  </button>
+                  <button
+                    className="w-full block text-left text-xs px-2 py-1.5 rounded hover:bg-white/10 text-slate-200"
+                    onClick={(e) => { e.preventDefault(); setLinkIdx(liIndex); setMenuOpenIdx(null); setSelectedLink(''); setLinkResults([]); setLinkError(null); }}
+                  >
+                    Internal Linkings…
                   </button>
                 </div>
               )}
@@ -1487,6 +1542,26 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     }
   }, [promptIdx]);
 
+  // Load user's saved sites when Internal Linkings modal opens
+  useEffect(() => {
+    if (linkIdx !== null) {
+      (async () => {
+        try {
+          const list = await getUserWebsiteUrls();
+          setUserSites(Array.isArray(list) ? list : []);
+          // Default to first saved website if nothing selected
+          if ((Array.isArray(list) && list.length > 0) && (!linkSite || linkSite.trim().length === 0)) {
+            setLinkSite(list[0].url);
+            localStorage.setItem('internalLinksWebsiteUrl', list[0].url);
+          }
+        } catch {
+          // Ignore if not authenticated
+          setUserSites([]);
+        }
+      })();
+    }
+  }, [linkIdx]);
+
   const handleCloseModal = () => {
     setIsFadingOut(true);
     setTimeout(() => {
@@ -1496,6 +1571,40 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
       setIsFadingOut(false);
     }, 200);
   };
+
+  // Link modal open/close handlers
+  useEffect(() => {
+    if (linkIdx !== null) {
+      setIsLinkModalVisible(false);
+      setIsLinkFadingOut(false);
+      setTimeout(() => setIsLinkModalVisible(true), 10);
+    }
+  }, [linkIdx]);
+
+  const handleCloseLinkModal = () => {
+    setIsLinkFadingOut(true);
+    setTimeout(() => {
+      setLinkIdx(null);
+      setLinkPhrase('');
+      setSelectedLink('');
+      setLinkResults([]);
+      setIsLinkModalVisible(false);
+      setIsLinkFadingOut(false);
+    }, 200);
+  };
+
+  // Close link modal on ESC key
+  useEffect(() => {
+    if (linkIdx === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCloseLinkModal();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [linkIdx]);
 
   const renderPromptModal = () => {
     if (promptIdx === null) return null;
@@ -1611,7 +1720,126 @@ const ArticleContent: React.FC<ArticleContentProps> = ({
     );
   };
 
-  return <>{elements}{renderPromptModal()}</>;
+  const renderLinkModal = () => {
+    if (linkIdx === null) return null;
+    const siteOptions = userSites && userSites.length > 0 ? userSites : [];
+    return createPortal(
+      <div className={`fixed inset-0 z-[2000] ${isLinkModalVisible && !isLinkFadingOut ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150`}>
+        <div className="absolute inset-0 bg-black/40" onClick={handleCloseLinkModal} />
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className={`w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 text-slate-200 transform transition-all duration-200 ease-out ${isLinkModalVisible && !isLinkFadingOut ? 'scale-100' : 'scale-95'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold">Internal Linkings</div>
+              <button
+                className="w-6 h-6 text-slate-400 hover:text-slate-200 transition-colors duration-200 hover:scale-110 rounded-md flex items-center justify-center hover:bg-white/10"
+                onClick={handleCloseLinkModal}
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <div className="text-[11px] text-slate-300 mb-1">Which words to link?</div>
+                <input
+                  type="text"
+                  value={linkPhrase}
+                  onChange={(e) => setLinkPhrase(e.target.value)}
+                  placeholder="e.g., trifocal intraocular lens"
+                  className="w-full text-xs bg-slate-800/70 border border-slate-700 rounded px-2 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-300 mb-1">Website to search</div>
+                {siteOptions.length > 0 && (
+                  <div className="relative mb-2">
+                    <select
+                      value={linkSite && linkSite.trim().length > 0 ? linkSite : '__custom__'}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '__custom__') {
+                          setLinkSite('');
+                          localStorage.removeItem('internalLinksWebsiteUrl');
+                        } else {
+                          setLinkSite(v);
+                          localStorage.setItem('internalLinksWebsiteUrl', v);
+                        }
+                      }}
+                      className="appearance-none w-full text-xs bg-slate-800/70 border border-slate-700 rounded px-2 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {siteOptions.map(s => (
+                        <option key={s.id} value={s.url}>{s.name ? `${s.name} — ${s.url}` : s.url}</option>
+                      ))}
+                      <option value="__custom__">Use custom below…</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-400">
+                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+                    </div>
+                  </div>
+                )}
+                <input
+                  type="url"
+                  placeholder="https://your-site.com"
+                  value={linkSite}
+                  onChange={(e) => { setLinkSite(e.target.value); localStorage.setItem('internalLinksWebsiteUrl', e.target.value); }}
+                  className="w-full text-xs bg-slate-800/70 border border-slate-700 rounded px-2 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                {linkError && <div className="mt-1 text-[11px] text-red-300">{linkError}</div>}
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  className={`text-xs px-3 py-1.5 rounded ${linkBusy ? 'bg-indigo-600/60 text-white cursor-wait' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                  disabled={linkBusy || !linkPhrase.trim() || !linkSite.trim()}
+                  onClick={(e) => { e.preventDefault(); searchLinks(linkSite.trim(), linkPhrase.trim()); }}
+                >
+                  {linkBusy ? 'Searching…' : 'Search Links'}
+                </button>
+                <button className="text-xs text-slate-400 hover:text-slate-200" onClick={handleCloseLinkModal}>Close</button>
+              </div>
+
+              {linkResults.length > 0 && (
+                <div className="mt-1 max-h-52 overflow-y-auto rounded border border-slate-700">
+                  {linkResults.map((r, i) => (
+                    <label key={r.url + i} className="flex items-start gap-2 p-2 bg-slate-800/40 hover:bg-slate-800/60 border-b border-slate-700 last:border-b-0 cursor-pointer text-xs">
+                      <input
+                        type="radio"
+                        name="link-choice"
+                        value={r.url}
+                        checked={selectedLink === r.url}
+                        onChange={() => setSelectedLink(r.url)}
+                        className="mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-slate-200 truncate">{r.title}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{r.url}</div>
+                        <div className="text-[10px] text-slate-500">Score: {Math.round((r.score || 0) * 100) / 100}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-1 flex justify-end gap-2">
+                <button className="text-xs text-slate-400 hover:text-slate-200" onClick={handleCloseLinkModal}>Cancel</button>
+                <button
+                  className={`text-xs px-3 py-1.5 rounded ${!selectedLink ? 'bg-white/10 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
+                  disabled={!selectedLink}
+                  onClick={async (e) => { e.preventDefault(); if (linkIdx !== null && selectedLink) { await applyInternalLinkAt(linkIdx, linkPhrase, selectedLink); handleCloseLinkModal(); } }}
+                >
+                  Apply Link
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  return <>{elements}{renderPromptModal()}{renderLinkModal()}</>;
 };
 
 interface ArticleDisplayProps {
