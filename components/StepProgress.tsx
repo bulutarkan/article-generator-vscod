@@ -26,9 +26,11 @@ const stepDetails = [
 
 interface StepProgressProps {
   message?: string;
+  // If provided, progress resumes based on when generation started
+  startedAt?: number;
 }
 
-export const StepProgress: React.FC<StepProgressProps> = ({ message: customMessage }) => {
+export const StepProgress: React.FC<StepProgressProps> = ({ message: customMessage, startedAt }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
@@ -38,7 +40,15 @@ export const StepProgress: React.FC<StepProgressProps> = ({ message: customMessa
       return;
     }
 
+    const stepMs = 4000;
+    // Resume from elapsed time if provided
     let stepIndex = 0;
+    if (startedAt) {
+      const elapsed = Date.now() - startedAt;
+      stepIndex = Math.min(steps.length - 1, Math.floor(elapsed / stepMs));
+      setCurrentStep(stepIndex);
+    }
+
     const intervalId = setInterval(() => {
       if (stepIndex < steps.length - 1) {
         stepIndex = stepIndex + 1;
@@ -47,12 +57,12 @@ export const StepProgress: React.FC<StepProgressProps> = ({ message: customMessa
         // Stay on the last step
         clearInterval(intervalId);
       }
-    }, 4000);
+    }, stepMs);
 
-    console.log('StepProgress: Starting with 4 second intervals between steps');
+    console.log('StepProgress: Using 4s intervals, initial step', stepIndex);
 
     return () => clearInterval(intervalId);
-  }, [customMessage]);
+  }, [customMessage, startedAt]);
 
   if (customMessage) {
     return (

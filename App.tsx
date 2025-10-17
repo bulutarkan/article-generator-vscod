@@ -14,6 +14,8 @@ import { PrivacyPage } from './components/PrivacyPage';
 import { BulkGenerationProvider } from './components/BulkGenerationContext';
 import { FloatingProgressBar } from './components/FloatingProgressBar';
 import { ToastProvider } from './src/services/ToastContext';
+import { SingleGenerationProvider } from './components/SingleGenerationContext';
+import { SingleGenerationWidget } from './components/SingleGenerationWidget';
 
 
 const AppContent: React.FC = () => {
@@ -220,6 +222,7 @@ const App: React.FC = () => {
     <HelmetProvider>
       <AuthProvider>
         <ToastProvider>
+          <SingleGenerationProvider>
           <BulkGenerationProvider userId={undefined}>
             <div className="min-h-screen bg-slate-900 text-white font-sans flex flex-col overflow-hidden">
               <div className="relative isolate flex-1 flex flex-col min-h-0">
@@ -251,7 +254,9 @@ const App: React.FC = () => {
               </div>
             </div>
             <FloatingProgressBar />
+            <SingleGenerationWidget />
           </BulkGenerationProvider>
+          </SingleGenerationProvider>
         </ToastProvider>
       </AuthProvider>
     </HelmetProvider>

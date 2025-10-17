@@ -15,6 +15,7 @@ import { ChevronDown, ChevronUp, Copy, Globe } from 'lucide-react';
 import { AppPageTitle } from './PageTitle';
 import type { SuggestedKeyword, UserWebsiteUrl } from '../types'; // Import SuggestedKeyword type
 import * as supabaseService from '../services/supabase';
+import { useSingleGeneration } from './SingleGenerationContext';
 
 interface GeneratorProps {
   topic: string;
@@ -39,9 +40,10 @@ export const Generator: React.FC<GeneratorProps> = ({
 }) => {
   const { loading: authLoading, user } = useAuth();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { start: startSingleGeneration, state: singleState } = useSingleGeneration();
 
-  // Only show loading if auth is ready AND we have actual generation in progress
-  const effectiveIsLoading = !authLoading && isLoading;
+  // Only show loading if auth is ready AND we have generation in progress (context-aware)
+  const effectiveIsLoading = !authLoading && (isLoading || singleState.status === 'running');
   const [error, setError] = useState<string | null>(null);
   const [tone, setTone] = useState<string>('Authoritative');
   const [brief, setBrief] = useState<string>('');
@@ -291,7 +293,7 @@ export const Generator: React.FC<GeneratorProps> = ({
     setIsLoading(true);
     setError(null);
 
-    // Update generation state for persistence
+    // Update generation state for persistence (UI hint only)
     setGenerationState({
       isGenerating: true,
       topic,
@@ -301,23 +303,6 @@ export const Generator: React.FC<GeneratorProps> = ({
     });
 
     try {
-      let internalLinksContext = '';
-
-      // Internal links aktifse crawler'ı çalıştır
-      if (enableInternalLinks && websiteUrl) {
-        try {
-          console.log('Starting web crawler for internal links...');
-          const crawlResult = await webCrawlerService.getSuggestedKeywords(websiteUrl, topic);
-          internalLinksContext = crawlResult.internalLinksContext;
-          // Note: We are no longer directly setting suggestedKeywords here, as this is for internal links.
-          // Keyword suggestions are handled by the dedicated crawling function.
-          console.log('Web crawler for internal links completed successfully');
-        } catch (crawlerError) {
-          console.warn('Web crawler for internal links failed, proceeding without internal links:', crawlerError);
-          // Crawler hatası olsa bile makale üretimine devam et
-        }
-      }
-
       // Combine file content with brief if file was uploaded
       const combinedBrief = fileContent
         ? `DOCUMENT CONTENT:\n${fileContent}\n\n---\nUSER INSTRUCTIONS:\n${brief}`
@@ -331,33 +316,18 @@ export const Generator: React.FC<GeneratorProps> = ({
         console.log('✨ Final brief preview:', combinedBrief.slice(0, 200) + '...');
       }
 
-      console.log('🚀 SENDING TO AI');
-      console.log('📊 Final parameters:', {
+      console.log('🚀 Starting single generation job via context');
+      await startSingleGeneration({
         topic,
         location,
         tone,
-        hasFileContent: !!fileContent,
-        briefLength: combinedBrief.length,
-        selectedKeywordsCount: selectedKeywords.length,
-        enableInternalLinks
-      });
-
-      const result = await generateSeoGeoArticle(
-        topic,
-        location,
-        tone,
-        combinedBrief,
+        brief: combinedBrief,
         enableInternalLinks,
         websiteUrl,
-        internalLinksContext,
-        selectedKeywords
-      );
+        selectedKeywords,
+      });
 
-      console.log('🔄 Calling onArticleGenerated to save article...');
-      await onArticleGenerated(result, topic, location, tone, selectedKeywords);
-      console.log('✅ Article saved successfully, clearing form...');
-
-      // Clear local state after successful generation
+      // Clear local form state; navigation is handled by the context if still on generator page
       setTopic('');
       setLocation('');
       setTone('Authoritative');
@@ -445,7 +415,7 @@ export const Generator: React.FC<GeneratorProps> = ({
 
   // Show loading only when auth is ready and we're actually loading
   if (effectiveIsLoading) {
-    return <StepProgress />;
+    return <StepProgress startedAt={singleState.startedAt || generationState.startTime || undefined} />;
   }
 
   return (
