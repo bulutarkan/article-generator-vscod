@@ -250,7 +250,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       </header>
       <main className="container mx-auto px-4 py-8 w-full flex-1 overflow-y-auto">
-         <div className="max-w-6xl mx-auto space-y-8 animate-fade-in-up">
+         <div className="max-w-6xl mx-auto space-y-8">
             {/* User Info */}
             <div className="bg-white/5 p-6 sm:p-8 rounded-2xl shadow-lg backdrop-blur-xl border border-white/10">
                 <div className="flex items-center gap-4">

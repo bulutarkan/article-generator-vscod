@@ -335,7 +335,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article, onUpdateA
   const previewArticle = { ...article, title: editedTitle, articleContent: editedContent };
 
   return (
-    <div className="animate-fade-in-up max-w-7xl mx-auto flex flex-col h-full">
+    <div className="max-w-7xl mx-auto flex flex-col h-full">
       <SEO
         title={article.title}
         description={article.metaDescription || article.excerpt || article.title}

@@ -419,7 +419,7 @@ export const Generator: React.FC<GeneratorProps> = ({
   }
 
   return (
-    <div className="max-w-5xl mx-auto animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+    <div className="max-w-5xl mx-auto">
       <AppPageTitle pageName="Generator" />
       {(onNavigateToFeatures || onNavigateToPricing || onNavigateToContact) && (
         <nav className="mb-8 flex justify-center items-center gap-2 p-1 bg-white/5 rounded-lg w-fit mx-auto">
