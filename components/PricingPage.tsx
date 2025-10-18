@@ -261,13 +261,13 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
 
       <main className="container mx-auto px-4 py-16 flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight animate-fade-in-up">Pricing Plans</h1>
-          <p className="mt-4 text-lg text-slate-400 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">Pricing Plans</h1>
+          <p className="mt-4 text-lg text-slate-400">
             Choose the plan that fits your content generation needs.
           </p>
         </div>
 
-        <div className="mt-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+        <div className="mt-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
           <PricingCard
             plan="Starter"
             price="$9.99"
@@ -321,7 +321,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigateToAuth, onNa
           />
         </div>
 
-        <div className="mt-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+        <div className="mt-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-slate-800/30 p-6 rounded-xl border border-slate-600/50">
             <div className="text-center">
               <div className="text-indigo-400 text-2xl mb-2">💫</div>

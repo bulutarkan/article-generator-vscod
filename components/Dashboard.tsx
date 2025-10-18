@@ -251,9 +251,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
     return (
       <motion.div
         className="text-center py-16 text-neutral-500"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
       >
         <motion.div
           className="p-8 bg-neutral-800/50 rounded-2xl border border-neutral-700/50 inline-block mb-6"
@@ -330,9 +330,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
       {/* Top Stats - prominent */}
       {stats && (
         <motion.div
-          initial={prefersReducedMotion ? undefined : { opacity: 0, y: 12 }}
-          animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          initial={prefersReducedMotion ? undefined : { opacity: 0 }}
+          animate={prefersReducedMotion ? undefined : { opacity: 1 }}
+          transition={{ duration: 0.3 }}
           className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-3 mb-2"
         >
           <div className="glass p-4">
@@ -684,8 +684,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ articles, isLoading, onDel
               {currentPageArticles.map((article, idx) => (
                 <motion.div
                   key={article.id}
-                  initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={prefersReducedMotion ? undefined : { opacity: 0 }}
+                  animate={prefersReducedMotion ? undefined : { opacity: 1 }}
                   transition={{ duration: 0.25, ease: 'easeOut', delay: prefersReducedMotion ? 0 : idx * 0.03 }}
                   className="col-span-1 h-full"
                 >

@@ -267,7 +267,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             }}
             onClick={onNavigateToApp || onNavigateToAuth}
             whileHover={{ scale: 1.05 }}
-            className="text-3xl sm:text-4xl font-bold tracking-tight animate-fade-in-up inline-flex items-baseline font-heading hover:scale-105 transition-all duration-300"
+            className="text-3xl sm:text-4xl font-bold tracking-tight inline-flex items-baseline font-heading hover:scale-105 transition-all duration-300"
           >
             <span className="inline-block px-1.5 py-1.5 border-2 border-blue-300 rounded-md bg-gradient-to-r from-primary-500 to-accent-500 text-gray-900 text-3xl font-bold">AI</span>
             <span className="ml-1 text-3xl">rticle</span>

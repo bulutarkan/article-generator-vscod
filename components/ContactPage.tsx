@@ -39,13 +39,13 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateToAuth, onNa
 
       <main className="container mx-auto px-4 py-16 flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight animate-fade-in-up">Get in Touch</h1>
-          <p className="mt-4 text-lg text-slate-400 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">Get in Touch</h1>
+          <p className="mt-4 text-lg text-slate-400">
             We'd love to hear from you. Whether you have a question about features, pricing, or anything else, our team is ready to answer all your questions.
           </p>
         </div>
 
-        <div className="mt-16 max-w-2xl mx-auto bg-white/5 p-8 rounded-2xl border border-white/10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+        <div className="mt-16 max-w-2xl mx-auto bg-white/5 p-8 rounded-2xl border border-white/10">
           <form onSubmit={(e) => e.preventDefault()}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>

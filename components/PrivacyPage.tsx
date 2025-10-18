@@ -56,8 +56,8 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNa
 
       <main className="container mx-auto px-4 py-16 flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight animate-fade-in-up">Privacy Policy</h1>
-          <p className="mt-4 text-lg text-slate-400 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">Privacy Policy</h1>
+          <p className="mt-4 text-lg text-slate-400">
             Effective Date: {new Date().toLocaleDateString()}
           </p>
           <button 
@@ -68,7 +68,7 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigateToAuth, onNa
           </button>
         </div>
 
-        <div className="mt-16 max-w-3xl mx-auto bg-white/5 rounded-2xl border border-white/10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+        <div className="mt-16 max-w-3xl mx-auto bg-white/5 rounded-2xl border border-white/10">
           {sections.map((section) => (
             <div key={section.id} className="border-b border-white/10 last:border-b-0">
               <button
