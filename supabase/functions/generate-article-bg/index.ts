@@ -1,14 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { GoogleGenAI, Type } from "https://esm.sh/@google/genai@0.3.0"
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
 
 // Initialize Supabase client
-const supabaseUrl = Deno.env.get('VITE_SUPABASE_URL')!
-const supabaseKey = Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY')!
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Initialize Gemini AI
-const ai = new GoogleGenAI({ apiKey: Deno.env.get('VITE_GEMINI_API_KEY')! })
+const ai = new GoogleGenerativeAI({ apiKey: Deno.env.get('GEMINI_API_KEY')! })
 
 // Title selection function
 function selectBestTitle(titleVariations: string[], primaryKeyword: string): string {
@@ -158,9 +158,9 @@ If you cannot determine the search volume, return a volume of 0. Do not provide 
           systemInstruction: systemInstruction,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "object",
             properties: {
-              volume: { type: Type.NUMBER, description: "The estimated monthly search volume for the keyword in the given target location." }
+              volume: { type: "number", description: "The estimated monthly search volume for the keyword in the given target location." }
             },
             required: ["volume"]
           }
@@ -312,43 +312,43 @@ Return the full JSON object.`
             systemInstruction: systemInstruction,
             responseMimeType: "application/json",
             responseSchema: {
-              type: Type.OBJECT,
+              type: "object",
               properties: {
-                titleVariations: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Array of 3-5 SEO-optimized title variations (each max 60 chars, 'xxxx: xxxx' format, no location, focus on keyword and synonyms)." },
-                selectedTitle: { type: Type.STRING, description: "The best title selected from variations based on SEO potential." },
-                metaDescription: { type: Type.STRING, description: "Compelling SEO meta description (155-160 characters)." },
-                keywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 5-10 relevant keywords." },
-                articleContent: { type: Type.STRING, description: "Full article text (2000-3000 words), with markdown for headings. Include price comparison table in the content if: 1) Topic involves medical procedures, OR 2) Brief requests price comparison. Include general comparison table if topic involves comparing 2+ related factors, methods, options, or approaches." },
+                titleVariations: { type: "array", items: { type: "string" }, description: "Array of 3-5 SEO-optimized title variations (each max 60 chars, 'xxxx: xxxx' format, no location, focus on keyword and synonyms)." },
+                selectedTitle: { type: "string", description: "The best title selected from variations based on SEO potential." },
+                metaDescription: { type: "string", description: "Compelling SEO meta description (155-160 characters)." },
+                keywords: { type: "array", items: { type: "string" }, description: "List of 5-10 relevant keywords." },
+                articleContent: { type: "string", description: "Full article text (2000-3000 words), with markdown for headings. Include price comparison table in the content if: 1) Topic involves medical procedures, OR 2) Brief requests price comparison. Include general comparison table if topic involves comparing 2+ related factors, methods, options, or approaches." },
                 priceComparison: {
-                  type: Type.ARRAY,
+                  type: "array",
                   items: {
-                    type: Type.OBJECT,
+                    type: "object",
                     properties: {
-                      service: { type: Type.STRING },
-                      turkeyPrice: { type: Type.STRING },
-                      locationPrice: { type: Type.STRING }
+                      service: { type: "string" },
+                      turkeyPrice: { type: "string" },
+                      locationPrice: { type: "string" }
                     },
                     required: ["service", "turkeyPrice", "locationPrice"]
                   },
                   description: "Data for price comparison table. Provide if: 1) The topic involves medical procedures/treatments where price comparison is relevant, OR 2) The brief explicitly requests price comparison. Return an empty array if neither condition is met."
                 },
                 generalComparison: {
-                  type: Type.ARRAY,
+                  type: "array",
                   items: {
-                    type: Type.OBJECT,
+                    type: "object",
                     properties: {
-                      factor: { type: Type.STRING },
-                      option1: { type: Type.STRING },
-                      option2: { type: Type.STRING },
-                      option3: { type: Type.STRING, nullable: true }
+                      factor: { type: "string" },
+                      option1: { type: "string" },
+                      option2: { type: "string" },
+                      option3: { type: "string" }
                     },
                     required: ["factor", "option1", "option2"]
                   },
                   description: "Data for general comparison table. Provide if the topic involves comparing 2 or more related factors, methods, options, or approaches. Return an empty array if no meaningful comparison is possible."
                 },
-                primaryKeyword: { type: Type.STRING, description: "The main primary keyword for the article, which should be the topic provided." },
-                keywordDifficulty: { type: Type.NUMBER, description: "Estimated keyword difficulty (0-100)." },
-                content_quality: { type: Type.ARRAY, items: { type: Type.STRING }, description: "2-3 tags describing content quality (e.g., 'Comprehensive')." }
+                primaryKeyword: { type: "string", description: "The main primary keyword for the article, which should be the topic provided." },
+                keywordDifficulty: { type: "number", description: "Estimated keyword difficulty (0-100)." },
+                content_quality: { type: "array", items: { type: "string" }, description: "2-3 tags describing content quality (e.g., 'Comprehensive')." }
               },
               required: ["titleVariations", "selectedTitle", "metaDescription", "keywords", "articleContent", "priceComparison", "generalComparison", "primaryKeyword", "keywordDifficulty", "content_quality"]
             }
