@@ -44,3 +44,25 @@ CREATE POLICY "Users can update their own tasks" ON article_generation_tasks
 
 CREATE POLICY "Users can delete their own tasks" ON article_generation_tasks
   FOR DELETE USING (auth.uid() = user_id);
+
+-- Create function to mark tasks as processing (trigger-based background processing)
+CREATE OR REPLACE FUNCTION process_article_generation_task()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only process if status is 'pending'
+    IF NEW.status = 'pending' THEN
+        -- Update status to processing (ready for background worker)
+        UPDATE article_generation_tasks
+        SET status = 'processing', updated_at = NOW()
+        WHERE id = NEW.id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to automatically process tasks
+CREATE TRIGGER trigger_process_article_generation_task
+    AFTER INSERT ON article_generation_tasks
+    FOR EACH ROW
+    EXECUTE FUNCTION process_article_generation_task();
