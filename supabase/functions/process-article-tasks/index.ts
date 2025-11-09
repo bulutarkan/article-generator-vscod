@@ -8,7 +8,7 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Initialize Gemini AI
-const ai = new GoogleGenerativeAI({ apiKey: Deno.env.get('GEMINI_API_KEY')! })
+const genAI = new GoogleGenerativeAI({ apiKey: Deno.env.get('GEMINI_API_KEY')! })
 
 // Title selection function
 function selectBestTitle(titleVariations: string[], primaryKeyword: string): string {
@@ -151,26 +151,17 @@ If you cannot determine the search volume, return a volume of 0. Do not provide 
 
   for (const modelName of modelsToTry) {
     try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              volume: { type: "number", description: "The estimated monthly search volume for the keyword in the given target location." }
-            },
-            required: ["volume"]
-          }
-        }
-      })
+      const model = genAI.getGenerativeModel({ model: modelName })
+      const result = await model.generateContent([
+        { text: `${systemInstruction}\n\n${prompt}` }
+      ])
 
-      const data = JSON.parse(response.text)
+      const response = await result.response
+      const text = response.text()
+      const data = JSON.parse(text)
       return data.volume || 0
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Keyword volume model ${modelName} failed:`, error)
       if (error?.status === 503 || error?.code === 503 || error?.message?.includes('overloaded')) {
         continue
@@ -305,66 +296,30 @@ Return the full JSON object.`
       try {
         console.log(`Trying model: ${modelName} (attempt ${retryCount + 1}/${maxRetries + 1})`)
 
-        const responsePromise = ai.models.generateContent({
+        const model = genAI.getGenerativeModel({
           model: modelName,
-          contents: prompt,
-          config: {
-            systemInstruction: systemInstruction,
+          generationConfig: {
             responseMimeType: "application/json",
-            responseSchema: {
-              type: "object",
-              properties: {
-                titleVariations: { type: "array", items: { type: "string" }, description: "Array of 3-5 SEO-optimized title variations (each max 60 chars, 'xxxx: xxxx' format, no location, focus on keyword and synonyms)." },
-                selectedTitle: { type: "string", description: "The best title selected from variations based on SEO potential." },
-                metaDescription: { type: "string", description: "Compelling SEO meta description (155-160 characters)." },
-                keywords: { type: "array", items: { type: "string" }, description: "List of 5-10 relevant keywords." },
-                articleContent: { type: "string", description: "Full article text (2000-3000 words), with markdown for headings. Include price comparison table in the content if: 1) Topic involves medical procedures, OR 2) Brief requests price comparison. Include general comparison table if topic involves comparing 2+ related factors, methods, options, or approaches." },
-                priceComparison: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      service: { type: "string" },
-                      turkeyPrice: { type: "string" },
-                      locationPrice: { type: "string" }
-                    },
-                    required: ["service", "turkeyPrice", "locationPrice"]
-                  },
-                  description: "Data for price comparison table. Provide if: 1) The topic involves medical procedures/treatments where price comparison is relevant, OR 2) The brief explicitly requests price comparison. Return an empty array if neither condition is met."
-                },
-                generalComparison: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      factor: { type: "string" },
-                      option1: { type: "string" },
-                      option2: { type: "string" },
-                      option3: { type: "string" }
-                    },
-                    required: ["factor", "option1", "option2"]
-                  },
-                  description: "Data for general comparison table. Provide if the topic involves comparing 2 or more related factors, methods, options, or approaches. Return an empty array if no meaningful comparison is possible."
-                },
-                primaryKeyword: { type: "string", description: "The main primary keyword for the article, which should be the topic provided." },
-                keywordDifficulty: { type: "number", description: "Estimated keyword difficulty (0-100)." },
-                content_quality: { type: "array", items: { type: "string" }, description: "2-3 tags describing content quality (e.g., 'Comprehensive')." }
-              },
-              required: ["titleVariations", "selectedTitle", "metaDescription", "keywords", "articleContent", "priceComparison", "generalComparison", "primaryKeyword", "keywordDifficulty", "content_quality"]
-            }
           }
         })
 
-        const volumePromise = getKeywordVolume(topic, location)
+        const result = await model.generateContent([
+          { text: `${systemInstruction}\n\n${prompt}` }
+        ])
 
-        const [response, volume] = await Promise.all([responsePromise, volumePromise])
+        const response = await result.response
+        const text = response.text()
+
+        // Get keyword volume in parallel
+        const volumePromise = getKeywordVolume(topic, location)
+        const volume = await volumePromise
 
         // Check if response is complete before parsing
-        if (!isResponseComplete(response.text)) {
+        if (!isResponseComplete(text)) {
           console.warn(`Response from ${modelName} appears incomplete, retrying...`)
           retryCount++
           if (retryCount <= maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            await new Promise((resolve) => setTimeout(resolve, 1000))
             continue
           } else {
             console.error(`Max retries reached for ${modelName}, trying next model`)
@@ -372,7 +327,7 @@ Return the full JSON object.`
           }
         }
 
-        const parsedResponse = JSON.parse(response.text)
+        const parsedResponse = JSON.parse(text)
 
         // Validate the response content
         if (!validateArticleResponse(parsedResponse)) {
@@ -407,7 +362,7 @@ Return the full JSON object.`
           monthlySearches: volume
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Model ${modelName} failed (attempt ${retryCount + 1}):`, error)
         lastError = error
 
@@ -432,7 +387,7 @@ Return the full JSON object.`
   throw lastError || new Error("All AI models are currently unavailable. Please try again later.")
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   try {
     console.log('🔄 Processing article generation tasks...')
 
@@ -529,7 +484,7 @@ serve(async (req) => {
           console.log(`✅ Task completed: ${task.task_id}`)
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(`💥 Task failed: ${task.task_id}`, error)
 
         // Update task as failed
@@ -537,7 +492,7 @@ serve(async (req) => {
           .from('article_generation_tasks')
           .update({
             status: 'failed',
-            error_message: error.message,
+            error_message: error?.message || 'Unknown error',
             updated_at: new Date().toISOString()
           })
           .eq('task_id', task.task_id)
@@ -549,8 +504,8 @@ serve(async (req) => {
       processed: processingTasks.length
     }), { status: 200 })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('💥 Background processing error:', error)
-    return new Response(JSON.stringify({ error: 'Background processing failed', message: error.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'Background processing failed', message: error?.message || 'Unknown error' }), { status: 500 })
   }
 })

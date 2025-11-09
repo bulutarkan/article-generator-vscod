@@ -28,6 +28,7 @@ DROP POLICY IF EXISTS "Users can view their own tasks" ON article_generation_tas
 DROP POLICY IF EXISTS "Users can insert their own tasks" ON article_generation_tasks;
 DROP POLICY IF EXISTS "Users can update their own tasks" ON article_generation_tasks;
 DROP POLICY IF EXISTS "Users can delete their own tasks" ON article_generation_tasks;
+DROP POLICY IF EXISTS "Service role can do everything" ON article_generation_tasks;
 
 -- Create policies (allow service role to bypass RLS)
 CREATE POLICY "Service role can do everything" ON article_generation_tasks
