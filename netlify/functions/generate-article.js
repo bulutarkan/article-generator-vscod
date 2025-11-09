@@ -91,10 +91,26 @@ exports.handler = async (event) => {
       throw new Error(`Failed to create task: ${taskError.message}`);
     }
 
-    // Start article generation asynchronously (don't wait for completion)
-    generateArticleAsync(taskId, userId, topic, country, tone_of_voice, brief);
+    // Trigger Supabase Edge Function for background processing
+    try {
+      const edgeFunctionUrl = `${process.env.VITE_SUPABASE_URL}/functions/v1/generate-article-bg?task_id=${taskId}`;
 
-    console.log(`✅ Task created successfully: ${taskId}`);
+      // Call the Edge Function asynchronously (don't wait for response)
+      fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }).catch(error => {
+        console.error('Failed to trigger Edge Function:', error);
+      });
+
+      console.log(`✅ Task created and Edge Function triggered: ${taskId}`);
+    } catch (error) {
+      console.error('Failed to trigger Edge Function:', error);
+      // Don't fail the request, just log the error
+    }
 
     // Return task ID immediately
     return {
@@ -125,97 +141,3 @@ exports.handler = async (event) => {
     };
   }
 };
-
-// Async function to generate article (runs in background)
-async function generateArticleAsync(taskId, userId, topic, country, tone, brief) {
-  try {
-    console.log(`🔄 Starting article generation for task ${taskId}`);
-
-    // Update task status to processing
-    await supabase
-      .from('article_generation_tasks')
-      .update({
-        status: 'processing',
-        updated_at: new Date().toISOString()
-      })
-      .eq('task_id', taskId);
-
-    // Generate the article using existing service
-    const article = await generateSeoGeoArticle(
-      topic,
-      country,
-      tone,
-      brief || undefined
-    );
-
-    // Save the article to database
-    const savedArticle = await supabase
-      .from('articles')
-      .insert([{
-        user_id: userId,
-        title: article.title,
-        topic: topic,
-        location: country,
-        tone: tone,
-        articleContent: article.articleContent,
-        metaDescription: article.metaDescription,
-        keywords: article.keywords,
-        priceComparison: article.priceComparison,
-        generalComparison: article.generalComparison,
-        monthlySearches: article.monthlySearches,
-        primaryKeyword: article.primaryKeyword,
-        keywordDifficulty: article.keywordDifficulty,
-        content_quality: article.content_quality,
-        seoMetrics: article.seoMetrics
-      }])
-      .select()
-      .single();
-
-    if (savedArticle.error) {
-      throw new Error(`Failed to save article: ${savedArticle.error.message}`);
-    }
-
-    // Update task as completed
-    await supabase
-      .from('article_generation_tasks')
-      .update({
-        status: 'completed',
-        article_data: {
-          id: savedArticle.data.id,
-          title: savedArticle.data.title,
-          topic: savedArticle.data.topic,
-          location: savedArticle.data.location,
-          tone: savedArticle.data.tone,
-          articleContent: savedArticle.data.articlecontent,
-          metaDescription: savedArticle.data.metadescription,
-          keywords: savedArticle.data.keywords,
-          priceComparison: savedArticle.data.priceComparison,
-          generalComparison: savedArticle.data.generalComparison,
-          monthlySearches: savedArticle.data.monthly_searches,
-          primaryKeyword: savedArticle.data.primary_keyword,
-          keywordDifficulty: savedArticle.data.keyword_difficulty,
-          content_quality: savedArticle.data.content_quality,
-          seoMetrics: savedArticle.data.seoMetrics,
-          createdAt: savedArticle.data.created_at
-        },
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('task_id', taskId);
-
-    console.log(`✅ Article generated and saved for task ${taskId}: ${savedArticle.data.id}`);
-
-  } catch (error) {
-    console.error(`💥 Article generation failed for task ${taskId}:`, error);
-
-    // Update task as failed
-    await supabase
-      .from('article_generation_tasks')
-      .update({
-        status: 'failed',
-        error_message: error.message,
-        updated_at: new Date().toISOString()
-      })
-      .eq('task_id', taskId);
-  }
-}
