@@ -203,3 +203,13 @@ export interface AiRecommendation {
   icon?: string;
   color?: string;
 }
+
+// API Token Types
+export interface UserApiToken {
+  id: string;
+  user_id: string;
+  token: string;
+  created_at: string;
+  last_used_at?: string;
+  is_active: boolean;
+}
