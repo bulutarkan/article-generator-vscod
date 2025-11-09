@@ -310,46 +310,62 @@ export const IntegrationsManager: React.FC<IntegrationsManagerProps> = ({ curren
                   <p className="text-xs text-slate-500 mt-1">Keep this token secure and never share it publicly.</p>
                 </div>
 
-                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                  <h4 className="text-sm font-semibold text-blue-300 mb-2">API Endpoint</h4>
-                  <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block">
-                    POST https://airticle.netlify.app/.netlify/functions/generate-article
-                  </code>
-                </div>
-
-                <div className="p-4 bg-slate-700/50 rounded-lg">
-                  <h4 className="text-sm font-semibold text-slate-200 mb-2">Example Usage</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">cURL:</p>
-                      <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block whitespace-pre-wrap">
-{`curl -X POST https://airticle.netlify.app/.netlify/functions/generate-article \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "access_token": "${apiToken}",
-    "topic": "gastric sleeve surgery",
-    "country": "united_kingdom",
-    "tone_of_voice": "professional",
-    "brief": "Focus on benefits for international patients"
-  }'`}
-                      </code>
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <h4 className="text-sm font-semibold text-blue-300 mb-2">API Endpoints</h4>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs text-slate-400">Create Task:</p>
+                        <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block">
+                          POST https://airticle.netlify.app/.netlify/functions/generate-article
+                        </code>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Check Status:</p>
+                        <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block">
+                          GET https://airticle.netlify.app/.netlify/functions/get-article-task/{"{task_id}"}?access_token={"{token}"}
+                        </code>
+                      </div>
                     </div>
+                  </div>
 
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">JavaScript:</p>
-                      <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block whitespace-pre-wrap">
-{`fetch('https://airticle.netlify.app/.netlify/functions/generate-article', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    access_token: '${apiToken}',
-    topic: 'gastric sleeve surgery',
-    country: 'united_kingdom',
-    tone_of_voice: 'professional',
-    brief: 'Optional additional instructions'
-  })
-})`}
-                      </code>
+                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <h4 className="text-sm font-semibold text-green-300 mb-2">How It Works</h4>
+                    <ol className="text-xs text-slate-300 space-y-1 list-decimal list-inside">
+                      <li>Send POST request to create article generation task</li>
+                      <li>Receive task_id immediately (no waiting)</li>
+                      <li>Wait 2-3 minutes for processing</li>
+                      <li>Send GET request with task_id to get completed article</li>
+                    </ol>
+                  </div>
+
+                  <div className="p-4 bg-slate-700/50 rounded-lg">
+                    <h4 className="text-sm font-semibold text-slate-200 mb-2">Example Usage (N8n)</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Step 1: Create Task</p>
+                        <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block whitespace-pre-wrap">
+{`POST https://airticle.netlify.app/.netlify/functions/generate-article
+{
+  "access_token": "${apiToken}",
+  "topic": "gastric sleeve surgery",
+  "country": "united_kingdom",
+  "tone_of_voice": "professional"
+}`}
+                        </code>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Step 2: Wait 2-3 minutes</p>
+                        <p className="text-xs text-slate-300">Use N8n "Wait" node</p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Step 3: Get Result</p>
+                        <code className="text-xs text-slate-300 bg-slate-900/80 p-2 rounded block whitespace-pre-wrap">
+{`GET https://airticle.netlify.app/.netlify/functions/get-article-task/{task_id}?access_token=${apiToken}`}
+                        </code>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -366,6 +382,14 @@ export const IntegrationsManager: React.FC<IntegrationsManagerProps> = ({ curren
                         <li><strong>tone_of_voice:</strong> Writing tone (e.g., "professional") (required)</li>
                         <li><strong>brief:</strong> Additional instructions (optional)</li>
                       </ul>
+                      <div className="mt-3 pt-3 border-t border-yellow-500/20">
+                        <a
+                          href="/api-docs"
+                          className="text-yellow-300 hover:text-yellow-200 underline text-sm"
+                        >
+                          📖 View Full API Documentation →
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>

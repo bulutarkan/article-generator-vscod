@@ -65,13 +65,86 @@ exports.handler = async (event) => {
       };
     }
 
-    console.log(`🔄 Generating article for user ${userId}: ${topic}`);
+    // Generate unique task ID
+    const crypto = require('crypto');
+    const taskId = crypto.randomBytes(16).toString('hex');
+
+    console.log(`📋 Creating article generation task for user ${userId}: ${taskId}`);
+
+    // Create task record
+    const { data: taskData, error: taskError } = await supabase
+      .from('article_generation_tasks')
+      .insert([{
+        user_id: userId,
+        task_id: taskId,
+        status: 'pending',
+        topic: topic,
+        country: country,
+        tone: tone_of_voice,
+        brief: brief || null
+      }])
+      .select()
+      .single();
+
+    if (taskError) {
+      console.error('Task creation error:', taskError);
+      throw new Error(`Failed to create task: ${taskError.message}`);
+    }
+
+    // Start article generation asynchronously (don't wait for completion)
+    generateArticleAsync(taskId, userId, topic, country, tone_of_voice, brief);
+
+    console.log(`✅ Task created successfully: ${taskId}`);
+
+    // Return task ID immediately
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        success: true,
+        task_id: taskId,
+        status: 'pending',
+        message: 'Article generation task created. Check status with GET /get-article-task/{task_id}',
+        estimated_time: '2-3 minutes'
+      })
+    };
+
+  } catch (error) {
+    console.error('💥 Netlify function error:', error);
+
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        error: 'Internal server error',
+        message: error.message
+      })
+    };
+  }
+};
+
+// Async function to generate article (runs in background)
+async function generateArticleAsync(taskId, userId, topic, country, tone, brief) {
+  try {
+    console.log(`🔄 Starting article generation for task ${taskId}`);
+
+    // Update task status to processing
+    await supabase
+      .from('article_generation_tasks')
+      .update({
+        status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('task_id', taskId);
 
     // Generate the article using existing service
     const article = await generateSeoGeoArticle(
       topic,
       country,
-      tone_of_voice,
+      tone,
       brief || undefined
     );
 
@@ -83,7 +156,7 @@ exports.handler = async (event) => {
         title: article.title,
         topic: topic,
         location: country,
-        tone: tone_of_voice,
+        tone: tone,
         articleContent: article.articleContent,
         metaDescription: article.metaDescription,
         keywords: article.keywords,
@@ -99,26 +172,15 @@ exports.handler = async (event) => {
       .single();
 
     if (savedArticle.error) {
-      console.error('Database save error:', savedArticle.error);
-      throw new Error(`Failed to save article to database: ${savedArticle.error.message}`);
+      throw new Error(`Failed to save article: ${savedArticle.error.message}`);
     }
 
-    if (!savedArticle.data) {
-      throw new Error('Failed to save article to database: No data returned');
-    }
-
-    console.log(`✅ Article generated and saved: ${savedArticle.data.id}`);
-
-    // Return success response
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        success: true,
-        article: {
+    // Update task as completed
+    await supabase
+      .from('article_generation_tasks')
+      .update({
+        status: 'completed',
+        article_data: {
           id: savedArticle.data.id,
           title: savedArticle.data.title,
           topic: savedArticle.data.topic,
@@ -136,23 +198,24 @@ exports.handler = async (event) => {
           seoMetrics: savedArticle.data.seoMetrics,
           createdAt: savedArticle.data.created_at
         },
-        usage: {
-          tokens_used: savedArticle.data.articlecontent?.length || 0,
-          remaining_quota: 10000 // Placeholder - implement actual quota system
-        }
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-    };
+      .eq('task_id', taskId);
+
+    console.log(`✅ Article generated and saved for task ${taskId}: ${savedArticle.data.id}`);
 
   } catch (error) {
-    console.error('💥 Netlify function error:', error);
+    console.error(`💥 Article generation failed for task ${taskId}:`, error);
 
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error.message
+    // Update task as failed
+    await supabase
+      .from('article_generation_tasks')
+      .update({
+        status: 'failed',
+        error_message: error.message,
+        updated_at: new Date().toISOString()
       })
-    };
+      .eq('task_id', taskId);
   }
-};
+}

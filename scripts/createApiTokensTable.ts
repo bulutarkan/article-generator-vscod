@@ -41,9 +41,29 @@ CREATE TABLE IF NOT EXISTS user_api_tokens (
   is_active BOOLEAN DEFAULT TRUE
 );
 
+-- Create article generation tasks table
+CREATE TABLE IF NOT EXISTS article_generation_tasks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  task_id TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  topic TEXT NOT NULL,
+  country TEXT NOT NULL,
+  tone TEXT NOT NULL,
+  brief TEXT,
+  article_data JSONB,
+  error_message TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  completed_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_user_api_tokens_user_id ON user_api_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_api_tokens_token ON user_api_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_article_generation_tasks_user_id ON article_generation_tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_article_generation_tasks_task_id ON article_generation_tasks(task_id);
+CREATE INDEX IF NOT EXISTS idx_article_generation_tasks_status ON article_generation_tasks(status);
 
 -- Enable RLS
 ALTER TABLE user_api_tokens ENABLE ROW LEVEL SECURITY;
