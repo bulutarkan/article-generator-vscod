@@ -1,15 +1,15 @@
 const { createClient } = require('@supabase/supabase-js');
 const { generateSeoGeoArticle, generateUserToken, validateApiToken } = require('./generateArticleService.cjs');
 
-// Initialize Supabase client
+// Initialize Supabase client with service role key for admin operations
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+const serviceRoleKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
+if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 exports.handler = async (event) => {
   // Only allow POST requests

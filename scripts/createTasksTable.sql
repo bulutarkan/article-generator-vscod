@@ -23,15 +23,24 @@ CREATE INDEX IF NOT EXISTS idx_article_generation_tasks_status ON article_genera
 -- Enable RLS
 ALTER TABLE article_generation_tasks ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own tasks" ON article_generation_tasks;
+DROP POLICY IF EXISTS "Users can insert their own tasks" ON article_generation_tasks;
+DROP POLICY IF EXISTS "Users can update their own tasks" ON article_generation_tasks;
+DROP POLICY IF EXISTS "Users can delete their own tasks" ON article_generation_tasks;
+
 -- Create policies (allow service role to bypass RLS)
+CREATE POLICY "Service role can do everything" ON article_generation_tasks
+  FOR ALL USING (auth.role() = 'service_role');
+
 CREATE POLICY "Users can view their own tasks" ON article_generation_tasks
-  FOR SELECT USING (auth.uid() = user_id OR auth.role() = 'service_role');
+  FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert their own tasks" ON article_generation_tasks
-  FOR INSERT WITH CHECK (auth.uid() = user_id OR auth.role() = 'service_role');
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can update their own tasks" ON article_generation_tasks
-  FOR UPDATE USING (auth.uid() = user_id OR auth.role() = 'service_role');
+  FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own tasks" ON article_generation_tasks
-  FOR DELETE USING (auth.uid() = user_id OR auth.role() = 'service_role');
+  FOR DELETE USING (auth.uid() = user_id);
