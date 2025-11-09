@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { generateSeoGeoArticle, generateUserToken, validateApiToken } = require('../../services/generateArticleService.js');
+const { generateSeoGeoArticle, generateUserToken, validateApiToken } = require('./generateArticleService.cjs');
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL;

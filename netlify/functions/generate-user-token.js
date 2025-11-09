@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { generateUserToken } = require('../../services/generateArticleService.js');
+const { generateUserToken } = require('./generateArticleService.cjs');
 
 // Initialize Supabase client with service role key for admin operations
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
