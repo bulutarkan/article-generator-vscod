@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { generateUserToken } from '../../services/generateArticleService.js';
+const { createClient } = require('@supabase/supabase-js');
+const { generateUserToken } = require('../../services/generateArticleService.js');
 
 // Initialize Supabase client with service role key for admin operations
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -11,7 +11,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {

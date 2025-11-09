@@ -31,7 +31,29 @@ export const IntegrationsManager: React.FC<IntegrationsManagerProps> = ({ curren
 
   useEffect(() => {
     fetchIntegrations();
+    checkExistingToken();
   }, []);
+
+  const checkExistingToken = async () => {
+    try {
+      // Check if user already has an API token
+      const response = await fetch('/.netlify/functions/generate-user-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token) {
+          setApiToken(data.token);
+        }
+      }
+    } catch (e) {
+      // Token doesn't exist yet, that's fine - user can generate one
+      console.log('No existing token found');
+    }
+  };
 
   const fetchIntegrations = async () => {
     try {
