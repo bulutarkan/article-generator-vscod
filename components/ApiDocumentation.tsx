@@ -361,7 +361,7 @@ HTTP Request (GET)
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Task creation</span>
-                <span className="text-slate-200 font-mono">< 1s</span>
+                <span className="text-slate-200 font-mono">{'<'} 1s</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Article generation</span>
@@ -369,7 +369,7 @@ HTTP Request (GET)
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Status check</span>
-                <span className="text-slate-200 font-mono">< 500ms</span>
+                <span className="text-slate-200 font-mono">{'<'} 500ms</span>
               </div>
             </div>
           </div>

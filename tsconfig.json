@@ -29,6 +29,7 @@
   },
   "exclude": [
     "supabase/functions/**/*",
-    "netlify/functions/**/*"
+    "netlify/functions/**/*",
+    "node_modules"
   ]
 }
