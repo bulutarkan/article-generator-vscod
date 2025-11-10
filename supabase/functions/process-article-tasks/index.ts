@@ -389,31 +389,42 @@ Return the full JSON object.`
 
 serve(async (req: Request) => {
   try {
-    console.log('🔄 Processing article generation tasks...')
+    console.log('🚀 Background worker started!')
 
-    // Get all processing tasks (limit to 3 at a time to avoid overload)
-    const { data: processingTasks, error: fetchError } = await supabase
-      .from('article_generation_tasks')
-      .select('*')
-      .eq('status', 'processing')
-      .limit(3)
-
-    if (fetchError) {
-      console.error('Error fetching tasks:', fetchError)
-      return new Response(JSON.stringify({ error: 'Failed to fetch tasks' }), { status: 500 })
-    }
-
-    if (!processingTasks || processingTasks.length === 0) {
-      console.log('No processing tasks found')
-      return new Response(JSON.stringify({ message: 'No tasks to process' }), { status: 200 })
-    }
-
-    console.log(`Found ${processingTasks.length} tasks to process`)
-
-    // Process each task
-    for (const task of processingTasks) {
+    // Start background processing loop
+    setInterval(async () => {
       try {
-        console.log(`Processing task: ${task.task_id}`)
+        console.log('🔄 Checking for pending tasks...')
+
+        // Get pending tasks (limit to 1 at a time to avoid overload)
+        const { data: pendingTasks, error: fetchError } = await supabase
+          .from('article_generation_tasks')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true })
+          .limit(1)
+
+        if (fetchError) {
+          console.error('Error fetching pending tasks:', fetchError)
+          return
+        }
+
+        if (!pendingTasks || pendingTasks.length === 0) {
+          console.log('No pending tasks found')
+          return
+        }
+
+        const task = pendingTasks[0]
+        console.log(`📝 Processing task: ${task.task_id}`)
+
+        // Update task to processing
+        await supabase
+          .from('article_generation_tasks')
+          .update({
+            status: 'processing',
+            updated_at: new Date().toISOString()
+          })
+          .eq('task_id', task.task_id)
 
         // Generate the article
         const article = await generateSeoGeoArticle(
@@ -485,27 +496,38 @@ serve(async (req: Request) => {
         }
 
       } catch (error: any) {
-        console.error(`💥 Task failed: ${task.task_id}`, error)
+        console.error('💥 Background processing error:', error)
 
-        // Update task as failed
-        await supabase
-          .from('article_generation_tasks')
-          .update({
-            status: 'failed',
-            error_message: error?.message || 'Unknown error',
-            updated_at: new Date().toISOString()
-          })
-          .eq('task_id', task.task_id)
+        // Try to update failed task if we have task info
+        try {
+          const url = new URL(req.url)
+          const taskId = url.searchParams.get('task_id')
+          if (taskId) {
+            await supabase
+              .from('article_generation_tasks')
+              .update({
+                status: 'failed',
+                error_message: error?.message || 'Unknown error',
+                updated_at: new Date().toISOString()
+              })
+              .eq('task_id', taskId)
+          }
+        } catch (updateError) {
+          console.error('Failed to update task status:', updateError)
+        }
       }
-    }
+    }, 30000) // Check every 30 seconds
 
     return new Response(JSON.stringify({
-      message: `Processed ${processingTasks.length} tasks`,
-      processed: processingTasks.length
+      message: 'Background worker started successfully',
+      status: 'running'
     }), { status: 200 })
 
   } catch (error: any) {
-    console.error('💥 Background processing error:', error)
-    return new Response(JSON.stringify({ error: 'Background processing failed', message: error?.message || 'Unknown error' }), { status: 500 })
+    console.error('💥 Worker initialization error:', error)
+    return new Response(JSON.stringify({
+      error: 'Failed to start background worker',
+      message: error?.message || 'Unknown error'
+    }), { status: 500 })
   }
 })
