@@ -8,7 +8,12 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI({ apiKey: Deno.env.get('GEMINI_API_KEY')! })
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
+console.log('GEMINI_API_KEY exists:', !!geminiApiKey)
+if (!geminiApiKey) {
+  throw new Error('GEMINI_API_KEY environment variable is not set')
+}
+const genAI = new GoogleGenerativeAI({ apiKey: geminiApiKey })
 
 // Title selection function
 function selectBestTitle(titleVariations: string[], primaryKeyword: string): string {
@@ -389,144 +394,159 @@ Return the full JSON object.`
 
 serve(async (req: Request) => {
   try {
-    console.log('🚀 Background worker started!')
+    console.log('🔄 Processing one pending task...')
 
-    // Start background processing loop
-    setInterval(async () => {
-      try {
-        console.log('🔄 Checking for pending tasks...')
+    // Get pending tasks (limit to 1 at a time to avoid overload)
+    const { data: pendingTasks, error: fetchError } = await supabase
+      .from('article_generation_tasks')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(1)
 
-        // Get pending tasks (limit to 1 at a time to avoid overload)
-        const { data: pendingTasks, error: fetchError } = await supabase
-          .from('article_generation_tasks')
-          .select('*')
-          .eq('status', 'pending')
-          .order('created_at', { ascending: true })
-          .limit(1)
+    if (fetchError) {
+      console.error('Error fetching pending tasks:', fetchError)
+      return new Response(JSON.stringify({
+        error: 'Failed to fetch pending tasks',
+        message: fetchError.message
+      }), { status: 500 })
+    }
 
-        if (fetchError) {
-          console.error('Error fetching pending tasks:', fetchError)
-          return
-        }
+    if (!pendingTasks || pendingTasks.length === 0) {
+      console.log('No pending tasks found')
+      return new Response(JSON.stringify({
+        message: 'No pending tasks to process',
+        status: 'idle'
+      }), { status: 200 })
+    }
 
-        if (!pendingTasks || pendingTasks.length === 0) {
-          console.log('No pending tasks found')
-          return
-        }
+    const task = pendingTasks[0]
+    console.log(`📝 Processing task: ${task.task_id}`)
 
-        const task = pendingTasks[0]
-        console.log(`📝 Processing task: ${task.task_id}`)
+    // Update task to processing
+    const { error: processingError } = await supabase
+      .from('article_generation_tasks')
+      .update({
+        status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('task_id', task.task_id)
 
-        // Update task to processing
-        await supabase
-          .from('article_generation_tasks')
-          .update({
-            status: 'processing',
-            updated_at: new Date().toISOString()
-          })
-          .eq('task_id', task.task_id)
+    if (processingError) {
+      console.error('Error updating task to processing:', processingError)
+      return new Response(JSON.stringify({
+        error: 'Failed to update task status',
+        message: processingError.message
+      }), { status: 500 })
+    }
 
-        // Generate the article
-        const article = await generateSeoGeoArticle(
-          task.topic,
-          task.country,
-          task.tone,
-          task.brief || undefined
-        )
+    try {
+      // Generate the article
+      const article = await generateSeoGeoArticle(
+        task.topic,
+        task.country,
+        task.tone,
+        task.brief || undefined
+      )
 
-        // Save the article to database
-        const { data: savedArticle, error: saveError } = await supabase
-          .from('articles')
-          .insert([{
-            user_id: task.user_id,
-            title: article.title,
-            topic: task.topic,
-            location: task.country,
-            tone: task.tone,
-            articleContent: article.articleContent,
-            metaDescription: article.metaDescription,
-            keywords: article.keywords,
-            priceComparison: article.priceComparison,
-            generalComparison: article.generalComparison,
-            monthlySearches: article.monthlySearches,
-            primaryKeyword: article.primaryKeyword,
-            keywordDifficulty: article.keywordDifficulty,
-            content_quality: article.content_quality,
-            seoMetrics: article.seoMetrics
-          }])
-          .select()
-          .single()
+      // Save the article to database
+      const { data: savedArticle, error: saveError } = await supabase
+        .from('articles')
+        .insert([{
+          user_id: task.user_id,
+          title: article.title,
+          topic: task.topic,
+          location: task.country,
+          tone: task.tone,
+          articleContent: article.articleContent,
+          metaDescription: article.metaDescription,
+          keywords: article.keywords,
+          priceComparison: article.priceComparison,
+          generalComparison: article.generalComparison,
+          monthlySearches: article.monthlySearches,
+          primaryKeyword: article.primaryKeyword,
+          keywordDifficulty: article.keywordDifficulty,
+          content_quality: article.content_quality,
+          seoMetrics: article.seoMetrics
+        }])
+        .select()
+        .single()
 
-        if (saveError) {
-          throw new Error(`Failed to save article: ${saveError.message}`)
-        }
-
-        // Update task as completed
-        const { error: updateError } = await supabase
-          .from('article_generation_tasks')
-          .update({
-            status: 'completed',
-            article_data: {
-              id: savedArticle.id,
-              title: savedArticle.title,
-              topic: savedArticle.topic,
-              location: savedArticle.location,
-              tone: savedArticle.tone,
-              articleContent: savedArticle.articlecontent,
-              metaDescription: savedArticle.metadescription,
-              keywords: savedArticle.keywords,
-              priceComparison: savedArticle.priceComparison,
-              generalComparison: savedArticle.generalComparison,
-              monthlySearches: savedArticle.monthly_searches,
-              primaryKeyword: savedArticle.primary_keyword,
-              keywordDifficulty: savedArticle.keyword_difficulty,
-              content_quality: savedArticle.content_quality,
-              seoMetrics: savedArticle.seoMetrics,
-              createdAt: savedArticle.created_at
-            },
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('task_id', task.task_id)
-
-        if (updateError) {
-          console.error('Error updating task:', updateError)
-        } else {
-          console.log(`✅ Task completed: ${task.task_id}`)
-        }
-
-      } catch (error: any) {
-        console.error('💥 Background processing error:', error)
-
-        // Try to update failed task if we have task info
-        try {
-          const url = new URL(req.url)
-          const taskId = url.searchParams.get('task_id')
-          if (taskId) {
-            await supabase
-              .from('article_generation_tasks')
-              .update({
-                status: 'failed',
-                error_message: error?.message || 'Unknown error',
-                updated_at: new Date().toISOString()
-              })
-              .eq('task_id', taskId)
-          }
-        } catch (updateError) {
-          console.error('Failed to update task status:', updateError)
-        }
+      if (saveError) {
+        throw new Error(`Failed to save article: ${saveError.message}`)
       }
-    }, 30000) // Check every 30 seconds
 
-    return new Response(JSON.stringify({
-      message: 'Background worker started successfully',
-      status: 'running'
-    }), { status: 200 })
+      // Update task as completed
+      const { error: updateError } = await supabase
+        .from('article_generation_tasks')
+        .update({
+          status: 'completed',
+          article_data: {
+            id: savedArticle.id,
+            title: savedArticle.title,
+            topic: savedArticle.topic,
+            location: savedArticle.location,
+            tone: savedArticle.tone,
+            articleContent: savedArticle.articlecontent,
+            metaDescription: savedArticle.metadescription,
+            keywords: savedArticle.keywords,
+            priceComparison: savedArticle.priceComparison,
+            generalComparison: savedArticle.generalComparison,
+            monthlySearches: savedArticle.monthly_searches,
+            primaryKeyword: savedArticle.primary_keyword,
+            keywordDifficulty: savedArticle.keyword_difficulty,
+            content_quality: savedArticle.content_quality,
+            seoMetrics: savedArticle.seoMetrics,
+            createdAt: savedArticle.created_at
+          },
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('task_id', task.task_id)
+
+      if (updateError) {
+        console.error('Error updating task to completed:', updateError)
+        return new Response(JSON.stringify({
+          error: 'Failed to update task to completed',
+          message: updateError.message
+        }), { status: 500 })
+      }
+
+      console.log(`✅ Task completed: ${task.task_id}`)
+      return new Response(JSON.stringify({
+        message: `Task ${task.task_id} completed successfully`,
+        status: 'completed',
+        task_id: task.task_id
+      }), { status: 200 })
+
+    } catch (error: any) {
+      console.error('💥 Article generation error:', error)
+
+      // Update task as failed
+      const { error: failError } = await supabase
+        .from('article_generation_tasks')
+        .update({
+          status: 'failed',
+          error_message: error?.message || 'Unknown error',
+          updated_at: new Date().toISOString()
+        })
+        .eq('task_id', task.task_id)
+
+      if (failError) {
+        console.error('Failed to update task status to failed:', failError)
+      }
+
+      return new Response(JSON.stringify({
+        error: 'Article generation failed',
+        message: error?.message || 'Unknown error',
+        task_id: task.task_id
+      }), { status: 500 })
+    }
 
   } catch (error: any) {
-    console.error('💥 Worker initialization error:', error)
+    console.error('💥 Worker execution error:', error)
     return new Response(JSON.stringify({
-      error: 'Failed to start background worker',
+      error: 'Worker execution failed',
       message: error?.message || 'Unknown error'
     }), { status: 500 })
   }
