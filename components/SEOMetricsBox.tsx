@@ -74,7 +74,7 @@ export const SEOMetricsBox: React.FC<SEOMetricsBoxProps> = ({
           createPortal(
             <div className="fixed inset-0 z-[10000] flex items-start justify-center pt-16">
               <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowReadabilityTooltip(false)} />
-              <div className="relative bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 max-w-[360px] mx-4 z-[10001]">
+              <div className="relative bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 max-w-[360px] w-full max-w-[90vw] mx-4 z-[10001]">
                 <div className="text-xs font-semibold text-slate-300 mb-2">Readability Insights</div>
                 <div className="text-xs text-slate-300 leading-relaxed">{contextualMessage}</div>
                 <div className="mt-3 text-right">
@@ -116,7 +116,7 @@ export const SEOMetricsBox: React.FC<SEOMetricsBoxProps> = ({
           createPortal(
             <div className="fixed inset-0 z-[10000] flex items-start justify-center pt-16">
               <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowTooltip(false)} />
-              <div className="relative bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 min-w-[300px] mx-4 z-[10001]">
+              <div className="relative bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 min-w-[300px] w-full max-w-[90vw] mx-4 z-[10001]">
                 <div className="text-xs font-semibold text-slate-300 mb-3">SEO Score Breakdown</div>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">

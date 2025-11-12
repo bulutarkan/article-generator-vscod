@@ -38,7 +38,7 @@ export const SingleGenerationWidget: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 min-w-[340px] max-w-[420px]">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 min-w-[280px] max-w-[90vw] w-full sm:min-w-[340px] sm:max-w-[420px]">
         {state.status === 'running' && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">

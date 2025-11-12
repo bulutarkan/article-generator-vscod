@@ -176,7 +176,7 @@ export function FloatingProgressBar() {
         isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       }`}
     >
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[320px] max-w-[400px] transition-all duration-300">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px] max-w-[90vw] w-full sm:min-w-[320px] sm:max-w-[400px] transition-all duration-300">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
