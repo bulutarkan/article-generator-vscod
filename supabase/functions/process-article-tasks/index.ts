@@ -7,12 +7,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Initialize Gemini AI
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
-console.log('GEMINI_API_KEY exists:', !!geminiApiKey)
-if (!geminiApiKey) {
-  throw new Error('GEMINI_API_KEY environment variable is not set')
-}
+// Initialize Gemini AI - TEMP: hardcoded for testing
+const geminiApiKey = 'AIzaSyBqpvmTiHiyqG0IDsKERaVMNY4obWSQiDU'
+console.log('Using hardcoded GEMINI_API_KEY')
 const genAI = new GoogleGenerativeAI({ apiKey: geminiApiKey })
 
 // Title selection function
@@ -123,6 +120,26 @@ function validateArticleResponse(response: any): boolean {
   }
 }
 
+function cleanJsonString(jsonString: string): string {
+  // Remove control characters (except \n, \r, \t which are allowed in JSON)
+  // But also handle cases where newlines appear unescaped in strings
+  let cleaned = jsonString
+
+  // Replace unescaped newlines and tabs within string values
+  // This is a simplified approach - look for patterns like "text\nmore text" and escape them
+  cleaned = cleaned.replace(/(".*?)([\n\r\t]+)(.*?")/gs, (match, start, controlChars, end) => {
+    // Replace control characters with escaped versions
+    const escaped = controlChars.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
+    return start + escaped + end
+  })
+
+  // Remove any remaining control characters that aren't in strings
+  // This is risky but necessary for malformed JSON
+  cleaned = cleaned.replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+
+  return cleaned
+}
+
 function isResponseComplete(responseText: string): boolean {
   try {
     // Check if response ends properly (not truncated)
@@ -131,13 +148,69 @@ function isResponseComplete(responseText: string): boolean {
       return false
     }
 
-    // Try to parse JSON to ensure it's valid
-    JSON.parse(responseText)
+    // Try to clean and parse JSON
+    const cleanedText = cleanJsonString(responseText)
+    JSON.parse(cleanedText)
     return true
   } catch (error) {
     console.warn('Invalid JSON response:', error)
-    return false
+    console.log('Raw response (first 500 chars):', responseText.substring(0, 500))
+    console.log('Raw response (last 500 chars):', responseText.substring(responseText.length - 500))
+
+    // Try with cleaned version
+    try {
+      const cleanedText = cleanJsonString(responseText)
+      console.log('Cleaned response (first 500 chars):', cleanedText.substring(0, 500))
+      JSON.parse(cleanedText)
+      console.log('JSON parsing succeeded with cleaning!')
+      return true
+    } catch (cleanError) {
+      console.warn('JSON parsing failed even after cleaning:', cleanError)
+      return false
+    }
   }
+}
+
+async function callGeminiAPI(model: string, prompt: string, systemInstruction?: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`
+
+  const requestBody: any = {
+    contents: [{
+      parts: [{ text: systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt }]
+    }],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  }
+
+  if (systemInstruction) {
+    requestBody.contents[0].parts.unshift({ text: systemInstruction })
+  }
+
+  console.log(`Making direct HTTP call to ${model}...`)
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`Gemini API error (${response.status}):`, errorText)
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log(`Direct HTTP call successful for ${model}`)
+
+  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+    throw new Error('Invalid response format from Gemini API')
+  }
+
+  return data.candidates[0].content.parts[0].text
 }
 
 async function getKeywordVolume(keyword: string, location: string): Promise<number> {
@@ -152,23 +225,17 @@ If you cannot determine the search volume, return a volume of 0. Do not provide 
 
   const prompt = `Keyword: "${keyword}", Target Location: "${location}"`
 
-  const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash"]
+  const modelsToTry = ["gemini-1.5-flash", "gemini-1.0-pro"]
 
   for (const modelName of modelsToTry) {
     try {
-      const model = genAI.getGenerativeModel({ model: modelName })
-      const result = await model.generateContent([
-        { text: `${systemInstruction}\n\n${prompt}` }
-      ])
-
-      const response = await result.response
-      const text = response.text()
-      const data = JSON.parse(text)
+      const responseText = await callGeminiAPI(modelName, prompt, systemInstruction)
+      const data = JSON.parse(responseText)
       return data.volume || 0
 
     } catch (error: any) {
       console.error(`Keyword volume model ${modelName} failed:`, error)
-      if (error?.status === 503 || error?.code === 503 || error?.message?.includes('overloaded')) {
+      if (error?.message?.includes('503') || error?.message?.includes('overloaded')) {
         continue
       }
       // For other errors, return 0 instead of throwing
@@ -300,39 +367,36 @@ Return the full JSON object.`
     while (retryCount <= maxRetries) {
       try {
         console.log(`Trying model: ${modelName} (attempt ${retryCount + 1}/${maxRetries + 1})`)
+        console.log(`API Key being used: ${geminiApiKey.substring(0, 10)}...`)
 
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            responseMimeType: "application/json",
-          }
-        })
-
-        const result = await model.generateContent([
-          { text: `${systemInstruction}\n\n${prompt}` }
-        ])
-
-        const response = await result.response
-        const text = response.text()
+        const text = await callGeminiAPI(modelName, prompt, systemInstruction)
 
         // Get keyword volume in parallel
         const volumePromise = getKeywordVolume(topic, location)
         const volume = await volumePromise
 
         // Check if response is complete before parsing
+        let cleanedText = text
         if (!isResponseComplete(text)) {
-          console.warn(`Response from ${modelName} appears incomplete, retrying...`)
-          retryCount++
-          if (retryCount <= maxRetries) {
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-            continue
-          } else {
-            console.error(`Max retries reached for ${modelName}, trying next model`)
-            break
+          console.warn(`Response from ${modelName} appears incomplete, trying to clean and parse...`)
+          cleanedText = cleanJsonString(text)
+          try {
+            JSON.parse(cleanedText)
+            console.log('Successfully parsed with cleaning')
+          } catch (cleanError) {
+            console.warn(`Cleaning failed, retrying with model...`)
+            retryCount++
+            if (retryCount <= maxRetries) {
+              await new Promise((resolve) => setTimeout(resolve, 1000))
+              continue
+            } else {
+              console.error(`Max retries reached for ${modelName}, trying next model`)
+              break
+            }
           }
         }
 
-        const parsedResponse = JSON.parse(text)
+        const parsedResponse = JSON.parse(cleanedText)
 
         // Validate the response content
         if (!validateArticleResponse(parsedResponse)) {
