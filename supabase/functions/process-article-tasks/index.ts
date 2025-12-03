@@ -7,9 +7,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Initialize Gemini AI - TEMP: hardcoded for testing
-const geminiApiKey = 'AIzaSyBqpvmTiHiyqG0IDsKERaVMNY4obWSQiDU'
-console.log('Using hardcoded GEMINI_API_KEY')
+// Initialize Gemini AI
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || 'AIzaSyBzuqsav37AkRQfichUy76z0Gu8zbT5hyw'
+console.log('Using GEMINI_API_KEY from environment')
 const genAI = new GoogleGenerativeAI({ apiKey: geminiApiKey })
 
 // Title selection function

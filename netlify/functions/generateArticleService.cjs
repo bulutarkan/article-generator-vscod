@@ -3,6 +3,7 @@ const { GoogleGenAI, Type } = require("@google/genai");
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize clients
+console.log('🔑 DEBUG (Netlify): Using Gemini API Key:', process.env.VITE_GEMINI_API_KEY);
 const ai = new GoogleGenAI({ apiKey: process.env.VITE_GEMINI_API_KEY });
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
