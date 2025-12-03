@@ -1,6 +1,16 @@
+// @ts-ignore: Deno imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore: Deno imports
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// @ts-ignore: Deno imports
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
+
+// @ts-ignore: Deno global
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
