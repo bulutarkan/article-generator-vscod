@@ -932,6 +932,9 @@ function isResponseComplete(responseText: string): boolean {
 }
 
 export async function generateSeoGeoArticle(topic: string, location: string, tone: string, brief?: string, enableInternalLinks?: boolean, websiteUrl?: string, internalLinksContext?: string, seoKeywords: string[] = []): Promise<Omit<Article, 'id' | 'topic' | 'location' | 'user_id' | 'tone'>> {
+    // Debug: Log which API key is being used
+    console.log('🔑 DEBUG: Using Gemini API Key:', import.meta.env.VITE_GEMINI_API_KEY);
+
     if (!topic.trim() || !location.trim() || !tone) {
         throw new Error("Topic, location, and tone are required.");
     }
