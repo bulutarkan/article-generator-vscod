@@ -18,7 +18,7 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Initialize Gemini AI
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || 'AIzaSyBzuqsav37AkRQfichUy76z0Gu8zbT5hyw'
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || 'AIzaSyDADX2zikOPNoDlFsaK_OsWA8An8RBWma4'
 console.log('Using GEMINI_API_KEY from environment')
 const genAI = new GoogleGenerativeAI({ apiKey: geminiApiKey })
 
