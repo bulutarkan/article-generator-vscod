@@ -1068,7 +1068,7 @@ Return the full JSON object.`;
 
     // Try with different models if the first one fails
     // Prioritize more powerful models first for better completion rates
-    const modelsToTry = ["gemini-2.0-flash", "gemini-2.5-flash-lite"];
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
 
     let lastError: any = null;
     const maxRetries = 2; // Maximum retry attempts for incomplete responses
